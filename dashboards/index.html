@@ -175,6 +175,7 @@
   <button data-section="retrospective">事後評価 L2</button>
   <button data-section="future">未来予測 L4</button>
   <button data-section="insights">ギャップ知見</button>
+  <button data-section="bias">バイアス検証</button>
   <button data-section="sources">統合データソース</button>
   <button data-section="references">学術文献</button>
 </nav>
@@ -258,6 +259,52 @@
   <div id="insights-list"></div>
 </section>
 
+<section id="bias" class="section">
+  <h3 class="section-heading">全面バイアス検証</h3>
+  <p>本DBに存在する構造的歪みを9観点で全面検証した結果。前回検証（起業家精神データの経営史バイアス71.8%）に加え、令和期集中・politics過半数・スコア偏在・107画一バルク投入・L4機関偏重・ジェンダー不均衡・学術文献年代偏重・時代整合性問題が検出されている。詳細レポートは <a href="../reports/full_bias_audit_report.md" target="_blank">full_bias_audit_report.md</a> 参照。</p>
+
+  <div class="callout" style="border-left-color: var(--accent-warm); background: var(--accent-muted);">
+    <div class="callout-label">本DBの数値解釈における注意</div>
+    <p>すべての分析は以下のバイアスの上に構築されている。教育・採用・組織設計への含意レポートを参照する際は、補正後の数値と定性的解釈を併用することが推奨される。時代別比較では令和期を例外として扱い、ドメイン別比較では politics を別建てにすることが望ましい。</p>
+  </div>
+
+  <h4 class="subsection-heading" id="bias-1">1. 時代分布の偏り</h4>
+  <div id="bias-era"></div>
+
+  <h4 class="subsection-heading" id="bias-2">2. ドメイン分布の偏り</h4>
+  <div id="bias-domain"></div>
+
+  <h4 class="subsection-heading" id="bias-3">3. スコア分布の偏在</h4>
+  <div id="bias-score"></div>
+
+  <h4 class="subsection-heading" id="bias-4">4. 画一バルク投入（Codex並列タスクの副作用）</h4>
+  <div id="bias-uniform"></div>
+
+  <h4 class="subsection-heading" id="bias-5">5. L1 当時言説のソース多様性</h4>
+  <div id="bias-l1"></div>
+
+  <h4 class="subsection-heading" id="bias-6">6. L2 事後評価の理論枠組み偏重</h4>
+  <div id="bias-l2"></div>
+
+  <h4 class="subsection-heading" id="bias-7">7. L4 未来予測のソース機関偏重</h4>
+  <div id="bias-l4"></div>
+
+  <h4 class="subsection-heading" id="bias-8">8. ジェンダーバイアス</h4>
+  <div id="bias-gender"></div>
+
+  <h4 class="subsection-heading" id="bias-9">9. 学術文献の地理・年代バランス</h4>
+  <div id="bias-refs"></div>
+
+  <h4 class="subsection-heading" id="bias-10">10. 時代×生年の整合性</h4>
+  <div id="bias-consistency"></div>
+
+  <div class="insight-box" style="margin-top: 32px;">
+    <div class="insight-box-label">補正方針サマリー</div>
+    <p><strong>即時対応済み</strong>: L2経営史バイアスを50%重み下げした補正版マトリクスを生成。時代整合性問題89件にフラグ付与。画一スコア107ケースを記録。</p>
+    <p><strong>構造的対応（追加収集が必要）</strong>: experts-db 由来の令和集中の解消、politics 過半数の解消、低スコア人物の追加、L4機関多様化（アジア・アフリカ）、女性活躍者各時代100-300人の追加、ラテンアメリカ・アジア研究者の追加。</p>
+  </div>
+</section>
+
 <section id="sources" class="section">
   <h3 class="section-heading">統合データソース（miratuku-news-v2 全30DB）</h3>
   <p>本DBは miratuku-news-v2 の統合データベース群（合計 15,200,000+ レコード）から構造化インポートを実施している。Layer別の構成は以下の通り。</p>
@@ -308,7 +355,140 @@ function renderAll() {
   renderInsights();
   renderSources();
   renderReferences();
+  renderBias();
   setupTabs();
+}
+
+function renderBias() {
+  fetch("bias_audit.json")
+    .then(r => r.ok ? r.json() : null)
+    .catch(() => null)
+    .then(b => {
+      if (!b) {
+        document.getElementById("bias-era").innerHTML = '<p style="color:var(--text-muted)">バイアス検証データを取得できませんでした。</p>';
+        return;
+      }
+      const ERAS = {meiji:"明治",taisho:"大正",showa_pre:"昭和前期",showa_post:"昭和後期",heisei:"平成",reiwa:"令和"};
+
+      // 1. 時代分布
+      let html = '<table><thead><tr><th>時代</th><th>人数</th><th>比率</th><th>experts-db由来</th><th>Codex由来</th></tr></thead><tbody>';
+      b.era_distribution.rows.forEach(r => {
+        const isHi = r.pct > 30;
+        html += `<tr><td>${ERAS[r.era]||r.era}</td><td>${r.n.toLocaleString()}</td><td${isHi?' style="color:var(--accent-warm);font-weight:700"':''}>${r.pct}%</td><td>${r.from_experts.toLocaleString()}</td><td>${r.from_codex.toLocaleString()}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      html += `<p style="font-size:0.82rem;color:var(--text-secondary)">令和期に <strong>${b.era_distribution.rows.find(r=>r.era==='reiwa')?.pct||0}%</strong> の集中がある。これは experts-db 由来。</p>`;
+      document.getElementById("bias-era").innerHTML = html;
+
+      // 2. ドメイン分布（バーチャート）
+      const dmax = Math.max(...b.domain_distribution.rows.map(r=>r.n));
+      html = '<div class="bar-chart">' + b.domain_distribution.rows.slice(0,12).map(r => `
+        <div class="bar-row">
+          <div class="label">${r.domain}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(r.n/dmax)*100}%"></div></div>
+          <div class="value">${r.n.toLocaleString()} (${r.pct}%)</div>
+        </div>
+      `).join('') + '</div>';
+      html += `<p style="font-size:0.82rem;color:var(--text-secondary)">politics ドメインが <strong>${b.domain_distribution.rows[0].pct}%</strong> を占める。</p>`;
+      document.getElementById("bias-domain").innerHTML = html;
+
+      // 3. スコア分布
+      const smax = Math.max(...b.score_distribution.dist.map(r=>r.n));
+      html = '<div class="bar-chart">' + b.score_distribution.dist.map(r => `
+        <div class="bar-row">
+          <div class="label">score ${r.score}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(r.n/smax)*100}%"></div></div>
+          <div class="value">${r.n.toLocaleString()} (${r.pct}%)</div>
+        </div>
+      `).join('') + '</div>';
+      html += `<p style="font-size:0.82rem;color:var(--text-secondary)">平均 ${b.score_distribution.mean} / 分散 ${b.score_distribution.var}。<strong>低スコア（1〜5）が完全欠落</strong>。</p>`;
+      document.getElementById("bias-score").innerHTML = html;
+
+      // 4. 画一バルク
+      html = `<p>検出 <strong>${b.uniform_bulk.length}</strong> ケース（domain × cap で n≥30 かつ max-min≤1）</p>`;
+      html += '<table><thead><tr><th>ドメイン</th><th>能力</th><th>min</th><th>max</th><th>avg</th><th>n</th></tr></thead><tbody>';
+      b.uniform_bulk.slice(0,15).forEach(u => {
+        html += `<tr><td>${u.domain}</td><td>${u.cap_name}</td><td>${u.min}</td><td>${u.max}</td><td>${u.avg}</td><td>${u.n.toLocaleString()}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      document.getElementById("bias-uniform").innerHTML = html;
+
+      // 5. L1 ソース
+      html = `<p>総数 ${b.l1_sources.total} 件、ユニーク著者 <strong>${b.l1_sources.unique_authors}</strong> 名</p>`;
+      html += '<h5 style="font-family:var(--font);font-size:0.78rem;color:var(--text-secondary);margin:16px 0 8px;">Discourse Type 分布</h5>';
+      html += '<table><thead><tr><th>種別</th><th>件数</th></tr></thead><tbody>';
+      b.l1_sources.by_type.forEach(r => {
+        html += `<tr><td>${r.type}</td><td>${r.n}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      html += '<h5 style="font-family:var(--font);font-size:0.78rem;color:var(--text-secondary);margin:16px 0 8px;">上位著者</h5>';
+      html += '<table><thead><tr><th>著者</th><th>件数</th></tr></thead><tbody>';
+      b.l1_sources.top_authors.slice(0,10).forEach(r => {
+        html += `<tr><td>${r.author}</td><td>${r.n}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      document.getElementById("bias-l1").innerHTML = html;
+
+      // 6. L2 理論枠組み
+      html = '<table><thead><tr><th>能力次元</th><th>計</th><th>経営史</th><th>教育社会学</th><th>社会学</th><th>その他</th><th>経営史比率</th></tr></thead><tbody>';
+      b.l2_perspectives.slice(0,15).forEach(r => {
+        const hi = r.mgmt_pct > 50;
+        html += `<tr><td>${r.cap}</td><td>${r.total}</td><td>${r.management}</td><td>${r.education}</td><td>${r.sociology}</td><td>${r.other}</td><td${hi?' style="color:var(--accent-warm);font-weight:700"':''}>${r.mgmt_pct}%</td></tr>`;
+      });
+      html += '</tbody></table>';
+      document.getElementById("bias-l2").innerHTML = html;
+
+      // 7. L4 機関
+      html = `<p>総数 ${b.l4_orgs.total} 件、ユニーク機関 <strong>${b.l4_orgs.unique_orgs}</strong></p>`;
+      html += '<h5 style="font-family:var(--font);font-size:0.78rem;color:var(--text-secondary);margin:16px 0 8px;">上位機関</h5>';
+      html += '<table><thead><tr><th>機関</th><th>件数</th><th>比率</th></tr></thead><tbody>';
+      b.l4_orgs.top_orgs.slice(0,10).forEach(r => {
+        const hi = r.pct > 15;
+        html += `<tr><td>${r.org}</td><td>${r.n}</td><td${hi?' style="color:var(--accent-warm);font-weight:700"':''}>${r.pct}%</td></tr>`;
+      });
+      html += '</tbody></table>';
+      html += '<h5 style="font-family:var(--font);font-size:0.78rem;color:var(--text-secondary);margin:16px 0 8px;">信頼度分布</h5>';
+      html += '<table><thead><tr><th>confidence</th><th>件数</th></tr></thead><tbody>';
+      b.l4_orgs.confidence_dist.forEach(r => {
+        html += `<tr><td>${r.conf}</td><td>${r.n}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      document.getElementById("bias-l4").innerHTML = html;
+
+      // 8. ジェンダー
+      html = `<p>総数 ${b.gender.total.toLocaleString()} 人中、明示的「women_pioneers」 <strong>${b.gender.women_pioneers_explicit}</strong> 人 (${(b.gender.women_pioneers_explicit*100/b.gender.total).toFixed(1)}%)</p>`;
+      html += `<p>名前パターン推定（〜子/江/美/香/奈/花）<strong>${b.gender.name_pattern_estimated}</strong> 人 (${b.gender.name_pattern_pct}%) — これは粗い推定だが、<strong>全活躍者の女性比率は10%未満</strong>と推定される。</p>`;
+      html += '<table><thead><tr><th>時代</th><th>名前パターン推定女性</th></tr></thead><tbody>';
+      Object.entries(b.gender.by_era).forEach(([e, n]) => {
+        html += `<tr><td>${ERAS[e]||e}</td><td>${n}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      document.getElementById("bias-gender").innerHTML = html;
+
+      // 9. 学術文献
+      html = `<p>総数 ${b.academic_refs.total} 件。日本人著者推定 <strong>${b.academic_refs.japan_authors}</strong> 件 (${b.academic_refs.japan_pct}%)、欧米著者 ${b.academic_refs.western_authors} 件</p>`;
+      html += '<h5 style="font-family:var(--font);font-size:0.78rem;color:var(--text-secondary);margin:16px 0 8px;">年代分布（10年単位）</h5>';
+      const decadeMax = Math.max(...Object.values(b.academic_refs.by_decade));
+      html += '<div class="bar-chart">';
+      Object.entries(b.academic_refs.by_decade).forEach(([d, n]) => {
+        html += `<div class="bar-row">
+          <div class="label">${d}s</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(n/decadeMax)*100}%"></div></div>
+          <div class="value">${n}</div>
+        </div>`;
+      });
+      html += '</div>';
+      document.getElementById("bias-refs").innerHTML = html;
+
+      // 10. 時代整合性
+      html = `<p>生年が時代区分から大きく逸脱する人物 <strong>${b.temporal_consistency.inconsistent}</strong> 件、生年不明 ${b.temporal_consistency.no_birth.toLocaleString()} 件</p>`;
+      html += '<table><thead><tr><th>時代</th><th>期待生年</th><th>不整合件数</th></tr></thead><tbody>';
+      b.temporal_consistency.by_era.forEach(r => {
+        html += `<tr><td>${ERAS[r.era]||r.era}</td><td>${r.expected[0]}-${r.expected[1]}</td><td>${r.issues}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      document.getElementById("bias-consistency").innerHTML = html;
+    });
 }
 
 function setupTabs() {

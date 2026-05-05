@@ -33,6 +33,46 @@
         "women_pct": 11.1,
         "temporal_inconsistent": 103
       }
+    },
+    {
+      "timestamp": "2026-05-05T20:17:28.991156",
+      "phase": "6.6_corrections_complete",
+      "summary": {
+        "total_achievers": 12810,
+        "reiwa_pct": 34.2,
+        "politics_pct": 34.8,
+        "score_var": 1.27,
+        "score_missing_low": false,
+        "uniform_bulk_count": 60,
+        "l2_total": 762,
+        "l2_mgmt_pct_entrepreneur": 59.6,
+        "l4_top_org_pct": 6.1,
+        "l4_total": 590,
+        "l4_unique_orgs": 217,
+        "women_pct": 11.5,
+        "women_pioneers_explicit": 1520,
+        "academic_total": 109,
+        "academic_japan_pct": 0.0,
+        "temporal_inconsistent": 149
+      }
+    },
+    {
+      "timestamp": "2026-05-05T20:18:01.849495",
+      "phase": "6.0_baseline",
+      "summary": {
+        "total_achievers": 12810,
+        "reiwa_pct": 34.2,
+        "politics_pct": 34.8,
+        "score_var": 1.27,
+        "score_missing_low": false,
+        "uniform_bulk_count": 60,
+        "l2_total": 762,
+        "l2_mgmt_pct_entrepreneur": 59.6,
+        "l4_top_org_pct": 6.1,
+        "women_pct": 11.5,
+        "academic_japan_pct": 0.0,
+        "temporal_inconsistent": 149
+      }
     }
   ]
 }

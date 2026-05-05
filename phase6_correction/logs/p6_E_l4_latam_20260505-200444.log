@@ -471,3 +471,164 @@ WHERE notes LIKE '%source_team=codex_correction_l4_latam%'
 COMMIT;
 SQL" in /Users/nishimura+/projects/research/era-talents-db
  succeeded in 0ms:
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_latam%'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+40
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT source_org, COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_latam%' GROUP BY source_org ORDER BY source_org\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CEPAL|14
+IADB|13
+UNDP-RBLAC|13
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT era_id, COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_latam%' GROUP BY era_id ORDER BY era_id\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+future_2030|20
+future_2050|14
+future_2100|6
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "PRAGMA foreign_key_check"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+future_demands|21|capability_dimensions|0
+future_demands|22|capability_dimensions|0
+future_demands|23|capability_dimensions|0
+future_demands|24|capability_dimensions|0
+future_demands|25|capability_dimensions|0
+future_demands|26|capability_dimensions|0
+future_demands|27|capability_dimensions|0
+future_demands|28|capability_dimensions|0
+future_demands|29|capability_dimensions|0
+future_demands|30|capability_dimensions|0
+future_demands|31|capability_dimensions|0
+future_demands|32|capability_dimensions|0
+future_demands|33|capability_dimensions|0
+future_demands|34|capability_dimensions|0
+future_demands|35|capability_dimensions|0
+future_demands|56|capability_dimensions|0
+future_demands|57|capability_dimensions|0
+future_demands|58|capability_dimensions|0
+future_demands|59|capability_dimensions|0
+future_demands|60|capability_dimensions|0
+future_demands|61|capability_dimensions|0
+future_demands|62|capability_dimensions|0
+future_demands|63|capability_dimensions|0
+future_demands|64|capability_dimensions|0
+future_demands|65|capability_dimensions|0
+future_demands|66|capability_dimensions|0
+future_demands|67|capability_dimensions|0
+future_demands|68|capability_dimensions|0
+future_demands|69|capability_dimensions|0
+future_demands|70|capability_dimensions|0
+future_demands|71|capability_dimensions|0
+future_demands|91|capability_dimensions|0
+future_demands|92|capability_dimensions|0
+future_demands|93|capability_dimensions|0
+future_demands|94|capability_dimensions|0
+future_demands|95|capability_dimensions|0
+future_demands|96|capability_dimensions|0
+future_demands|97|capability_dimensions|0
+future_demands|98|capability_dimensions|0
+future_demands|99|capability_dimensions|0
+future_demands|100|capability_dimensions|0
+future_demands|101|capability_dimensions|0
+future_demands|102|capability_dimensions|0
+future_demands|103|capability_dimensions|0
+future_demands|104|capability_dimensions|0
+future_demands|105|capability_dimensions|0
+future_demands|106|capability_dimensions|0
+future_demands|126|capability_dimensions|0
+future_demands|127|capability_dimensions|0
+future_demands|128|capability_dimensions|0
+future_demands|129|capability_dimensions|0
+future_demands|130|capability_dimensions|0
+future_demands|131|capability_dimensions|0
+future_demands|132|capability_dimensions|0
+future_demands|133|capability_dimensions|0
+future_demands|134|capability_dimensions|0
+future_demands|135|capability_dimensions|0
+future_demands|136|capability_dimensions|0
+future_demands|137|capability_dimensions|0
+future_demands|138|capability_dimensions|0
+future_demands|139|capability_dimensions|0
+future_demands|140|capability_dimensions|0
+future_demands|141|capability_dimensions|0
+future_demands|142|capability_dimensions|0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands fd LEFT JOIN capability_dimensions cd ON fd.capability_id=cd.id WHERE fd.notes LIKE '%source_team=codex_correction_l4_latam%' AND cd.id IS NULL\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT scenario, COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_latam%' GROUP BY scenario ORDER BY scenario\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+ succeeded in 0ms:
+global_south|24
+multipolar|16
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT COUNT(*) FROM future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT MIN(id), MAX(id), COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_latam%'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+587
+
+ succeeded in 0ms:
+560|600|40
+
+codex
+完了しました。Package E として `future_demands` に Phase 6.E / `l4_latam` 相当の40件を追加しました。`future_demands` には `source_team` 列がないため、追跡用に `notes='source_team=codex_correction_l4_latam; phase=6.E; ...'` を入れています。
+
+確認結果:
+
+```text
+追加件数: 40
+ID範囲: 560-600 のうち40件
+source_org内訳:
+CEPAL      14
+IADB       13
+UNDP-RBLAC 13
+
+era内訳:
+future_2030 20
+future_2050 14
+future_2100 6
+
+scenario内訳:
+global_south 24
+multipolar   16
+```
+
+能力IDの参照不整合は、今回追加分では `0` 件でした。なお、DB全体の `PRAGMA foreign_key_check` では既存の古い `future_demands` 行に不整合が出ていますが、今回追加したID範囲には該当していません。
+
+主な参照元は公式・機関ページです: [CEPAL eLAC2026](https://www.cepal.org/en/publications/80861-digital-agenda-latin-america-and-caribbean-elac2026), [CEPAL Economic Survey 2023](https://www.cepal.org/en/node/60091), [IADB Future of Work](https://publications.iadb.org/en/future-work-latin-america-and-caribbean-what-are-most-demand-occupations-and-emerging-skills-region), [IADB 2026 job postings analysis](https://publications.iadb.org/en/what-jobs-are-being-created-latin-america-analysis-online-job-postings-latin-america-and-caribbean), [UNDP-RBLAC 2025 RHDR](https://www.undp.org/latin-america/publications/overview-under-pressure-recalibrating-future-development-latin-america-and-caribbean)。
+tokens used
+76,077
+完了しました。Package E として `future_demands` に Phase 6.E / `l4_latam` 相当の40件を追加しました。`future_demands` には `source_team` 列がないため、追跡用に `notes='source_team=codex_correction_l4_latam; phase=6.E; ...'` を入れています。
+
+確認結果:
+
+```text
+追加件数: 40
+ID範囲: 560-600 のうち40件
+source_org内訳:
+CEPAL      14
+IADB       13
+UNDP-RBLAC 13
+
+era内訳:
+future_2030 20
+future_2050 14
+future_2100 6
+
+scenario内訳:
+global_south 24
+multipolar   16
+```
+
+能力IDの参照不整合は、今回追加分では `0` 件でした。なお、DB全体の `PRAGMA foreign_key_check` では既存の古い `future_demands` 行に不整合が出ていますが、今回追加したID範囲には該当していません。
+
+主な参照元は公式・機関ページです: [CEPAL eLAC2026](https://www.cepal.org/en/publications/80861-digital-agenda-latin-america-and-caribbean-elac2026), [CEPAL Economic Survey 2023](https://www.cepal.org/en/node/60091), [IADB Future of Work](https://publications.iadb.org/en/future-work-latin-america-and-caribbean-what-are-most-demand-occupations-and-emerging-skills-region), [IADB 2026 job postings analysis](https://publications.iadb.org/en/what-jobs-are-being-created-latin-america-analysis-online-job-postings-latin-america-and-caribbean), [UNDP-RBLAC 2025 RHDR](https://www.undp.org/latin-america/publications/overview-under-pressure-recalibrating-future-development-latin-america-and-caribbean)。

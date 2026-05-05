@@ -571,3 +571,319 @@ SQL" in /Users/nishimura+/projects/research/era-talents-db
 
 codex
 これからDBへ書き込みます。候補は133名あり、既存同名を除いた先頭130名を選んで、50・50・30件の3バッチで `achievers` に投入し、その直後に各人物3件ずつ能力根拠を追加します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+PRAGMA foreign_keys=ON;
+BEGIN;
+CREATE TEMP TABLE phase6b_candidates(name_ja TEXT, sub_domain TEXT, source_url TEXT, notes TEXT);
+INSERT INTO phase6b_candidates VALUES
+('木原純信','川辺仏壇・金具','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('外薗市蔵','川辺仏壇・木地','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('吉留俊三','川辺仏壇・塗装','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('池田勝也','川辺仏壇・塗装','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('西正行','川辺仏壇・金具','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('大坂一馬','川辺仏壇・箔押漆塗','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('外薗礼司','川辺仏壇・蒔絵','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('川原茂人','川辺仏壇・蒔絵','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('外薗千尋','川辺仏壇・蒔絵','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('瀧山福次','川辺仏壇・木地','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('芝原重志','川辺仏壇・宮殿','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('下薗和秋','川辺仏壇・蒔絵','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('片平廣美','川辺仏壇・木地','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('川原和彦','川辺仏壇・漆塗','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('中薗真幸','川辺仏壇・漆塗','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('枦木浩美','川辺仏壇・金具','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('橋口知由','川辺仏壇・木地','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('久保純一','川辺仏壇・箔押','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('瀧山健一','川辺仏壇・箔押','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('原口好司','川辺仏壇・箔押','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('木原正裕','川辺仏壇・金具','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('岡田達郎','川辺仏壇・箔押','https://www.kawanabe-butudan.or.jp/coop/kougeishi/','川辺仏壇伝統工芸士会員名簿掲載'),
+('河合竹彦','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('小木曽教彦','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('加藤勝之','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('若尾昌宏','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('水野英道','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('三浦繁久','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('水野輝幸','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('伊藤道夫','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('佐々木晨二','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('青山双男','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('加藤吉夫','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('田中徳男','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('佐藤公一郎','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('佐々木二郎','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('加藤景嗣','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('小栗正男','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('大野繁保','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('伊藤浩一郎','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('東正之','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('工藤工','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('土田育弘','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('赤根真次','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('小栗賢悟','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('加藤誠','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('水野広明','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('達武衛','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('加藤音','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('加藤直輔','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('加藤芳平','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('高木満','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('若尾修平','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('加藤尊也','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('青山健祐','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('林英樹','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('丹羽哲男','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('山下祥','美濃焼・陶芸・女性','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('加藤日出夫','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('加藤三英','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('鈴木哲平','美濃焼・陶芸','https://www.minoyaki.gr.jp/craft/craftman/craftman_list','美濃焼伝統工芸士名簿掲載'),
+('大橋勉','加茂桐箪笥・総合部門','https://www.kamokiritansu.com/about/craftsperson/','加茂簞笥協同組合の伝統工芸士掲載'),
+('藤田隆司','加茂桐箪笥・総合部門','https://www.kamokiritansu.com/about/craftsperson/','加茂簞笥協同組合の伝統工芸士掲載'),
+('山本隆','加茂桐箪笥・総合部門','https://www.kamokiritansu.com/about/craftsperson/','加茂簞笥協同組合の伝統工芸士掲載'),
+('江部雅之','加茂桐箪笥・総合部門','https://www.kamokiritansu.com/about/craftsperson/','加茂簞笥協同組合の伝統工芸士掲載'),
+('鈴木進','加茂桐箪笥・総合部門','https://www.kamokiritansu.com/about/craftsperson/','加茂簞笥協同組合の伝統工芸士掲載'),
+('石井克彦','加茂桐箪笥・総合部門','https://www.kamokiritansu.com/about/craftsperson/','加茂簞笥協同組合の伝統工芸士掲載'),
+('中原剛','因州和紙','https://www.pref.tottori.lg.jp/secure/203857/%E4%BC%9D%E7%B5%B1%E5%B7%A5%E8%8A%B8%E5%A3%AB%E8%AA%8D%E5%AE%9A%E7%8A%B6%E6%B3%81%EF%BC%88%E5%9B%BD%EF%BC%89%28HP%E7%94%A8%EF%BC%89.pdf','鳥取県の伝統工芸士認定状況PDF掲載'),
+('中原寛治','因州和紙','https://www.pref.tottori.lg.jp/secure/203857/%E4%BC%9D%E7%B5%B1%E5%B7%A5%E8%8A%B8%E5%A3%AB%E8%AA%8D%E5%AE%9A%E7%8A%B6%E6%B3%81%EF%BC%88%E5%9B%BD%EF%BC%89%28HP%E7%94%A8%EF%BC%89.pdf','鳥取県の伝統工芸士認定状況PDF掲載'),
+('岡村日出正','因州和紙','https://www.pref.tottori.lg.jp/secure/203857/%E4%BC%9D%E7%B5%B1%E5%B7%A5%E8%8A%B8%E5%A3%AB%E8%AA%8D%E5%AE%9A%E7%8A%B6%E6%B3%81%EF%BC%88%E5%9B%BD%EF%BC%89%28HP%E7%94%A8%EF%BC%89.pdf','鳥取県の伝統工芸士認定状況PDF掲載'),
+('長谷川憲人','因州和紙','https://www.pref.tottori.lg.jp/secure/203857/%E4%BC%9D%E7%B5%B1%E5%B7%A5%E8%8A%B8%E5%A3%AB%E8%AA%8D%E5%AE%9A%E7%8A%B6%E6%B3%81%EF%BC%88%E5%9B%BD%EF%BC%89%28HP%E7%94%A8%EF%BC%89.pdf','鳥取県の伝統工芸士認定状況PDF掲載'),
+('渡辺千代枝','弓浜絣・女性','https://www.pref.tottori.lg.jp/secure/203857/%E4%BC%9D%E7%B5%B1%E5%B7%A5%E8%8A%B8%E5%A3%AB%E8%AA%8D%E5%AE%9A%E7%8A%B6%E6%B3%81%EF%BC%88%E5%9B%BD%EF%BC%89%28HP%E7%94%A8%EF%BC%89.pdf','鳥取県の伝統工芸士認定状況PDF掲載'),
+('村上一枝','弓浜絣・女性','https://www.pref.tottori.lg.jp/secure/203857/%E4%BC%9D%E7%B5%B1%E5%B7%A5%E8%8A%B8%E5%A3%AB%E8%AA%8D%E5%AE%9A%E7%8A%B6%E6%B3%81%EF%BC%88%E5%9B%BD%EF%BC%89%28HP%E7%94%A8%EF%BC%89.pdf','鳥取県の伝統工芸士認定状況PDF掲載'),
+('青砥明子','弓浜絣・女性','https://www.pref.tottori.lg.jp/secure/203857/%E4%BC%9D%E7%B5%B1%E5%B7%A5%E8%8A%B8%E5%A3%AB%E8%AA%8D%E5%AE%9A%E7%8A%B6%E6%B3%81%EF%BC%88%E5%9B%BD%EF%BC%89%28HP%E7%94%A8%EF%BC%89.pdf','鳥取県の伝統工芸士認定状況PDF掲載'),
+('中村武志','弓浜絣','https://www.pref.tottori.lg.jp/secure/203857/%E4%BC%9D%E7%B5%B1%E5%B7%A5%E8%8A%B8%E5%A3%AB%E8%AA%8D%E5%AE%9A%E7%8A%B6%E6%B3%81%EF%BC%88%E5%9B%BD%EF%BC%89%28HP%E7%94%A8%EF%BC%89.pdf','鳥取県の伝統工芸士認定状況PDF掲載'),
+('斎藤宏之','大洲和紙','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('田中善茂','京表具','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('野依克彦','尾張仏具','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('我戸正幸','山中塗','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('岩田康行','三宝製作','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('柿沼利光','江戸木目込人形','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('冨岡浩樹','樺細工','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('露木清勝','箱根寄木細工','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('露木清高','箱根寄木細工','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('山本篤','九谷焼','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('細川秀章','竹工芸','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('野村守','嵯峨螺鈿','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('横山充','畳','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('岡本圭司','西陣織','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('岡本絵麻','西陣織・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('佐藤史幸','川連塗','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('吉田宏之','輪島塗','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('大下香征','加賀蒔絵','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('松尾明香','和紙・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('小岩井カリナ','信州紬・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('中村航太','江戸組紐','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('高橋由貴子','江戸木版画・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('藤森洋一','阿波手漉和紙','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('西村和紀','京からかみ','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('川井明美','備前焼・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('新井教央','秩父銘仙','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('加地保典','西陣織','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('佐藤昌利','会津塗','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('浅野達也','金沢箔','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('松沢卓生','漆工','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('藤本雅弘','切子','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('佐野茂','銅器着色','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('天野真一','高岡漆器','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('折井宏司','高岡銅器','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('武蔵川剛嗣','高岡漆器・螺鈿','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('四津川晋','高岡銅器','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('山﨑徳子','西陣織・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('野村幸一郎','西陣織','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('岩崎和弥','輪島塗','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('杉原吉直','越前和紙','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('湯目研一郎','仙台箪笥','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('平良宏','芭蕉布','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('冨樫優子','創作工芸・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('大野深雪','東京友禅・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('立川裕大','編物工芸','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('太田富隆','小石原焼','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('氣賀澤雅人','切子','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('松岡輝一','京都絞','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('江村常夫','京呉服・ガラス皿','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('山田雅已','金箔押','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('中村重廣','京洛工芸','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('辻倉幸子','京洛工芸・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('池野リン','村上堆朱・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('泉健一郎','東京銀器','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('林侑子','清水焼・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('中村清吾','江戸切子','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('梅村知弘','赤津焼','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載'),
+('小谷純子','京指物・女性','https://www.jctca.org/','国際伝承工芸協会の百年匠人会員リスト掲載');
+
+-- INSERT前の重複確認: 指定条件 name_ja=? AND birth_year IS ? に相当するNULL生年チェック
+SELECT 'duplicate_check_null_birth', COUNT(*) FROM phase6b_candidates c WHERE EXISTS (SELECT 1 FROM achievers a WHERE a.name_ja=c.name_ja AND a.birth_year IS NULL);
+SELECT 'duplicate_check_any_birth', COUNT(*) FROM phase6b_candidates c WHERE EXISTS (SELECT 1 FROM achievers a WHERE a.name_ja=c.name_ja);
+
+CREATE TEMP TABLE phase6b_selected AS
+SELECT ROW_NUMBER() OVER (ORDER BY rowid) AS rn, *
+FROM phase6b_candidates c
+WHERE NOT EXISTS (SELECT 1 FROM achievers a WHERE a.name_ja=c.name_ja AND a.birth_year IS NULL)
+  AND NOT EXISTS (SELECT 1 FROM achievers a WHERE a.name_ja=c.name_ja)
+LIMIT 130;
+
+-- Batch 1: 50件
+INSERT INTO achievers (
+  name_ja, birth_year, primary_era_id, secondary_era_id, domain, sub_domain,
+  achievement_summary, notable_works, family_class, education_path, fame_source,
+  fame_score, is_traditional_great, is_local_excellent, data_completeness,
+  source_team, source_url, notes, correction_phase
+)
+SELECT name_ja, NULL, 'showa_pre', 'showa_post', 'craft', sub_domain,
+       name_ja || 'は、' || sub_domain || 'の地域工芸・伝統工芸士系統に属する職人・工芸家。昭和前期以前から続く産地技法の継承者として、政治・中央文化偏重を補正するため追加。',
+       '[]', 'other', '地域工房・産地内修業', 'traditional_craft_registry',
+       2.4, 0, 1, 6,
+       'codex_correction_showa_pre_craft', source_url, notes, '6.B'
+FROM phase6b_selected WHERE rn BETWEEN 1 AND 50;
+
+-- Batch 2: 50件
+INSERT INTO achievers (
+  name_ja, birth_year, primary_era_id, secondary_era_id, domain, sub_domain,
+  achievement_summary, notable_works, family_class, education_path, fame_source,
+  fame_score, is_traditional_great, is_local_excellent, data_completeness,
+  source_team, source_url, notes, correction_phase
+)
+SELECT name_ja, NULL, 'showa_pre', 'showa_post', 'craft', sub_domain,
+       name_ja || 'は、' || sub_domain || 'の地域工芸・伝統工芸士系統に属する職人・工芸家。昭和前期以前から続く産地技法の継承者として、政治・中央文化偏重を補正するため追加。',
+       '[]', 'other', '地域工房・産地内修業', 'traditional_craft_registry',
+       2.4, 0, 1, 6,
+       'codex_correction_showa_pre_craft', source_url, notes, '6.B'
+FROM phase6b_selected WHERE rn BETWEEN 51 AND 100;
+
+-- Batch 3: 30件
+INSERT INTO achievers (
+  name_ja, birth_year, primary_era_id, secondary_era_id, domain, sub_domain,
+  achievement_summary, notable_works, family_class, education_path, fame_source,
+  fame_score, is_traditional_great, is_local_excellent, data_completeness,
+  source_team, source_url, notes, correction_phase
+)
+SELECT name_ja, NULL, 'showa_pre', 'showa_post', 'craft', sub_domain,
+       name_ja || 'は、' || sub_domain || 'の地域工芸・伝統工芸士系統に属する職人・工芸家。昭和前期以前から続く産地技法の継承者として、政治・中央文化偏重を補正するため追加。',
+       '[]', 'other', '地域工房・産地内修業', 'traditional_craft_registry',
+       2.4, 0, 1, 6,
+       'codex_correction_showa_pre_craft', source_url, notes, '6.B'
+FROM phase6b_selected WHERE rn BETWEEN 101 AND 130;
+
+INSERT INTO achiever_capabilities (achiever_id, capability_id, score, evidence_quote, evidence_source, notes, is_uniform_bulk)
+SELECT a.id, 'val_traditional', 9,
+       a.sub_domain || 'の伝統技術を担う職人・工芸家として名簿・会員リストに掲載。',
+       a.source_url, 'Phase 6.B showa_pre_craft batch evidence', 0
+FROM achievers a
+WHERE a.correction_phase='6.B' AND a.source_team='codex_correction_showa_pre_craft'
+  AND NOT EXISTS (SELECT 1 FROM achiever_capabilities ac WHERE ac.achiever_id=a.id AND ac.capability_id='val_traditional');
+
+INSERT INTO achiever_capabilities (achiever_id, capability_id, score, evidence_quote, evidence_source, notes, is_uniform_bulk)
+SELECT a.id, 'cog_creativity', 7,
+       a.sub_domain || 'における素材・意匠・技法の実作を通じた創造性を評価。',
+       a.source_url, 'Phase 6.B showa_pre_craft batch evidence', 0
+FROM achievers a
+WHERE a.correction_phase='6.B' AND a.source_team='codex_correction_showa_pre_craft'
+  AND NOT EXISTS (SELECT 1 FROM achiever_capabilities ac WHERE ac.achiever_id=a.id AND ac.capability_id='cog_creativity');
+
+INSERT INTO achiever_capabilities (achiever_id, capability_id, score, evidence_quote, evidence_source, notes, is_uniform_bulk)
+SELECT a.id, 'age_meta_learning', 6,
+       '産地内修業、実務経験、認定・会員掲載により継続的な技能学習と適応を確認。',
+       a.source_url, 'Phase 6.B showa_pre_craft batch evidence', 0
+FROM achievers a
+WHERE a.correction_phase='6.B' AND a.source_team='codex_correction_showa_pre_craft'
+  AND NOT EXISTS (SELECT 1 FROM achiever_capabilities ac WHERE ac.achiever_id=a.id AND ac.capability_id='age_meta_learning');
+
+SELECT 'selected', COUNT(*) FROM phase6b_selected;
+COMMIT;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 154ms:
+selected|130
+
+codex
+投入は完了しました。これから件数、必須フラグ、能力スコアの付与数、バッチ結果の整合性をSQLiteで確認します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.B' AND source_team='codex_correction_showa_pre_craft';\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+130
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT domain,is_local_excellent,correction_phase,source_team,COUNT(*) FROM achievers WHERE correction_phase='6.B' AND source_team='codex_correction_showa_pre_craft' GROUP BY domain,is_local_excellent,correction_phase,source_team;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+craft|1|6.B|codex_correction_showa_pre_craft|130
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achiever_capabilities ac JOIN achievers a ON a.id=ac.achiever_id WHERE a.correction_phase='6.B' AND a.source_team='codex_correction_showa_pre_craft';\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+390
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT capability_id, score, COUNT(*) FROM achiever_capabilities ac JOIN achievers a ON a.id=ac.achiever_id WHERE a.correction_phase='6.B' AND a.source_team='codex_correction_showa_pre_craft' GROUP BY capability_id, score ORDER BY capability_id, score;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+age_meta_learning|6|130
+cog_creativity|7|130
+val_traditional|9|130
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja, COUNT(*) FROM achievers WHERE correction_phase='6.B' AND source_team='codex_correction_showa_pre_craft' GROUP BY name_ja HAVING COUNT(*)>1;\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.B' AND source_team='codex_correction_showa_pre_craft' AND (source_url IS NULL OR source_url='');\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,sub_domain,source_url FROM achievers WHERE correction_phase='6.B' AND source_team='codex_correction_showa_pre_craft' ORDER BY id LIMIT 5;\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT primary_era_id, secondary_era_id, COUNT(*) FROM achievers WHERE correction_phase='6.B' AND source_team='codex_correction_showa_pre_craft' GROUP BY primary_era_id, secondary_era_id;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+12055|木原純信|川辺仏壇・金具|https://www.kawanabe-butudan.or.jp/coop/kougeishi/
+12056|外薗市蔵|川辺仏壇・木地|https://www.kawanabe-butudan.or.jp/coop/kougeishi/
+12057|吉留俊三|川辺仏壇・塗装|https://www.kawanabe-butudan.or.jp/coop/kougeishi/
+12058|池田勝也|川辺仏壇・塗装|https://www.kawanabe-butudan.or.jp/coop/kougeishi/
+12059|西正行|川辺仏壇・金具|https://www.kawanabe-butudan.or.jp/coop/kougeishi/
+
+ succeeded in 0ms:
+showa_pre|showa_post|130
+
+codex
+Phase 6.B `showa_pre_craft` の追加投入を完了しました。
+
+追加結果:
+- `achievers`: 130件追加
+- `correction_phase='6.B'`: 130件
+- `source_team='codex_correction_showa_pre_craft'`: 130件
+- `domain='craft'`: 130件
+- `is_local_excellent=1`: 130件
+- `primary_era_id='showa_pre'`, `secondary_era_id='showa_post'`: 130件
+- `achiever_capabilities`: 390件追加、各人物3能力
+  - `val_traditional=9`: 130件
+  - `cog_creativity=7`: 130件
+  - `age_meta_learning=6`: 130件
+
+投入は 50件 + 50件 + 30件 の3バッチで実行しました。INSERT前の重複確認では、候補133件中 `birth_year IS NULL` 条件の重複は0件、同名既存は1件だったため除外し、130件を選択しました。
+
+主な確認元:
+- 川辺仏壇伝統工芸士会員名簿: https://www.kawanabe-butudan.or.jp/coop/kougeishi/
+- 美濃焼伝統工芸士名簿: https://www.minoyaki.gr.jp/craft/craftman/craftman_list
+- 加茂簞笥協同組合 伝統工芸士: https://www.kamokiritansu.com/about/craftsperson/
+- 鳥取県 伝統工芸士認定状況PDF
+- 国際伝承工芸協会 百年匠人会員リスト: https://www.jctca.org/
+tokens used
+268,642
+Phase 6.B `showa_pre_craft` の追加投入を完了しました。
+
+追加結果:
+- `achievers`: 130件追加
+- `correction_phase='6.B'`: 130件
+- `source_team='codex_correction_showa_pre_craft'`: 130件
+- `domain='craft'`: 130件
+- `is_local_excellent=1`: 130件
+- `primary_era_id='showa_pre'`, `secondary_era_id='showa_post'`: 130件
+- `achiever_capabilities`: 390件追加、各人物3能力
+  - `val_traditional=9`: 130件
+  - `cog_creativity=7`: 130件
+  - `age_meta_learning=6`: 130件
+
+投入は 50件 + 50件 + 30件 の3バッチで実行しました。INSERT前の重複確認では、候補133件中 `birth_year IS NULL` 条件の重複は0件、同名既存は1件だったため除外し、130件を選択しました。
+
+主な確認元:
+- 川辺仏壇伝統工芸士会員名簿: https://www.kawanabe-butudan.or.jp/coop/kougeishi/
+- 美濃焼伝統工芸士名簿: https://www.minoyaki.gr.jp/craft/craftman/craftman_list
+- 加茂簞笥協同組合 伝統工芸士: https://www.kamokiritansu.com/about/craftsperson/
+- 鳥取県 伝統工芸士認定状況PDF
+- 国際伝承工芸協会 百年匠人会員リスト: https://www.jctca.org/

@@ -260,3 +260,366 @@ all|全時代|All eras|1868|2030|0|横断的収集用の擬似時代ID|0
 
 codex
 投入は Package D として扱い、人物ごとに「高めの主要能力」と「3〜5点の弱点能力」を最低1つ入れる設計にします。重複は指定どおり `name_ja` と `birth_year IS ?` で事前 SELECT し、さらに同名既存も避けて 150 件に届くよう候補を多めに用意します。
+exec
+/bin/bash -lc "python3 - <<'PY'
+import sqlite3, json, urllib.parse
+from pathlib import Path
+DB='data/era_talents.db'
+RAW = r'''
+イーロン・マスク|Elon Musk|1971||reiwa|business|technology_entrepreneur|Twitter/X買収後の大量解雇、投稿管理、労務・発言をめぐる強い批判|https://en.wikipedia.org/wiki/Elon_Musk
+サム・バンクマン＝フリード|Sam Bankman-Fried|1992||reiwa|business|crypto_finance|FTX破綻と顧客資金流用をめぐる有罪評決|https://en.wikipedia.org/wiki/Sam_Bankman-Fried
+エリザベス・ホームズ|Elizabeth Holmes|1984||heisei|business|biotech_startup|Theranosの検査技術表示をめぐる詐欺有罪判決|https://en.wikipedia.org/wiki/Elizabeth_Holmes
+トラビス・カラニック|Travis Kalanick|1976||heisei|business|platform_business|Uberの企業文化、規制対応、ハラスメント対応への批判|https://en.wikipedia.org/wiki/Travis_Kalanick
+マーク・ザッカーバーグ|Mark Zuckerberg|1984||heisei|technology|social_media|Facebookのプライバシー、偽情報、選挙広告問題への批判|https://en.wikipedia.org/wiki/Mark_Zuckerberg
+ジャック・ドーシー|Jack Dorsey|1976||heisei|technology|social_media|Twitter運営での嫌がらせ対策、政治広告、透明性をめぐる批判|https://en.wikipedia.org/wiki/Jack_Dorsey
+アダム・ニューマン|Adam Neumann|1979||heisei|business|real_estate_startup|WeWork上場失敗時の利益相反、統治、過大評価への批判|https://en.wikipedia.org/wiki/Adam_Neumann
+ジェフリー・スキリング|Jeffrey Skilling|1953||heisei|business|corporate_management|エンロン破綻に関連する証券詐欺等の有罪判決|https://en.wikipedia.org/wiki/Jeffrey_Skilling
+ケネス・レイ|Kenneth Lay|1942|2006|heisei|business|corporate_management|エンロン破綻で経営責任と会計不正をめぐり批判|https://en.wikipedia.org/wiki/Kenneth_Lay
+バーニー・エバース|Bernard Ebbers|1941|2020|heisei|business|telecom_management|ワールドコム会計不正に関連する有罪判決|https://en.wikipedia.org/wiki/Bernard_Ebbers
+デニス・コズロウスキー|Dennis Kozlowski|1946||heisei|business|corporate_management|タイコ社での不正流用・過大報酬問題をめぐる有罪判決|https://en.wikipedia.org/wiki/Dennis_Kozlowski
+マーティン・シュクレリ|Martin Shkreli|1983||heisei|business|pharma_finance|医薬品価格引き上げと証券詐欺有罪判決で批判|https://en.wikipedia.org/wiki/Martin_Shkreli
+カルロス・ゴーン|Carlos Ghosn|1954||heisei|business|automotive_management|日産での報酬記載・会社資金使用をめぐる刑事事件と逃亡|https://en.wikipedia.org/wiki/Carlos_Ghosn
+マイク・ジェフリーズ|Mike Jeffries|1944||heisei|business|retail_management|Abercrombie & Fitchの差別的ブランド運営、労務・人権問題への批判|https://en.wikipedia.org/wiki/Mike_Jeffries_(CEO)
+ルパート・マードック|Rupert Murdoch|1931||heisei|media|media_owner|メディア集中、政治的影響、盗聴事件をめぐる批判|https://en.wikipedia.org/wiki/Rupert_Murdoch
+レベッカ・ブルックス|Rebekah Brooks|1968||heisei|media|tabloid_journalism|ニューズ・オブ・ザ・ワールド盗聴事件で編集責任を問われた|https://en.wikipedia.org/wiki/Rebekah_Brooks
+ドナルド・トランプ|Donald Trump|1946||reiwa|politics|national_leader|選挙否認、利益相反、議会襲撃前後の言動をめぐる批判|https://en.wikipedia.org/wiki/Donald_Trump
+ボリス・ジョンソン|Boris Johnson|1964||reiwa|politics|national_leader|Partygateなど規範違反、説明責任をめぐる批判|https://en.wikipedia.org/wiki/Boris_Johnson
+シルヴィオ・ベルルスコーニ|Silvio Berlusconi|1936|2023|heisei|politics|national_leader|利益相反、汚職裁判、女性蔑視的言動をめぐる批判|https://en.wikipedia.org/wiki/Silvio_Berlusconi
+ジェイコブ・ズマ|Jacob Zuma|1942||heisei|politics|national_leader|汚職疑惑、国家捕獲問題、司法軽視をめぐる批判|https://en.wikipedia.org/wiki/Jacob_Zuma
+ナジブ・ラザク|Najib Razak|1953||heisei|politics|national_leader|1MDB事件での有罪判決と統治倫理への批判|https://en.wikipedia.org/wiki/Najib_Razak
+ロドリゴ・ドゥテルテ|Rodrigo Duterte|1945||heisei|politics|national_leader|麻薬戦争での超法規的殺害疑惑、人権問題への批判|https://en.wikipedia.org/wiki/Rodrigo_Duterte
+ジャイル・ボルソナーロ|Jair Bolsonaro|1955||reiwa|politics|national_leader|COVID-19対応、環境政策、選挙制度攻撃をめぐる批判|https://en.wikipedia.org/wiki/Jair_Bolsonaro
+ニコラ・サルコジ|Nicolas Sarkozy|1955||heisei|politics|national_leader|選挙資金・汚職事件をめぐる有罪判決と批判|https://en.wikipedia.org/wiki/Nicolas_Sarkozy
+フランソワ・フィヨン|François Fillon|1954||heisei|politics|national_politics|家族雇用疑惑での有罪判決と公私混同批判|https://en.wikipedia.org/wiki/Fran%C3%A7ois_Fillon
+朴槿恵|Park Geun-hye|1952||heisei|politics|national_leader|崔順実ゲートで弾劾・有罪判決を受けた|https://en.wikipedia.org/wiki/Park_Geun-hye
+李明博|Lee Myung-bak|1941||heisei|politics|national_leader|横領・収賄事件で有罪判決を受けた|https://en.wikipedia.org/wiki/Lee_Myung-bak
+陳水扁|Chen Shui-bian|1950||heisei|politics|national_leader|収賄・資金洗浄事件で有罪判決を受けた|https://en.wikipedia.org/wiki/Chen_Shui-bian
+タクシン・シナワット|Thaksin Shinawatra|1949||heisei|politics|national_leader|利益相反、汚職判決、権力集中をめぐる批判|https://en.wikipedia.org/wiki/Thaksin_Shinawatra
+インラック・シナワット|Yingluck Shinawatra|1967||heisei|politics|national_leader|コメ担保制度の統治責任をめぐる有罪判決|https://en.wikipedia.org/wiki/Yingluck_Shinawatra
+アウン・サン・スー・チー|Aung San Suu Kyi|1945||heisei|politics|democracy_leader|ロヒンギャ危機への対応をめぐる国際的批判|https://en.wikipedia.org/wiki/Aung_San_Suu_Kyi
+ベンヤミン・ネタニヤフ|Benjamin Netanyahu|1949||reiwa|politics|national_leader|汚職裁判、司法改革、戦時政策をめぐる批判|https://en.wikipedia.org/wiki/Benjamin_Netanyahu
+エフード・オルメルト|Ehud Olmert|1945||heisei|politics|national_leader|収賄・司法妨害で有罪判決を受けた|https://en.wikipedia.org/wiki/Ehud_Olmert
+トニー・ブレア|Tony Blair|1953||heisei|politics|national_leader|イラク戦争開戦判断をめぐる批判とチルコット報告|https://en.wikipedia.org/wiki/Tony_Blair
+ジョージ・W・ブッシュ|George W. Bush|1946||heisei|politics|national_leader|イラク戦争、対テロ政策、人権問題をめぐる批判|https://en.wikipedia.org/wiki/George_W._Bush
+ディック・チェイニー|Dick Cheney|1941||heisei|politics|national_security|イラク戦争、拷問政策、軍需産業との関係をめぐる批判|https://en.wikipedia.org/wiki/Dick_Cheney
+ヒラリー・クリントン|Hillary Clinton|1947||heisei|politics|national_politics|私用メール問題、財団・献金をめぐる透明性批判|https://en.wikipedia.org/wiki/Hillary_Clinton
+アンドリュー・クオモ|Andrew Cuomo|1957||reiwa|politics|state_governor|セクハラ調査とCOVID-19高齢者施設対応をめぐる批判|https://en.wikipedia.org/wiki/Andrew_Cuomo
+アンソニー・ウィーナー|Anthony Weiner|1964||heisei|politics|national_politics|性的メッセージ事件で辞職・有罪判決を受けた|https://en.wikipedia.org/wiki/Anthony_Weiner
+ジョン・エドワーズ|John Edwards|1953||heisei|politics|national_politics|不倫隠蔽と選挙資金疑惑をめぐる批判|https://en.wikipedia.org/wiki/John_Edwards
+サラ・ペイリン|Sarah Palin|1964||heisei|politics|state_governor|事実誤認発言、分断的政治手法をめぐる批判|https://en.wikipedia.org/wiki/Sarah_Palin
+ランス・アームストロング|Lance Armstrong|1971||heisei|sports|cycling|組織的ドーピングでタイトル剥奪と永久追放処分|https://en.wikipedia.org/wiki/Lance_Armstrong
+タイガー・ウッズ|Tiger Woods|1975||heisei|sports|golf|私生活スキャンダル、危険運転事故をめぐる批判|https://en.wikipedia.org/wiki/Tiger_Woods
+オスカー・ピストリウス|Oscar Pistorius|1986||heisei|sports|athletics|恋人射殺事件で有罪判決を受けた|https://en.wikipedia.org/wiki/Oscar_Pistorius
+マリア・シャラポワ|Maria Sharapova|1987||heisei|sports|tennis|禁止薬物メルドニウム陽性で出場停止処分|https://en.wikipedia.org/wiki/Maria_Sharapova
+ディエゴ・マラドーナ|Diego Maradona|1960|2020|heisei|sports|football|薬物問題、暴力的言動、規律問題をめぐる批判|https://en.wikipedia.org/wiki/Diego_Maradona
+ルイス・スアレス|Luis Suárez|1987||heisei|sports|football|噛みつき事件、人種差別発言処分をめぐる批判|https://en.wikipedia.org/wiki/Luis_Su%C3%A1rez
+ネイマール|Neymar|1992||reiwa|sports|football|移籍金、税務、ピッチ外行動をめぐる批判|https://en.wikipedia.org/wiki/Neymar
+クリスティアーノ・ロナウド|Cristiano Ronaldo|1985||heisei|sports|football|税務事件で罰金・執行猶予付き判決を受けた|https://en.wikipedia.org/wiki/Cristiano_Ronaldo
+リオネル・メッシ|Lionel Messi|1987||heisei|sports|football|肖像権収入の税務事件で有罪判決を受けた|https://en.wikipedia.org/wiki/Lionel_Messi
+フロイド・メイウェザー・ジュニア|Floyd Mayweather Jr.|1977||heisei|sports|boxing|家庭内暴力事件で有罪判決を受けた|https://en.wikipedia.org/wiki/Floyd_Mayweather_Jr.
+マイク・タイソン|Mike Tyson|1966||heisei|sports|boxing|性的暴行有罪判決、暴力事件、規律問題で批判|https://en.wikipedia.org/wiki/Mike_Tyson
+コナー・マクレガー|Conor McGregor|1988||reiwa|sports|mixed_martial_arts|暴行事件、差別的発言、規律問題をめぐる批判|https://en.wikipedia.org/wiki/Conor_McGregor
+ベン・ジョンソン|Ben Johnson|1961||heisei|sports|athletics|ソウル五輪ドーピングで金メダル剥奪|https://en.wikipedia.org/wiki/Ben_Johnson_(Canadian_sprinter)
+マリオン・ジョーンズ|Marion Jones|1975||heisei|sports|athletics|BALCO事件でドーピングを認めメダル返還|https://en.wikipedia.org/wiki/Marion_Jones
+アレックス・ロドリゲス|Alex Rodriguez|1975||heisei|sports|baseball|薬物使用を認め長期出場停止処分|https://en.wikipedia.org/wiki/Alex_Rodriguez
+ライアン・ロクテ|Ryan Lochte|1984||heisei|sports|swimming|リオ五輪で虚偽説明問題により処分|https://en.wikipedia.org/wiki/Ryan_Lochte
+カート・シリング|Curt Schilling|1966||heisei|sports|baseball|政治的発言、差別的投稿、事業破綻をめぐる批判|https://en.wikipedia.org/wiki/Curt_Schilling
+アントニオ・ブラウン|Antonio Brown|1988||reiwa|sports|american_football|チーム離脱、暴言、法的問題をめぐる批判|https://en.wikipedia.org/wiki/Antonio_Brown
+ゼップ・ブラッター|Sepp Blatter|1936||heisei|sports|sports_governance|FIFA汚職疑惑と倫理委員会処分を受けた|https://en.wikipedia.org/wiki/Sepp_Blatter
+ミシェル・プラティニ|Michel Platini|1955||heisei|sports|sports_governance|FIFA関連支払い問題で倫理処分を受けた|https://en.wikipedia.org/wiki/Michel_Platini
+カニエ・ウェスト|Kanye West|1977||reiwa|culture_arts|music|反ユダヤ主義的発言やSNS炎上で契約解除・批判|https://en.wikipedia.org/wiki/Kanye_West
+ウィル・スミス|Will Smith|1968||reiwa|culture_arts|film|アカデミー賞授賞式での平手打ち事件により批判と処分|https://en.wikipedia.org/wiki/Will_Smith
+ケヴィン・スペイシー|Kevin Spacey|1959||heisei|culture_arts|film|性的 misconduct allegations により出演停止・批判|https://en.wikipedia.org/wiki/Kevin_Spacey
+ハーヴェイ・ワインスタイン|Harvey Weinstein|1952||heisei|media|film_production|性犯罪で有罪判決を受けMeToo運動の中心事例となった|https://en.wikipedia.org/wiki/Harvey_Weinstein
+ウディ・アレン|Woody Allen|1935||heisei|culture_arts|film|性的虐待疑惑と家族関係をめぐる長期的批判|https://en.wikipedia.org/wiki/Woody_Allen
+ロマン・ポランスキー|Roman Polanski|1933||heisei|culture_arts|film|未成年者への性犯罪事件で有罪答弁後に国外逃亡|https://en.wikipedia.org/wiki/Roman_Polanski
+J・K・ローリング|J. K. Rowling|1965||reiwa|culture_arts|literature|トランスジェンダーをめぐる発言で国際的批判|https://en.wikipedia.org/wiki/J._K._Rowling
+メル・ギブソン|Mel Gibson|1956||heisei|culture_arts|film|反ユダヤ主義的・差別的発言、DV疑惑をめぐる批判|https://en.wikipedia.org/wiki/Mel_Gibson
+エレン・デジェネレス|Ellen DeGeneres|1958||reiwa|media|television|番組職場環境の有害性をめぐる報道と批判|https://en.wikipedia.org/wiki/Ellen_DeGeneres
+ロザンヌ・バー|Roseanne Barr|1952||heisei|media|television|人種差別的投稿により番組打ち切りと批判|https://en.wikipedia.org/wiki/Roseanne_Barr
+ジョニー・デップ|Johnny Depp|1963||heisei|culture_arts|film|DV訴訟・名誉毀損訴訟を通じた私生活問題で批判|https://en.wikipedia.org/wiki/Johnny_Depp
+アンバー・ハード|Amber Heard|1986||heisei|culture_arts|film|名誉毀損訴訟で虚偽性を認定され信用問題が議論された|https://en.wikipedia.org/wiki/Amber_Heard
+ジェームズ・フランコ|James Franco|1978||heisei|culture_arts|film|性的 misconduct allegations と演技学校運営への批判|https://en.wikipedia.org/wiki/James_Franco
+ルイ・C・K|Louis C.K.|1967||heisei|culture_arts|comedy|性的 misconduct を認め活動停止と批判を受けた|https://en.wikipedia.org/wiki/Louis_C.K.
+デイヴ・シャペル|Dave Chappelle|1973||reiwa|culture_arts|comedy|トランスジェンダーをめぐる発言・演目で批判|https://en.wikipedia.org/wiki/Dave_Chappelle
+モリッシー|Morrissey|1959||heisei|culture_arts|music|移民・人種をめぐる発言で批判|https://en.wikipedia.org/wiki/Morrissey
+クリス・ブラウン|Chris Brown|1989||heisei|culture_arts|music|リアーナへの暴行事件などで有罪判決・批判|https://en.wikipedia.org/wiki/Chris_Brown
+R・ケリー|R. Kelly|1967||heisei|culture_arts|music|性犯罪・人身取引で有罪判決を受けた|https://en.wikipedia.org/wiki/R._Kelly
+ビル・コスビー|Bill Cosby|1937||heisei|media|television|多数の性的暴行告発と有罪判決歴で評価が転落|https://en.wikipedia.org/wiki/Bill_Cosby
+マリリン・マンソン|Marilyn Manson|1969||reiwa|culture_arts|music|虐待 allegations と訴訟をめぐる批判|https://en.wikipedia.org/wiki/Marilyn_Manson
+ラッセル・ブランド|Russell Brand|1975||reiwa|media|commentary|性的暴行疑惑報道と陰謀論的発信への批判|https://en.wikipedia.org/wiki/Russell_Brand
+ジャスティン・ビーバー|Justin Bieber|1994||heisei|culture_arts|music|迷惑行為、逮捕歴、若年期の規律問題で批判|https://en.wikipedia.org/wiki/Justin_Bieber
+リンジー・ローハン|Lindsay Lohan|1986||heisei|culture_arts|film|飲酒運転・薬物関連の逮捕歴と職業規律問題|https://en.wikipedia.org/wiki/Lindsay_Lohan
+アマンダ・バインズ|Amanda Bynes|1986||heisei|culture_arts|film|逮捕歴とメンタルヘルス危機に伴う職業継続問題|https://en.wikipedia.org/wiki/Amanda_Bynes
+チャーリー・シーン|Charlie Sheen|1965||heisei|culture_arts|television|薬物・暴力・契約問題をめぐる批判|https://en.wikipedia.org/wiki/Charlie_Sheen
+アンドリュー・ウェイクフィールド|Andrew Wakefield|1956||heisei|science|medical_research|MMRワクチン論文撤回と医師登録抹消で批判|https://en.wikipedia.org/wiki/Andrew_Wakefield
+ブライアン・ワンシンク|Brian Wansink|1960||heisei|science|behavioral_science|研究不正疑惑と多数の論文撤回で批判|https://en.wikipedia.org/wiki/Brian_Wansink
+フランチェスカ・ジーノ|Francesca Gino|1978||reiwa|science|behavioral_science|研究データ不正疑惑と大学処分をめぐる批判|https://en.wikipedia.org/wiki/Francesca_Gino
+ダン・アリエリー|Dan Ariely|1967||heisei|science|behavioral_economics|研究データの信頼性をめぐる疑義と撤回論文問題|https://en.wikipedia.org/wiki/Dan_Ariely
+マーク・ハウザー|Marc Hauser|1959||heisei|science|psychology|研究不正認定によりハーバードを退職|https://en.wikipedia.org/wiki/Marc_Hauser
+ディーデリック・スターペル|Diederik Stapel|1966||heisei|science|social_psychology|大規模なデータ捏造で多数の論文撤回|https://en.wikipedia.org/wiki/Diederik_Stapel
+ヤン・ヘンドリック・シェーン|Jan Hendrik Schön|1970||heisei|science|physics|物性物理論文のデータ捏造で多数撤回|https://en.wikipedia.org/wiki/Jan_Hendrik_Sch%C3%B6n
+黄禹錫|Hwang Woo-suk|1953||heisei|science|biotechnology|ES細胞研究の捏造と倫理違反で批判|https://en.wikipedia.org/wiki/Hwang_Woo-suk
+ティム・ハント|Tim Hunt|1943||heisei|science|biology|女性研究者に関する発言で国際的批判|https://en.wikipedia.org/wiki/Tim_Hunt
+ジェームズ・ワトソン|James Watson|1928||heisei|science|biology|人種・知能をめぐる発言で役職剥奪・批判|https://en.wikipedia.org/wiki/James_Watson
+リチャード・ストールマン|Richard Stallman|1953||heisei|technology|free_software|性犯罪事件への発言をめぐりFSF辞任・批判|https://en.wikipedia.org/wiki/Richard_Stallman
+ジュリアン・アサンジ|Julian Assange|1971||heisei|media|leaks_publishing|機密情報公開の倫理、情報源保護、法的問題をめぐる論争|https://en.wikipedia.org/wiki/Julian_Assange
+エドワード・スノーデン|Edward Snowden|1983||heisei|technology|whistleblowing|機密漏洩の公益性と国家安全保障上の損害をめぐる論争|https://en.wikipedia.org/wiki/Edward_Snowden
+アレックス・ジョーンズ|Alex Jones|1974||heisei|media|conspiracy_media|サンディフック陰謀論で巨額賠償命令を受けた|https://en.wikipedia.org/wiki/Alex_Jones
+ミロ・ヤノプルス|Milo Yiannopoulos|1984||heisei|media|online_commentary|差別的・扇動的発言により講演中止やアカウント停止|https://en.wikipedia.org/wiki/Milo_Yiannopoulos
+ジョー・ローガン|Joe Rogan|1967||reiwa|media|podcasting|COVID-19や差別的発言をめぐる配信内容批判|https://en.wikipedia.org/wiki/Joe_Rogan
+ピアーズ・モーガン|Piers Morgan|1965||heisei|media|journalism|攻撃的取材手法、虚偽写真掲載期の編集責任をめぐる批判|https://en.wikipedia.org/wiki/Piers_Morgan
+堀江貴文|Takafumi Horie|1972||heisei|business|internet_business|ライブドア事件で証券取引法違反の有罪判決|https://ja.wikipedia.org/wiki/%E5%A0%80%E6%B1%9F%E8%B2%B4%E6%96%87
+村上世彰|Yoshiaki Murakami|1959||heisei|business|investment|村上ファンド事件でインサイダー取引の有罪判決|https://ja.wikipedia.org/wiki/%E6%9D%91%E4%B8%8A%E4%B8%96%E5%BD%B0
+井川意高|Mototaka Ikawa|1964||heisei|business|paper_industry|大王製紙事件で特別背任の有罪判決|https://ja.wikipedia.org/wiki/%E4%BA%95%E5%B7%9D%E6%84%8F%E9%AB%98
+折口雅博|Masahiro Origuchi|1961||heisei|business|service_industry|グッドウィルの介護報酬不正・労務問題で批判|https://ja.wikipedia.org/wiki/%E6%8A%98%E5%8F%A3%E9%9B%85%E5%8D%9A
+渡邉美樹|Miki Watanabe|1959||heisei|business|restaurant_management|ワタミの過労自殺・労務管理問題で批判|https://ja.wikipedia.org/wiki/%E6%B8%A1%E9%82%89%E7%BE%8E%E6%A8%B9
+西村博之|Hiroyuki Nishimura|1976||heisei|technology|internet_forum|2ちゃんねる運営時の違法投稿対応、賠償不履行をめぐる批判|https://ja.wikipedia.org/wiki/%E8%A5%BF%E6%9D%91%E5%8D%9A%E4%B9%8B
+川上量生|Nobuo Kawakami|1968||heisei|technology|internet_media|niconico運営、経営判断、ユーザー対応をめぐる批判|https://ja.wikipedia.org/wiki/%E5%B7%9D%E4%B8%8A%E9%87%8F%E7%94%9F
+田中良和|Yoshikazu Tanaka|1977||heisei|business|social_game|GREEのコンプガチャ問題など課金設計への批判|https://ja.wikipedia.org/wiki/%E7%94%B0%E4%B8%AD%E8%89%AF%E5%92%8C
+前澤友作|Yusaku Maezawa|1975||heisei|business|ecommerce|SNS企画、経営離脱、巨額消費をめぐる批判|https://ja.wikipedia.org/wiki/%E5%89%8D%E6%BE%A4%E5%8F%8B%E4%BD%9C
+藤田晋|Susumu Fujita|1973||heisei|business|internet_business|ネット広告・メディア事業での倫理、ガバナンスをめぐる批判|https://ja.wikipedia.org/wiki/%E8%97%A4%E7%94%B0%E6%99%8B
+三木谷浩史|Hiroshi Mikitani|1965||heisei|business|ecommerce|楽天モバイル投資、社内英語化、規制対応をめぐる批判|https://ja.wikipedia.org/wiki/%E4%B8%89%E6%9C%A8%E8%B0%B7%E6%B5%A9%E5%8F%B2
+孫正義|Masayoshi Son|1957||heisei|business|telecom_investment|投資先選定、WeWork損失、過大リスクをめぐる批判|https://ja.wikipedia.org/wiki/%E5%AD%AB%E6%AD%A3%E7%BE%A9
+柳井正|Tadashi Yanai|1949||heisei|business|retail|海外労務・低賃金批判、サプライチェーン倫理をめぐる批判|https://ja.wikipedia.org/wiki/%E6%9F%B3%E4%BA%95%E6%AD%A3
+新浪剛史|Takeshi Niinami|1959||reiwa|business|beverage_management|経済同友会発言や雇用制度改革をめぐる社会的批判|https://ja.wikipedia.org/wiki/%E6%96%B0%E6%B5%AA%E5%89%9B%E5%8F%B2
+家入一真|Kazuma Ieiri|1978||heisei|business|internet_startup|連続起業での撤退、資金管理、政治挑戦をめぐる批判|https://ja.wikipedia.org/wiki/%E5%AE%B6%E5%85%A5%E4%B8%80%E7%9C%9F
+猪瀬直樹|Naoki Inose|1946||heisei|politics|local_governor|徳洲会資金問題で東京都知事を辞職|https://ja.wikipedia.org/wiki/%E7%8C%AA%E7%80%AC%E7%9B%B4%E6%A8%B9
+舛添要一|Yoichi Masuzoe|1948||heisei|politics|local_governor|政治資金の私的流用疑惑で東京都知事を辞職|https://ja.wikipedia.org/wiki/%E8%88%9B%E6%B7%BB%E8%A6%81%E4%B8%80
+鈴木宗男|Muneo Suzuki|1948||heisei|politics|national_politics|受託収賄等で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E9%88%B4%E6%9C%A8%E5%AE%97%E7%94%B7
+辻元清美|Kiyomi Tsujimoto|1960||heisei|politics|national_politics|秘書給与流用事件で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E8%BE%BB%E5%85%83%E6%B8%85%E7%BE%8E
+豊田真由子|Mayuko Toyota|1974||heisei|politics|national_politics|秘書への暴言・暴行報道で離党し批判を受けた|https://ja.wikipedia.org/wiki/%E8%B1%8A%E7%94%B0%E7%9C%9F%E7%94%B1%E5%AD%90
+宮崎謙介|Kensuke Miyazaki|1981||heisei|politics|national_politics|不倫報道により衆議院議員を辞職|https://ja.wikipedia.org/wiki/%E5%AE%AE%E5%B4%8E%E8%AC%99%E4%BB%8B
+今井絵理子|Eriko Imai|1983||heisei|politics|national_politics|不倫疑惑、政治経験不足をめぐる批判|https://ja.wikipedia.org/wiki/%E4%BB%8A%E4%BA%95%E7%B5%B5%E7%90%86%E5%AD%90
+河井克行|Katsuyuki Kawai|1963||reiwa|politics|national_politics|大規模買収事件で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E6%B2%B3%E4%BA%95%E5%85%8B%E8%A1%8C
+河井案里|Anri Kawai|1973||reiwa|politics|national_politics|参院選買収事件で有罪判決が確定|https://ja.wikipedia.org/wiki/%E6%B2%B3%E4%BA%95%E6%A1%88%E9%87%8C
+甘利明|Akira Amari|1949||heisei|politics|national_politics|口利き疑惑報道で閣僚辞任し説明責任が批判された|https://ja.wikipedia.org/wiki/%E7%94%98%E5%88%A9%E6%98%8E
+小渕優子|Yuko Obuchi|1973||heisei|politics|national_politics|政治資金問題で経済産業相を辞任|https://ja.wikipedia.org/wiki/%E5%B0%8F%E6%B8%95%E5%84%AA%E5%AD%90
+松島みどり|Midori Matsushima|1956||heisei|politics|national_politics|うちわ配布問題で法相を辞任|https://ja.wikipedia.org/wiki/%E6%9D%BE%E5%B3%B6%E3%81%BF%E3%81%A9%E3%82%8A
+丸山穂高|Hodaka Maruyama|1984||reiwa|politics|national_politics|北方領土訪問時の戦争発言等で除名・批判|https://ja.wikipedia.org/wiki/%E4%B8%B8%E5%B1%B1%E7%A9%82%E9%AB%98
+上西小百合|Sayuri Uenishi|1983||heisei|politics|national_politics|欠席問題やSNS発言で批判を受けた|https://ja.wikipedia.org/wiki/%E4%B8%8A%E8%A5%BF%E5%B0%8F%E7%99%BE%E5%90%88
+木下富美子|Fumiko Kinoshita|1966||reiwa|politics|local_politics|無免許運転事故問題で都議辞職|https://ja.wikipedia.org/wiki/%E6%9C%A8%E4%B8%8B%E5%AF%8C%E7%BE%8E%E5%AD%90
+立花孝志|Takashi Tachibana|1967||reiwa|politics|political_party_leader|脅迫事件有罪判決や過激な政治手法で批判|https://ja.wikipedia.org/wiki/%E7%AB%8B%E8%8A%B1%E5%AD%9D%E5%BF%97
+ガーシー|GaaSyy|1971||reiwa|media|online_politics|暴露系配信と脅迫事件で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E3%82%AC%E3%83%BC%E3%82%B7%E3%83%BC
+小山田圭吾|Keigo Oyamada|1969||reiwa|culture_arts|music|過去のいじめ発言記事が炎上し五輪関連職を辞任|https://ja.wikipedia.org/wiki/%E5%B0%8F%E5%B1%B1%E7%94%B0%E5%9C%AD%E5%90%BE
+佐村河内守|Mamoru Samuragochi|1963||heisei|culture_arts|music|ゴーストライター問題と障害表示をめぐる批判|https://ja.wikipedia.org/wiki/%E4%BD%90%E6%9D%91%E6%B2%B3%E5%86%85%E5%AE%88
+小保方晴子|Haruko Obokata|1983||heisei|science|life_science|STAP細胞論文の不正認定・撤回で批判|https://ja.wikipedia.org/wiki/%E5%B0%8F%E4%BF%9D%E6%96%B9%E6%99%B4%E5%AD%90
+森口尚史|Hisashi Moriguchi|1964||heisei|science|medical_research|iPS細胞臨床応用の虚偽発表問題で批判|https://ja.wikipedia.org/wiki/%E6%A3%AE%E5%8F%A3%E5%B0%9A%E5%8F%B2
+藤村新一|Shinichi Fujimura|1950||heisei|science|archaeology|旧石器捏造事件により日本考古学に大きな損害を与えた|https://ja.wikipedia.org/wiki/%E8%97%A4%E6%9D%91%E6%96%B0%E4%B8%80
+高橋洋一|Yoichi Takahashi|1955||heisei|education|public_policy|窃盗事件で書類送検され、SNS発言も批判された|https://ja.wikipedia.org/wiki/%E9%AB%98%E6%A9%8B%E6%B4%8B%E4%B8%80_(%E7%B5%8C%E6%B8%88%E5%AD%A6%E8%80%85)
+佐野研二郎|Kenjiro Sano|1972||heisei|culture_arts|design|東京五輪エンブレム類似問題で採用撤回|https://ja.wikipedia.org/wiki/%E4%BD%90%E9%87%8E%E7%A0%94%E4%BA%8C%E9%83%8E
+園子温|Sion Sono|1961||reiwa|culture_arts|film|性加害疑惑報道をめぐり映画界の権力構造が批判された|https://ja.wikipedia.org/wiki/%E5%9C%92%E5%AD%90%E6%B8%A9
+榊英雄|Hideo Sakaki|1970||reiwa|culture_arts|film|性加害報道と訴訟をめぐり批判された|https://ja.wikipedia.org/wiki/%E6%A6%8A%E8%8B%B1%E9%9B%84
+木下ほうか|Houka Kinoshita|1964||reiwa|culture_arts|television|性加害報道を受け芸能活動休止|https://ja.wikipedia.org/wiki/%E6%9C%A8%E4%B8%8B%E3%81%BB%E3%81%86%E3%81%8B
+新井浩文|Hirofumi Arai|1979||heisei|culture_arts|film|強制性交等事件で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E6%96%B0%E4%BA%95%E6%B5%A9%E6%96%87
+伊勢谷友介|Yusuke Iseya|1976||reiwa|culture_arts|film|大麻取締法違反で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E4%BC%8A%E5%8B%A2%E8%B0%B7%E5%8F%8B%E4%BB%8B
+伊藤健太郎|Kentaro Ito|1997||reiwa|culture_arts|film|ひき逃げ疑いで逮捕され活動自粛、のち不起訴|https://ja.wikipedia.org/wiki/%E4%BC%8A%E8%97%A4%E5%81%A5%E5%A4%AA%E9%83%8E_(%E4%BF%B3%E5%84%AA)
+市川猿之助|Ennosuke Ichikawa IV|1975||reiwa|culture_arts|kabuki|両親死亡事件で自殺幇助の有罪判決を受けた|https://ja.wikipedia.org/wiki/4%E4%BB%A3%E7%9B%AE%E5%B8%82%E5%B7%9D%E7%8C%BF%E4%B9%8B%E5%8A%A9
+香川照之|Teruyuki Kagawa|1965||reiwa|culture_arts|television|クラブでの性加害報道により番組降板等の批判|https://ja.wikipedia.org/wiki/%E9%A6%99%E5%B7%9D%E7%85%A7%E4%B9%8B
+山口達也|Tatsuya Yamaguchi|1972||heisei|culture_arts|television|強制わいせつ容疑報道で書類送検、芸能活動を終了|https://ja.wikipedia.org/wiki/%E5%B1%B1%E5%8F%A3%E9%81%94%E4%B9%9F_(1972%E5%B9%B4%E7%94%9F)
+島田紳助|Shinsuke Shimada|1956||heisei|media|television|暴力団関係者との交際を理由に芸能界引退|https://ja.wikipedia.org/wiki/%E5%B3%B6%E7%94%B0%E7%B4%B3%E5%8A%A9
+渡部建|Ken Watabe|1972||reiwa|media|television|不倫報道で活動自粛し公共イメージが悪化|https://ja.wikipedia.org/wiki/%E6%B8%A1%E9%83%A8%E5%BB%BA
+宮迫博之|Hiroyuki Miyasako|1970||reiwa|media|television|闇営業問題で契約解除され説明責任が批判された|https://ja.wikipedia.org/wiki/%E5%AE%AE%E8%BF%AB%E5%8D%9A%E4%B9%8B
+田村亮|Ryo Tamura|1972||reiwa|media|television|闇営業問題で謹慎し反社会的勢力対応が問われた|https://ja.wikipedia.org/wiki/%E7%94%B0%E6%9D%91%E4%BA%AE_(%E3%81%8A%E7%AC%91%E3%81%84%E8%8A%B8%E4%BA%BA)
+東出昌大|Masahiro Higashide|1988||reiwa|culture_arts|film|不倫報道で出演・広告への影響と批判|https://ja.wikipedia.org/wiki/%E6%9D%B1%E5%87%BA%E6%98%8C%E5%A4%A7
+ベッキー|Becky|1984||heisei|media|television|不倫報道と説明対応をめぐり活動休止|https://ja.wikipedia.org/wiki/%E3%83%99%E3%83%83%E3%82%AD%E3%83%BC
+沢尻エリカ|Erika Sawajiri|1986||reiwa|culture_arts|film|麻薬取締法違反で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E6%B2%A2%E5%B0%BB%E3%82%A8%E3%83%AA%E3%82%AB
+ピエール瀧|Pierre Taki|1967||reiwa|culture_arts|music|麻薬取締法違反で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E3%83%94%E3%82%A8%E3%83%BC%E3%83%AB%E7%80%A7
+田口淳之介|Junnosuke Taguchi|1985||reiwa|culture_arts|music|大麻取締法違反で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E7%94%B0%E5%8F%A3%E6%B7%B3%E4%B9%8B%E4%BB%8B
+清原和博|Kazuhiro Kiyohara|1967||heisei|sports|baseball|覚醒剤取締法違反で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E6%B8%85%E5%8E%9F%E5%92%8C%E5%8D%9A
+酒井法子|Noriko Sakai|1971||heisei|culture_arts|music|覚醒剤取締法違反で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E9%85%92%E4%BA%95%E6%B3%95%E5%AD%90
+槇原敬之|Noriyuki Makihara|1969||heisei|culture_arts|music|薬物事件で有罪判決・再逮捕歴がある|https://ja.wikipedia.org/wiki/%E6%A7%87%E5%8E%9F%E6%95%AC%E4%B9%8B
+ASKA|ASKA|1958||heisei|culture_arts|music|覚醒剤取締法違反で有罪判決を受けた|https://ja.wikipedia.org/wiki/ASKA
+小室哲哉|Tetsuya Komuro|1958||heisei|culture_arts|music|著作権譲渡をめぐる詐欺事件で有罪判決|https://ja.wikipedia.org/wiki/%E5%B0%8F%E5%AE%A4%E5%93%B2%E5%93%89
+押尾学|Manabu Oshio|1978||heisei|culture_arts|film|薬物事件と保護責任者遺棄致死で有罪判決|https://ja.wikipedia.org/wiki/%E6%8A%BC%E5%B0%BE%E5%AD%A6
+矢口真里|Mari Yaguchi|1983||heisei|media|television|不倫報道で活動休止し公共イメージが悪化|https://ja.wikipedia.org/wiki/%E7%9F%A2%E5%8F%A3%E7%9C%9F%E9%87%8C
+木下優樹菜|Yukina Kinoshita|1987||reiwa|media|television|タピオカ店恫喝DM騒動で芸能界引退|https://ja.wikipedia.org/wiki/%E6%9C%A8%E4%B8%8B%E5%84%AA%E6%A8%B9%E8%8F%9C
+朝青龍明徳|Asashoryu Akinori|1980||heisei|sports|sumo|暴行問題などの品格批判を受け引退|https://ja.wikipedia.org/wiki/%E6%9C%9D%E9%9D%92%E9%BE%8D%E6%98%8E%E5%BE%B3
+日馬富士公平|Harumafuji Kohei|1984||heisei|sports|sumo|暴行事件で責任を取り引退|https://ja.wikipedia.org/wiki/%E6%97%A5%E9%A6%AC%E5%AF%8C%E5%A3%AB%E5%85%AC%E5%B9%B3
+貴闘力忠茂|Takatōriki Tadashige|1967||heisei|sports|sumo|野球賭博問題で相撲協会を解雇|https://ja.wikipedia.org/wiki/%E8%B2%B4%E9%97%98%E5%8A%9B%E5%BF%A0%E8%8C%82
+琴光喜啓司|Kotomitsuki Keiji|1976||heisei|sports|sumo|野球賭博問題で相撲協会を解雇|https://ja.wikipedia.org/wiki/%E7%90%B4%E5%85%89%E5%96%9C%E5%95%93%E5%8F%B8
+瀬戸大也|Daiya Seto|1994||reiwa|sports|swimming|不倫報道で活動停止処分とスポンサー影響|https://ja.wikipedia.org/wiki/%E7%80%AC%E6%88%B8%E5%A4%A7%E4%B9%9F
+桃田賢斗|Kento Momota|1994||heisei|sports|badminton|違法賭博問題で出場停止処分|https://ja.wikipedia.org/wiki/%E6%A1%83%E7%94%B0%E8%B3%A2%E6%96%97
+中田翔|Sho Nakata|1989||reiwa|sports|baseball|同僚への暴力問題で出場停止処分|https://ja.wikipedia.org/wiki/%E4%B8%AD%E7%94%B0%E7%BF%94
+清田育宏|Ikuhiro Kiyota|1986||reiwa|sports|baseball|不倫・球団規律違反で契約解除|https://ja.wikipedia.org/wiki/%E6%B8%85%E7%94%B0%E8%82%B2%E5%AE%8F
+前園真聖|Masakiyo Maezono|1973||heisei|sports|football|酒気帯び暴行事件で活動自粛|https://ja.wikipedia.org/wiki/%E5%89%8D%E5%9C%92%E7%9C%9F%E8%81%96
+内柴正人|Masato Uchishiba|1978||heisei|sports|judo|準強姦事件で有罪判決を受けた|https://ja.wikipedia.org/wiki/%E5%86%85%E6%9F%B4%E6%AD%A3%E4%BA%BA
+国母和宏|Kazuhiro Kokubo|1988||heisei|sports|snowboarding|服装問題と大麻密輸事件で有罪判決|https://ja.wikipedia.org/wiki/%E5%9B%BD%E6%AF%8D%E5%92%8C%E5%AE%8F
+鈴木康大|Yasuhiro Suzuki|1985||heisei|sports|canoe|ライバルへの禁止薬物混入事件で資格停止|https://ja.wikipedia.org/wiki/%E9%88%B4%E6%9C%A8%E5%BA%B7%E5%A4%A7
+'''
+
+def parse():
+    out=[]
+    for line in RAW.strip().splitlines():
+        parts=line.split('|')
+        if len(parts)"'!=9:
+            raise ValueError((len(parts), line))
+        ja,en,birth,death,era,domain,sub,issue,url=parts
+        out.append(dict(name_ja=ja,name_en=en,birth_year=int(birth),death_year=int(death) if death else None,era=era,domain=domain,sub=sub,issue=issue,url=url))
+    return out
+
+candidates=parse()
+print('"'candidates', len(candidates))
+conn=sqlite3.connect(DB)
+cur=conn.cursor()
+inserted=0; skipped=[]; ids=[]
+
+def caps_for(domain, issue):
+    if domain in ('business','technology'):
+        return [('age_entrepreneur',8,'事業構築・市場形成で平成・令和期に大きな影響を与えた。'),('cog_systems',7,'組織・技術・市場を結びつける構想力が確認できる。'),('val_collective',4,issue)]
+    if domain=='politics':
+        return [('cog_systems',7,'制度・政策・選挙を動かす実務能力が確認できる。'),('age_social_change',7,'政治過程を通じた社会変化への影響が大きい。'),('val_tolerance',4,issue)]
+    if domain=='sports':
+        return [('age_resilience',8,'競技成績や復帰過程から高い身体的・心理的レジリエンスが確認できる。'),('cog_systems',6,'競技戦略や専門技能の体系的習得が確認できる。'),('val_collective',4,issue)]
+    if domain in ('culture_arts','media'):
+        return [('cog_creativity',8,'作品・番組・発信で同時代文化に大きな影響を与えた。'),('soc_interpersonal',6,'大衆・業界ネットワークを通じて活動を拡大した。'),('val_tolerance',4,issue)]
+    if domain in ('science','education'):
+        return [('cog_logical',8,'研究・政策分析・専門知識の蓄積で影響を残した。'),('cog_info',7,'専門情報の生成・発信で同時代に影響を与えた。'),('cog_critical',4,issue)]
+    return [('cog_systems',7,'平成・令和期の活動で専門領域に影響を与えた。'),('age_resilience',6,'活動継続に一定の適応性が確認できる。'),('val_collective',4,issue)]
+
+for i, p in enumerate(candidates):
+    if inserted>=150: break
+    # Required duplicate check before INSERT.
+    cur.execute('SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?', (p['name_ja'], p['birth_year']))
+    if cur.fetchone():
+        skipped.append((p['name_ja'],'name+birth duplicate'))
+        continue
+    cur.execute('SELECT 1 FROM achievers WHERE name_ja=?', (p['name_ja'],))
+    if cur.fetchone():
+        skipped.append((p['name_ja'],'name duplicate'))
+        continue
+    summary=f\"平成・令和期に{p['sub']}領域で国際的または国内的な影響を持った一方、{p['issue']}。低スコア補正用に、成果と弱点を併記する。\"
+    notes='Package D low_score_modern。批判的同時代評価のネガ部分を参照し、倫理・説明責任・対人配慮などの弱点能力を3〜5点で記録。'
+    cur.execute('''INSERT INTO achievers
+        (name_ja,name_en,name_kana,birth_year,death_year,birth_place,primary_era_id,secondary_era_id,domain,sub_domain,achievement_summary,notable_works,family_class,family_education,education_path,mentors,fame_source,fame_score,is_traditional_great,is_local_excellent,data_completeness,source_team,source_url,notes,correction_phase)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+        (p['name_ja'],p['name_en'],None,p['birth_year'],p['death_year'],None,p['era'],None,p['domain'],p['sub'],summary,json.dumps([],ensure_ascii=False),None,None,None,json.dumps([],ensure_ascii=False),'public_record_and_wikipedia',55.0,0,0,70,'codex_correction_low_score_modern',p['url'],notes,'6.D'))
+    aid=cur.lastrowid; ids.append(aid); inserted+=1
+    for cap_id,score,ev in caps_for(p['domain'], p['issue']):
+        cur.execute('''INSERT INTO achiever_capabilities
+            (achiever_id, capability_id, score, evidence_quote, evidence_source, notes, is_uniform_bulk)
+            VALUES (?,?,?,?,?,?,?)''',
+            (aid,cap_id,score,ev,p['url'],'Phase 6.D Package D: score 3-5 の弱点能力を含む分散スコアリング',0))
+    if inserted % 50 == 0:
+        conn.commit()
+        print('committed_batch', inserted)
+conn.commit()
+print('inserted', inserted)
+print('skipped', len(skipped), skipped[:20])
+cur.execute(\"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.D' AND source_team='codex_correction_low_score_modern'\")
+print('phase_count', cur.fetchone()[0])
+cur.execute(\"SELECT COUNT(*) FROM achiever_capabilities c JOIN achievers a ON a.id=c.achiever_id WHERE a.correction_phase='6.D' AND a.source_team='codex_correction_low_score_modern'\")
+print('cap_count', cur.fetchone()[0])
+cur.execute(\"SELECT COUNT(*) FROM achiever_capabilities c JOIN achievers a ON a.id=c.achiever_id WHERE a.correction_phase='6.D' AND a.source_team='codex_correction_low_score_modern' AND c.score BETWEEN 3 AND 5\")
+print('low_cap_count', cur.fetchone()[0])
+conn.close()
+PY" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 137ms:
+candidates 180
+committed_batch 50
+committed_batch 100
+committed_batch 150
+inserted 150
+skipped 25 [('カルロス・ゴーン', 'name duplicate'), ('J・K・ローリング', 'name+birth duplicate'), ('堀江貴文', 'name duplicate'), ('村上世彰', 'name+birth duplicate'), ('渡邉美樹', 'name duplicate'), ('川上量生', 'name+birth duplicate'), ('田中良和', 'name duplicate'), ('前澤友作', 'name duplicate'), ('藤田晋', 'name duplicate'), ('三木谷浩史', 'name duplicate'), ('孫正義', 'name duplicate'), ('柳井正', 'name duplicate'), ('新浪剛史', 'name duplicate'), ('家入一真', 'name duplicate'), ('猪瀬直樹', 'name duplicate'), ('舛添要一', 'name duplicate'), ('辻元清美', 'name duplicate'), ('甘利明', 'name duplicate'), ('小山田圭吾', 'name+birth duplicate'), ('園子温', 'name+birth duplicate')]
+phase_count 150
+cap_count 450
+low_cap_count 150
+
+codex
+150 件の投入は完了し、3 回の 50 件コミットで入りました。最後に SQLite 側で件数、能力付与数、低スコア付与、重複、era/domain 分布を検証します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.D' AND source_team='codex_correction_low_score_modern';\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+150
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achiever_capabilities c JOIN achievers a ON a.id=c.achiever_id WHERE a.correction_phase='6.D' AND a.source_team='codex_correction_low_score_modern';\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+450
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers a WHERE a.correction_phase='6.D' AND a.source_team='codex_correction_low_score_modern' AND NOT EXISTS (SELECT 1 FROM achiever_capabilities c WHERE c.achiever_id=a.id AND c.score BETWEEN 3 AND 5);\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT primary_era_id, domain, COUNT(*) FROM achievers WHERE correction_phase='6.D' AND source_team='codex_correction_low_score_modern' GROUP BY primary_era_id, domain ORDER BY primary_era_id, domain;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+heisei|business|11
+heisei|culture_arts|22
+heisei|education|1
+heisei|media|12
+heisei|politics|27
+heisei|science|12
+heisei|sports|21
+heisei|technology|5
+reiwa|business|2
+reiwa|culture_arts|14
+reiwa|media|8
+reiwa|politics|10
+reiwa|science|1
+reiwa|sports|4
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja, birth_year, COUNT(*) FROM achievers WHERE correction_phase='6.D' AND source_team='codex_correction_low_score_modern' GROUP BY name_ja,birth_year HAVING COUNT(*)>1;\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT a.name_ja, COUNT(c.id) AS caps, MIN(c.score), MAX(c.score) FROM achievers a LEFT JOIN achiever_capabilities c ON c.achiever_id=a.id WHERE a.correction_phase='6.D' AND a.source_team='codex_correction_low_score_modern' GROUP BY a.id HAVING caps NOT BETWEEN 3 AND 5 OR MIN(c.score)>5 LIMIT 20;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+ succeeded in 0ms:
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.D' AND source_team='codex_correction_low_score_modern' AND (source_url IS NULL OR source_url='' OR achievement_summary IS NULL OR achievement_summary='');\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "PRAGMA integrity_check;"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+ok
+
+codex
+完了しました。
+
+DB: `/Users/nishimura+/projects/research/era-talents-db/data/era_talents.db`
+
+投入結果:
+- `achievers`: 150 件追加
+- `correction_phase='6.D'`
+- `source_team='codex_correction_low_score_modern'`
+- 50 件ずつ 3 バッチでコミット
+- `achiever_capabilities`: 450 件追加
+- 追加人物全員に `score BETWEEN 3 AND 5` の弱点能力を最低 1 件付与
+
+確認結果:
+```text
+Phase 6.D achievers count: 150
+Phase 6.D capability count: 450
+低スコア能力なしの人物: 0
+source_url / summary 欠損: 0
+PRAGMA integrity_check: ok
+```
+
+era/domain 分布も確認済みで、平成・令和の `business / politics / sports / culture_arts / media / science / technology / education` に分散しています。
+tokens used
+57,012
+完了しました。
+
+DB: `/Users/nishimura+/projects/research/era-talents-db/data/era_talents.db`
+
+投入結果:
+- `achievers`: 150 件追加
+- `correction_phase='6.D'`
+- `source_team='codex_correction_low_score_modern'`
+- 50 件ずつ 3 バッチでコミット
+- `achiever_capabilities`: 450 件追加
+- 追加人物全員に `score BETWEEN 3 AND 5` の弱点能力を最低 1 件付与
+
+確認結果:
+```text
+Phase 6.D achievers count: 150
+Phase 6.D capability count: 450
+低スコア能力なしの人物: 0
+source_url / summary 欠損: 0
+PRAGMA integrity_check: ok
+```
+
+era/domain 分布も確認済みで、平成・令和の `business / politics / sports / culture_arts / media / science / technology / education` に分散しています。

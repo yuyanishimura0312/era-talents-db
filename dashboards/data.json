@@ -1,206 +1,212 @@
 {
   "meta": {
-    "generated_at": "2026-05-05",
-    "total_records": 32194
+    "generated_at": "2026-05-05 20:30 (Phase 6 corrected)",
+    "total_records": 46577
   },
   "heatmap": [
     {
       "era": "heisei",
       "cap": "age_entrepreneur",
-      "score": 8.39,
-      "n": 305
+      "score": 8.15,
+      "n": 607
     },
     {
       "era": "heisei",
       "cap": "age_meta_learning",
-      "score": 8.04,
-      "n": 477
+      "score": 7.99,
+      "n": 616
     },
     {
       "era": "heisei",
       "cap": "age_oecd_transformative",
       "score": 8.0,
-      "n": 47
+      "n": 48
     },
     {
       "era": "heisei",
       "cap": "age_resilience",
-      "score": 8.0,
-      "n": 493
+      "score": 7.74,
+      "n": 835
     },
     {
       "era": "heisei",
       "cap": "age_social_autonomy",
-      "score": 7.0,
-      "n": 88
+      "score": 6.72,
+      "n": 93
     },
     {
       "era": "heisei",
       "cap": "age_social_change",
-      "score": 8.27,
-      "n": 256
+      "score": 7.75,
+      "n": 603
     },
     {
       "era": "heisei",
       "cap": "cog_ai_collab",
-      "score": 8.8,
-      "n": 10
+      "score": 5.42,
+      "n": 24
     },
     {
       "era": "heisei",
       "cap": "cog_creativity",
-      "score": 8.68,
-      "n": 485
+      "score": 8.71,
+      "n": 680
     },
     {
       "era": "heisei",
       "cap": "cog_critical",
-      "score": 8.01,
-      "n": 287
+      "score": 7.76,
+      "n": 320
     },
     {
       "era": "heisei",
       "cap": "cog_info",
-      "score": 7.51,
-      "n": 221
+      "score": 7.47,
+      "n": 253
     },
     {
       "era": "heisei",
       "cap": "cog_logical",
-      "score": 8.47,
-      "n": 191
+      "score": 8.36,
+      "n": 216
     },
     {
       "era": "heisei",
       "cap": "cog_math",
-      "score": 8.93,
-      "n": 27
+      "score": 7.11,
+      "n": 46
     },
     {
       "era": "heisei",
       "cap": "cog_systems",
-      "score": 7.66,
-      "n": 348
+      "score": 7.21,
+      "n": 678
     },
     {
       "era": "heisei",
       "cap": "cre_cross_domain",
-      "score": 8.02,
-      "n": 329
+      "score": 7.69,
+      "n": 485
     },
     {
       "era": "heisei",
       "cap": "soc_interpersonal",
-      "score": 7.6,
-      "n": 382
+      "score": 6.97,
+      "n": 881
     },
     {
       "era": "heisei",
       "cap": "val_collective",
-      "score": 8.22,
-      "n": 170
+      "score": 6.2,
+      "n": 284
     },
     {
       "era": "heisei",
       "cap": "val_eco",
-      "score": 7.88,
-      "n": 51
+      "score": 7.44,
+      "n": 89
     },
     {
       "era": "heisei",
       "cap": "val_tolerance",
-      "score": 7.82,
-      "n": 91
+      "score": 5.86,
+      "n": 169
     },
     {
       "era": "heisei",
       "cap": "val_traditional",
-      "score": 8.36,
-      "n": 262
+      "score": 8.37,
+      "n": 264
     },
     {
       "era": "meiji",
       "cap": "age_entrepreneur",
-      "score": 8.85,
-      "n": 206
+      "score": 8.22,
+      "n": 384
     },
     {
       "era": "meiji",
       "cap": "age_meta_learning",
-      "score": 8.16,
-      "n": 262
+      "score": 7.72,
+      "n": 429
     },
     {
       "era": "meiji",
       "cap": "age_resilience",
-      "score": 7.25,
-      "n": 281
+      "score": 7.03,
+      "n": 382
+    },
+    {
+      "era": "meiji",
+      "cap": "age_social_autonomy",
+      "score": 6.68,
+      "n": 38
     },
     {
       "era": "meiji",
       "cap": "age_social_change",
       "score": 7.7,
-      "n": 366
+      "n": 468
     },
     {
       "era": "meiji",
       "cap": "cog_creativity",
-      "score": 8.37,
-      "n": 309
+      "score": 8.28,
+      "n": 533
     },
     {
       "era": "meiji",
       "cap": "cog_critical",
-      "score": 8.02,
-      "n": 177
+      "score": 7.52,
+      "n": 332
     },
     {
       "era": "meiji",
       "cap": "cog_info",
-      "score": 9.0,
-      "n": 2
+      "score": 7.5,
+      "n": 16
     },
     {
       "era": "meiji",
       "cap": "cog_logical",
-      "score": 8.33,
-      "n": 175
+      "score": 8.0,
+      "n": 223
     },
     {
       "era": "meiji",
       "cap": "cog_math",
       "score": 8.0,
-      "n": 8
+      "n": 18
     },
     {
       "era": "meiji",
       "cap": "cog_systems",
-      "score": 8.26,
-      "n": 329
+      "score": 7.5,
+      "n": 557
     },
     {
       "era": "meiji",
       "cap": "cre_cross_domain",
-      "score": 8.0,
-      "n": 101
+      "score": 7.83,
+      "n": 115
     },
     {
       "era": "meiji",
       "cap": "soc_interpersonal",
-      "score": 7.5,
-      "n": 268
+      "score": 7.45,
+      "n": 324
     },
     {
       "era": "meiji",
       "cap": "val_collective",
-      "score": 7.1,
-      "n": 77
+      "score": 6.88,
+      "n": 264
     },
     {
       "era": "meiji",
       "cap": "val_eco",
-      "score": 8.29,
-      "n": 24
+      "score": 7.44,
+      "n": 41
     },
     {
       "era": "meiji",
@@ -211,44 +217,44 @@
     {
       "era": "meiji",
       "cap": "val_traditional",
-      "score": 7.86,
-      "n": 251
+      "score": 8.06,
+      "n": 397
     },
     {
       "era": "reiwa",
       "cap": "age_entrepreneur",
-      "score": 8.88,
-      "n": 227
+      "score": 8.25,
+      "n": 401
     },
     {
       "era": "reiwa",
       "cap": "age_meta_learning",
-      "score": 7.73,
-      "n": 251
+      "score": 7.6,
+      "n": 303
     },
     {
       "era": "reiwa",
       "cap": "age_oecd_transformative",
-      "score": 8.33,
-      "n": 6
+      "score": 8.4,
+      "n": 5
     },
     {
       "era": "reiwa",
       "cap": "age_resilience",
-      "score": 8.01,
-      "n": 147
+      "score": 7.67,
+      "n": 229
     },
     {
       "era": "reiwa",
       "cap": "age_social_autonomy",
-      "score": 7.02,
-      "n": 61
+      "score": 6.95,
+      "n": 62
     },
     {
       "era": "reiwa",
       "cap": "age_social_change",
-      "score": 8.61,
-      "n": 195
+      "score": 8.25,
+      "n": 534
     },
     {
       "era": "reiwa",
@@ -259,26 +265,26 @@
     {
       "era": "reiwa",
       "cap": "cog_creativity",
-      "score": 8.53,
-      "n": 189
+      "score": 8.48,
+      "n": 211
     },
     {
       "era": "reiwa",
       "cap": "cog_critical",
-      "score": 7.98,
-      "n": 204
+      "score": 7.55,
+      "n": 321
     },
     {
       "era": "reiwa",
       "cap": "cog_info",
-      "score": 8.9,
-      "n": 105
+      "score": 8.76,
+      "n": 117
     },
     {
       "era": "reiwa",
       "cap": "cog_logical",
-      "score": 8.61,
-      "n": 135
+      "score": 8.71,
+      "n": 187
     },
     {
       "era": "reiwa",
@@ -289,56 +295,56 @@
     {
       "era": "reiwa",
       "cap": "cog_systems",
-      "score": 8.1,
-      "n": 349
+      "score": 7.39,
+      "n": 669
     },
     {
       "era": "reiwa",
       "cap": "cre_cross_domain",
-      "score": 7.62,
-      "n": 223
+      "score": 7.5,
+      "n": 274
     },
     {
       "era": "reiwa",
       "cap": "soc_interpersonal",
-      "score": 7.57,
-      "n": 258
+      "score": 7.22,
+      "n": 649
     },
     {
       "era": "reiwa",
       "cap": "val_collective",
-      "score": 7.44,
-      "n": 72
+      "score": 6.81,
+      "n": 86
     },
     {
       "era": "reiwa",
       "cap": "val_eco",
-      "score": 8.26,
-      "n": 78
+      "score": 7.82,
+      "n": 119
     },
     {
       "era": "reiwa",
       "cap": "val_tolerance",
-      "score": 7.64,
-      "n": 126
+      "score": 6.76,
+      "n": 245
     },
     {
       "era": "reiwa",
       "cap": "val_traditional",
-      "score": 8.45,
-      "n": 78
+      "score": 8.08,
+      "n": 105
     },
     {
       "era": "showa_post",
       "cap": "age_entrepreneur",
-      "score": 8.96,
-      "n": 279
+      "score": 8.88,
+      "n": 302
     },
     {
       "era": "showa_post",
       "cap": "age_meta_learning",
       "score": 7.58,
-      "n": 448
+      "n": 449
     },
     {
       "era": "showa_post",
@@ -349,14 +355,20 @@
     {
       "era": "showa_post",
       "cap": "age_resilience",
-      "score": 7.86,
-      "n": 580
+      "score": 7.37,
+      "n": 994
+    },
+    {
+      "era": "showa_post",
+      "cap": "age_social_autonomy",
+      "score": 2.0,
+      "n": 3
     },
     {
       "era": "showa_post",
       "cap": "age_social_change",
-      "score": 8.34,
-      "n": 337
+      "score": 8.07,
+      "n": 458
     },
     {
       "era": "showa_post",
@@ -367,74 +379,74 @@
     {
       "era": "showa_post",
       "cap": "cog_creativity",
-      "score": 8.14,
-      "n": 518
+      "score": 8.1,
+      "n": 879
     },
     {
       "era": "showa_post",
       "cap": "cog_critical",
-      "score": 8.36,
-      "n": 312
+      "score": 8.02,
+      "n": 399
     },
     {
       "era": "showa_post",
       "cap": "cog_info",
-      "score": 8.67,
-      "n": 149
+      "score": 8.46,
+      "n": 156
     },
     {
       "era": "showa_post",
       "cap": "cog_logical",
-      "score": 8.79,
-      "n": 202
+      "score": 8.82,
+      "n": 236
     },
     {
       "era": "showa_post",
       "cap": "cog_math",
-      "score": 8.96,
-      "n": 26
+      "score": 3.71,
+      "n": 294
     },
     {
       "era": "showa_post",
       "cap": "cog_systems",
-      "score": 7.95,
-      "n": 465
+      "score": 7.83,
+      "n": 493
     },
     {
       "era": "showa_post",
       "cap": "cre_cross_domain",
-      "score": 7.26,
-      "n": 297
+      "score": 7.24,
+      "n": 298
     },
     {
       "era": "showa_post",
       "cap": "soc_interpersonal",
-      "score": 7.85,
-      "n": 540
+      "score": 7.5,
+      "n": 672
     },
     {
       "era": "showa_post",
       "cap": "val_collective",
-      "score": 7.61,
-      "n": 104
+      "score": 6.77,
+      "n": 129
     },
     {
       "era": "showa_post",
       "cap": "val_eco",
-      "score": 8.01,
-      "n": 74
+      "score": 7.58,
+      "n": 83
     },
     {
       "era": "showa_post",
       "cap": "val_tolerance",
-      "score": 7.42,
-      "n": 201
+      "score": 6.87,
+      "n": 386
     },
     {
       "era": "showa_post",
       "cap": "val_traditional",
-      "score": 7.99,
-      "n": 361
+      "score": 8.08,
+      "n": 561
     },
     {
       "era": "showa_pre",
@@ -445,8 +457,8 @@
     {
       "era": "showa_pre",
       "cap": "age_meta_learning",
-      "score": 7.95,
-      "n": 165
+      "score": 7.09,
+      "n": 295
     },
     {
       "era": "showa_pre",
@@ -457,32 +469,32 @@
     {
       "era": "showa_pre",
       "cap": "age_resilience",
-      "score": 8.04,
-      "n": 221
+      "score": 7.89,
+      "n": 255
     },
     {
       "era": "showa_pre",
       "cap": "age_social_autonomy",
-      "score": 7.6,
-      "n": 5
+      "score": 7.04,
+      "n": 82
     },
     {
       "era": "showa_pre",
       "cap": "age_social_change",
-      "score": 7.95,
-      "n": 207
+      "score": 7.96,
+      "n": 254
     },
     {
       "era": "showa_pre",
       "cap": "cog_creativity",
-      "score": 8.37,
-      "n": 345
+      "score": 8.14,
+      "n": 552
     },
     {
       "era": "showa_pre",
       "cap": "cog_critical",
-      "score": 8.19,
-      "n": 171
+      "score": 8.07,
+      "n": 238
     },
     {
       "era": "showa_pre",
@@ -493,14 +505,14 @@
     {
       "era": "showa_pre",
       "cap": "cog_logical",
-      "score": 8.18,
-      "n": 146
+      "score": 8.15,
+      "n": 176
     },
     {
       "era": "showa_pre",
       "cap": "cog_math",
-      "score": 8.06,
-      "n": 17
+      "score": 6.11,
+      "n": 47
     },
     {
       "era": "showa_pre",
@@ -517,8 +529,8 @@
     {
       "era": "showa_pre",
       "cap": "soc_interpersonal",
-      "score": 7.27,
-      "n": 217
+      "score": 7.26,
+      "n": 227
     },
     {
       "era": "showa_pre",
@@ -529,56 +541,62 @@
     {
       "era": "showa_pre",
       "cap": "val_tolerance",
-      "score": 7.71,
-      "n": 52
+      "score": 6.72,
+      "n": 142
     },
     {
       "era": "showa_pre",
       "cap": "val_traditional",
-      "score": 8.24,
-      "n": 159
+      "score": 8.58,
+      "n": 289
     },
     {
       "era": "taisho",
       "cap": "age_entrepreneur",
-      "score": 9.01,
-      "n": 116
+      "score": 8.89,
+      "n": 132
     },
     {
       "era": "taisho",
       "cap": "age_meta_learning",
-      "score": 7.53,
-      "n": 272
+      "score": 7.39,
+      "n": 342
     },
     {
       "era": "taisho",
       "cap": "age_resilience",
-      "score": 7.5,
-      "n": 175
+      "score": 7.51,
+      "n": 199
     },
     {
       "era": "taisho",
       "cap": "age_social_autonomy",
-      "score": 8.18,
-      "n": 80
+      "score": 8.43,
+      "n": 222
     },
     {
       "era": "taisho",
       "cap": "age_social_change",
-      "score": 8.24,
-      "n": 251
+      "score": 8.41,
+      "n": 401
     },
     {
       "era": "taisho",
       "cap": "cog_creativity",
-      "score": 8.23,
-      "n": 313
+      "score": 7.93,
+      "n": 524
     },
     {
       "era": "taisho",
       "cap": "cog_critical",
-      "score": 8.01,
-      "n": 158
+      "score": 7.49,
+      "n": 312
+    },
+    {
+      "era": "taisho",
+      "cap": "cog_info",
+      "score": 7.33,
+      "n": 3
     },
     {
       "era": "taisho",
@@ -588,89 +606,111 @@
     },
     {
       "era": "taisho",
+      "cap": "cog_math",
+      "score": 5.0,
+      "n": 120
+    },
+    {
+      "era": "taisho",
       "cap": "cog_systems",
-      "score": 7.95,
-      "n": 191
+      "score": 7.71,
+      "n": 424
     },
     {
       "era": "taisho",
       "cap": "cre_cross_domain",
-      "score": 7.25,
-      "n": 292
+      "score": 7.35,
+      "n": 336
     },
     {
       "era": "taisho",
       "cap": "soc_interpersonal",
-      "score": 7.75,
-      "n": 294
+      "score": 7.45,
+      "n": 547
     },
     {
       "era": "taisho",
       "cap": "val_collective",
       "score": 7.29,
-      "n": 95
+      "n": 96
     },
     {
       "era": "taisho",
       "cap": "val_eco",
       "score": 8.0,
-      "n": 28
+      "n": 123
     },
     {
       "era": "taisho",
       "cap": "val_tolerance",
       "score": 7.0,
-      "n": 75
+      "n": 118
     },
     {
       "era": "taisho",
       "cap": "val_traditional",
-      "score": 8.41,
-      "n": 207
+      "score": 7.58,
+      "n": 367
     }
   ],
   "era_totals": [
     {
+      "era": "all",
+      "n": 2
+    },
+    {
       "era": "heisei",
-      "n": 1327
+      "n": 2952
     },
     {
       "era": "meiji",
-      "n": 866
+      "n": 1377
     },
     {
       "era": "reiwa",
-      "n": 4752
+      "n": 4382
     },
     {
       "era": "showa_post",
-      "n": 1386
+      "n": 1911
     },
     {
       "era": "showa_pre",
-      "n": 752
+      "n": 1036
     },
     {
       "era": "taisho",
-      "n": 677
+      "n": 1150
     }
   ],
   "domain_totals": [
     {
       "domain": "politics",
-      "n": 4314
+      "n": 4461
+    },
+    {
+      "domain": "women_pioneers",
+      "n": 1520
     },
     {
       "domain": "business",
-      "n": 1116
+      "n": 1171
     },
     {
       "domain": "culture_arts",
-      "n": 1005
+      "n": 1048
+    },
+    {
+      "domain": "craft",
+      "n": 787
+    },
+    {
+      "domain": "local_excellent_business",
+      "n": 572
     },
     {
       "domain": "sports",
-      "n": 478
+      "n": 532
     },
     {
       "domain": "science_tech",
@@ -678,43 +718,31 @@
     },
     {
       "domain": "social_movement",
-      "n": 410
-    },
-    {
-      "domain": "science",
-      "n": 296
-    },
-    {
-      "domain": "education",
-      "n": 243
-    },
-    {
-      "domain": "women_pioneers",
-      "n": 200
+      "n": 412
     },
     {
       "domain": "agriculture_local",
-      "n": 172
+      "n": 336
+    },
+    {
+      "domain": "science",
+      "n": 314
+    },
+    {
+      "domain": "education",
+      "n": 244
+    },
+    {
+      "domain": "media",
+      "n": 163
     },
     {
       "domain": "professional",
       "n": 153
     },
     {
-      "domain": "craft",
-      "n": 135
-    },
-    {
-      "domain": "media",
-      "n": 130
-    },
-    {
       "domain": "education_practice",
       "n": 100
-    },
-    {
-      "domain": "religion_thought",
-      "n": 88
     }
   ],
   "capabilities": [

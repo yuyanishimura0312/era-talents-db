@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-05T20:09:45.031211",
+  "generated_at": "2026-05-05T20:17:28.971182",
   "era_distribution": {
-    "total": 10850,
+    "total": 12810,
     "rows": [
       {
         "era": "all",
@@ -12,160 +12,165 @@
       },
       {
         "era": "heisei",
-        "n": 2425,
-        "pct": 22.4,
+        "n": 2952,
+        "pct": 23.0,
         "from_experts": 833,
-        "from_codex": 1587
+        "from_codex": 2114
       },
       {
         "era": "meiji",
-        "n": 1197,
-        "pct": 11.0,
+        "n": 1377,
+        "pct": 10.7,
         "from_experts": 0,
-        "from_codex": 1178
+        "from_codex": 1358
       },
       {
         "era": "reiwa",
-        "n": 4119,
-        "pct": 38.0,
+        "n": 4382,
+        "pct": 34.2,
         "from_experts": 3144,
-        "from_codex": 975
+        "from_codex": 1238
       },
       {
         "era": "showa_post",
-        "n": 1401,
-        "pct": 12.9,
+        "n": 1911,
+        "pct": 14.9,
         "from_experts": 0,
-        "from_codex": 1372
+        "from_codex": 1882
       },
       {
         "era": "showa_pre",
-        "n": 906,
-        "pct": 8.4,
+        "n": 1036,
+        "pct": 8.1,
         "from_experts": 0,
-        "from_codex": 890
+        "from_codex": 1020
       },
       {
         "era": "taisho",
-        "n": 800,
-        "pct": 7.4,
+        "n": 1150,
+        "pct": 9.0,
         "from_experts": 0,
-        "from_codex": 790
+        "from_codex": 1140
       }
     ]
   },
   "domain_distribution": {
-    "total": 10850,
+    "total": 12810,
     "rows": [
       {
         "domain": "politics",
-        "n": 4320,
-        "pct": 39.8
+        "n": 4461,
+        "pct": 34.8
+      },
+      {
+        "domain": "women_pioneers",
+        "n": 1520,
+        "pct": 11.9
       },
       {
         "domain": "business",
-        "n": 1116,
-        "pct": 10.3
+        "n": 1171,
+        "pct": 9.1
       },
       {
         "domain": "culture_arts",
-        "n": 1005,
-        "pct": 9.3
+        "n": 1048,
+        "pct": 8.2
+      },
+      {
+        "domain": "craft",
+        "n": 786,
+        "pct": 6.1
       },
       {
         "domain": "local_excellent_business",
-        "n": 557,
-        "pct": 5.1
+        "n": 573,
+        "pct": 4.5
       },
       {
         "domain": "sports",
-        "n": 478,
-        "pct": 4.4
+        "n": 532,
+        "pct": 4.2
       },
       {
         "domain": "science_tech",
         "n": 455,
-        "pct": 4.2
-      },
-      {
-        "domain": "craft",
-        "n": 437,
-        "pct": 4.0
+        "pct": 3.6
       },
       {
         "domain": "social_movement",
         "n": 412,
-        "pct": 3.8
-      },
-      {
-        "domain": "women_pioneers",
-        "n": 370,
-        "pct": 3.4
-      },
-      {
-        "domain": "science",
-        "n": 296,
-        "pct": 2.7
-      },
-      {
-        "domain": "education",
-        "n": 243,
-        "pct": 2.2
+        "pct": 3.2
       },
       {
         "domain": "agriculture_local",
-        "n": 241,
-        "pct": 2.2
+        "n": 336,
+        "pct": 2.6
+      },
+      {
+        "domain": "science",
+        "n": 314,
+        "pct": 2.5
+      },
+      {
+        "domain": "education",
+        "n": 244,
+        "pct": 1.9
+      },
+      {
+        "domain": "media",
+        "n": 163,
+        "pct": 1.3
       },
       {
         "domain": "professional",
         "n": 153,
-        "pct": 1.4
-      },
-      {
-        "domain": "media",
-        "n": 130,
         "pct": 1.2
       },
       {
         "domain": "education_practice",
         "n": 100,
-        "pct": 0.9
+        "pct": 0.8
       },
       {
         "domain": "religion_thought",
         "n": 88,
-        "pct": 0.8
+        "pct": 0.7
       },
       {
         "domain": "education_thought",
         "n": 80,
-        "pct": 0.7
+        "pct": 0.6
       },
       {
         "domain": "media_journalism",
         "n": 80,
-        "pct": 0.7
+        "pct": 0.6
       },
       {
         "domain": "diaspora_ainu_okinawa",
         "n": 79,
-        "pct": 0.7
+        "pct": 0.6
       },
       {
         "domain": "local_excellent_craft",
         "n": 69,
-        "pct": 0.6
+        "pct": 0.5
       },
       {
         "domain": "local_craft",
         "n": 60,
-        "pct": 0.6
+        "pct": 0.5
       },
       {
         "domain": "local_excellent_culture",
         "n": 51,
-        "pct": 0.5
+        "pct": 0.4
+      },
+      {
+        "domain": "technology",
+        "n": 13,
+        "pct": 0.1
       },
       {
         "domain": "military",
@@ -178,11 +183,6 @@
         "pct": 0.1
       },
       {
-        "domain": "technology",
-        "n": 8,
-        "pct": 0.1
-      },
-      {
         "domain": "other",
         "n": 1,
         "pct": 0.0
@@ -190,62 +190,72 @@
     ]
   },
   "score_distribution": {
-    "total": 24254,
+    "total": 30871,
     "dist": [
       {
+        "score": 1,
+        "n": 45,
+        "pct": 0.1
+      },
+      {
+        "score": 2,
+        "n": 55,
+        "pct": 0.2
+      },
+      {
         "score": 3,
-        "n": 8,
-        "pct": 0.0
+        "n": 279,
+        "pct": 0.9
       },
       {
         "score": 4,
-        "n": 8,
-        "pct": 0.0
+        "n": 285,
+        "pct": 0.9
       },
       {
         "score": 5,
-        "n": 198,
+        "n": 255,
         "pct": 0.8
       },
       {
         "score": 6,
-        "n": 1105,
-        "pct": 4.6
+        "n": 2335,
+        "pct": 7.6
       },
       {
         "score": 7,
-        "n": 6047,
-        "pct": 24.9
+        "n": 8075,
+        "pct": 26.2
       },
       {
         "score": 8,
-        "n": 11427,
-        "pct": 47.1
+        "n": 12964,
+        "pct": 42.0
       },
       {
         "score": 9,
-        "n": 5361,
-        "pct": 22.1
+        "n": 6478,
+        "pct": 21.0
       },
       {
         "score": 10,
         "n": 100,
-        "pct": 0.4
+        "pct": 0.3
       }
     ],
-    "mean": 7.86,
-    "var": 0.74,
+    "mean": 7.68,
+    "var": 1.27,
     "missing_low": false
   },
   "uniform_bulk": [
     {
-      "domain": "business",
-      "cap": "age_entrepreneur",
-      "cap_name": "起業家精神",
-      "avg": 8.74,
+      "domain": "sports",
+      "cap": "age_resilience",
+      "cap_name": "レジリエンス",
+      "avg": 8.71,
       "min": 8,
       "max": 9,
-      "n": 1161
+      "n": 534
     },
     {
       "domain": "sports",
@@ -257,60 +267,6 @@
       "n": 480
     },
     {
-      "domain": "sports",
-      "cap": "age_resilience",
-      "cap_name": "レジリエンス",
-      "avg": 8.79,
-      "min": 8,
-      "max": 9,
-      "n": 480
-    },
-    {
-      "domain": "science",
-      "cap": "cog_logical",
-      "cap_name": "論理的思考",
-      "avg": 9.0,
-      "min": 9,
-      "max": 9,
-      "n": 342
-    },
-    {
-      "domain": "sports",
-      "cap": "val_collective",
-      "cap_name": "集団協調性",
-      "avg": 7.64,
-      "min": 7,
-      "max": 8,
-      "n": 342
-    },
-    {
-      "domain": "business",
-      "cap": "age_meta_learning",
-      "cap_name": "学習戦略・適応性",
-      "avg": 7.69,
-      "min": 7,
-      "max": 8,
-      "n": 307
-    },
-    {
-      "domain": "politics",
-      "cap": "soc_interpersonal",
-      "cap_name": "対人関係スキル",
-      "avg": 7.64,
-      "min": 7,
-      "max": 8,
-      "n": 298
-    },
-    {
-      "domain": "politics",
-      "cap": "age_social_change",
-      "cap_name": "社会変革志向",
-      "avg": 8.37,
-      "min": 8,
-      "max": 9,
-      "n": 276
-    },
-    {
       "domain": "science_tech",
       "cap": "cog_logical",
       "cap_name": "論理的思考",
@@ -320,13 +276,22 @@
       "n": 272
     },
     {
-      "domain": "education",
-      "cap": "cog_critical",
-      "cap_name": "批判的思考",
-      "avg": 8.48,
-      "min": 8,
-      "max": 9,
-      "n": 270
+      "domain": "women_pioneers",
+      "cap": "cre_cross_domain",
+      "cap_name": "異分野統合志向",
+      "avg": 7.17,
+      "min": 7,
+      "max": 8,
+      "n": 255
+    },
+    {
+      "domain": "women_pioneers",
+      "cap": "age_meta_learning",
+      "cap_name": "学習戦略・適応性",
+      "avg": 7.71,
+      "min": 7,
+      "max": 8,
+      "n": 231
     },
     {
       "domain": "science",
@@ -347,15 +312,6 @@
       "n": 220
     },
     {
-      "domain": "science",
-      "cap": "cog_critical",
-      "cap_name": "批判的思考",
-      "avg": 8.0,
-      "min": 8,
-      "max": 9,
-      "n": 203
-    },
-    {
       "domain": "science_tech",
       "cap": "cog_creativity",
       "cap_name": "創造性",
@@ -365,67 +321,13 @@
       "n": 186
     },
     {
-      "domain": "women_pioneers",
-      "cap": "age_social_change",
-      "cap_name": "社会変革志向",
-      "avg": 8.39,
-      "min": 8,
-      "max": 9,
-      "n": 182
-    },
-    {
-      "domain": "business",
-      "cap": "cre_cross_domain",
-      "cap_name": "異分野統合志向",
-      "avg": 7.39,
-      "min": 7,
-      "max": 8,
-      "n": 153
-    },
-    {
-      "domain": "culture_arts",
-      "cap": "age_social_autonomy",
-      "cap_name": "社会的自立性",
-      "avg": 7.0,
-      "min": 7,
-      "max": 7,
-      "n": 148
-    },
-    {
-      "domain": "women_pioneers",
-      "cap": "val_tolerance",
-      "cap_name": "寛容性",
-      "avg": 6.46,
-      "min": 6,
-      "max": 7,
-      "n": 136
-    },
-    {
-      "domain": "sports",
-      "cap": "soc_interpersonal",
-      "cap_name": "対人関係スキル",
-      "avg": 7.34,
-      "min": 7,
-      "max": 8,
-      "n": 131
-    },
-    {
-      "domain": "media",
-      "cap": "cog_info",
-      "cap_name": "情報リテラシー",
-      "avg": 8.62,
-      "min": 8,
-      "max": 9,
-      "n": 130
-    },
-    {
       "domain": "craft",
       "cap": "cog_math",
       "cap_name": "数学的リテラシー",
-      "avg": 5.0,
-      "min": 5,
+      "avg": 4.71,
+      "min": 4,
       "max": 5,
-      "n": 120
+      "n": 169
     },
     {
       "domain": "science_tech",
@@ -435,24 +337,6 @@
       "min": 8,
       "max": 9,
       "n": 111
-    },
-    {
-      "domain": "politics",
-      "cap": "val_collective",
-      "cap_name": "集団協調性",
-      "avg": 8.0,
-      "min": 8,
-      "max": 8,
-      "n": 107
-    },
-    {
-      "domain": "media",
-      "cap": "soc_interpersonal",
-      "cap_name": "対人関係スキル",
-      "avg": 7.73,
-      "min": 7,
-      "max": 8,
-      "n": 106
     },
     {
       "domain": "education_practice",
@@ -581,15 +465,6 @@
       "n": 79
     },
     {
-      "domain": "women_pioneers",
-      "cap": "cog_logical",
-      "cap_name": "論理的思考",
-      "avg": 8.57,
-      "min": 8,
-      "max": 9,
-      "n": 79
-    },
-    {
       "domain": "education_thought",
       "cap": "age_social_change",
       "cap_name": "社会変革志向",
@@ -597,24 +472,6 @@
       "min": 7,
       "max": 7,
       "n": 78
-    },
-    {
-      "domain": "culture_arts",
-      "cap": "cog_systems",
-      "cap_name": "システム思考",
-      "avg": 7.7,
-      "min": 7,
-      "max": 8,
-      "n": 76
-    },
-    {
-      "domain": "women_pioneers",
-      "cap": "age_social_autonomy",
-      "cap_name": "社会的自立性",
-      "avg": 7.0,
-      "min": 7,
-      "max": 7,
-      "n": 74
     },
     {
       "domain": "education_practice",
@@ -725,15 +582,6 @@
       "n": 60
     },
     {
-      "domain": "politics",
-      "cap": "cog_critical",
-      "cap_name": "批判的思考",
-      "avg": 8.0,
-      "min": 8,
-      "max": 8,
-      "n": 56
-    },
-    {
       "domain": "education_thought",
       "cap": "soc_interpersonal",
       "cap_name": "対人関係スキル",
@@ -833,15 +681,6 @@
       "n": 46
     },
     {
-      "domain": "women_pioneers",
-      "cap": "soc_interpersonal",
-      "cap_name": "対人関係スキル",
-      "avg": 7.78,
-      "min": 7,
-      "max": 8,
-      "n": 46
-    },
-    {
       "domain": "diaspora_ainu_okinawa",
       "cap": "cog_creativity",
       "cap_name": "創造性",
@@ -905,39 +744,12 @@
       "n": 35
     },
     {
-      "domain": "women_pioneers",
-      "cap": "age_entrepreneur",
-      "cap_name": "起業家精神",
-      "avg": 10.0,
-      "min": 10,
-      "max": 10,
-      "n": 35
-    },
-    {
-      "domain": "women_pioneers",
-      "cap": "cog_systems",
-      "cap_name": "システム思考",
-      "avg": 8.0,
-      "min": 8,
-      "max": 8,
-      "n": 35
-    },
-    {
       "domain": "craft",
       "cap": "cog_critical",
       "cap_name": "批判的思考",
       "avg": 6.0,
       "min": 6,
       "max": 6,
-      "n": 34
-    },
-    {
-      "domain": "women_pioneers",
-      "cap": "cog_math",
-      "cap_name": "数学的リテラシー",
-      "avg": 5.0,
-      "min": 5,
-      "max": 5,
       "n": 34
     },
     {
@@ -1090,12 +902,12 @@
     },
     {
       "cap": "社会変革志向",
-      "total": 61,
+      "total": 67,
       "management": 1,
-      "education": 8,
-      "sociology": 17,
-      "other": 35,
-      "mgmt_pct": 1.6
+      "education": 9,
+      "sociology": 19,
+      "other": 38,
+      "mgmt_pct": 1.5
     },
     {
       "cap": "対人関係スキル",
@@ -1234,8 +1046,8 @@
     }
   ],
   "l4_orgs": {
-    "total": 589,
-    "unique_orgs": 216,
+    "total": 590,
+    "unique_orgs": 217,
     "top_orgs": [
       {
         "org": "OECD",
@@ -1245,17 +1057,22 @@
       {
         "org": "World Economic Forum",
         "n": 28,
-        "pct": 4.8
+        "pct": 4.7
       },
       {
         "org": "ADB",
-        "n": 21,
-        "pct": 3.6
+        "n": 22,
+        "pct": 3.7
       },
       {
         "org": "NISTEP",
         "n": 19,
         "pct": 3.2
+      },
+      {
+        "org": "CEPAL",
+        "n": 15,
+        "pct": 2.5
       },
       {
         "org": "JETRO",
@@ -1273,24 +1090,19 @@
         "pct": 2.4
       },
       {
-        "org": "IADB",
-        "n": 14,
-        "pct": 2.4
-      },
-      {
-        "org": "CEPAL",
-        "n": 14,
-        "pct": 2.4
-      },
-      {
         "org": "IPCC",
         "n": 14,
         "pct": 2.4
       },
       {
+        "org": "IADB",
+        "n": 13,
+        "pct": 2.2
+      },
+      {
         "org": "UNDP-RBLAC",
-        "n": 14,
-        "pct": 2.4
+        "n": 13,
+        "pct": 2.2
       },
       {
         "org": "ASEAN Secretariat",
@@ -1317,8 +1129,8 @@
       "future_2030": {
         "OECD": 23,
         "World Economic Forum": 16,
+        "ADB": 14,
         "JETRO": 14,
-        "ADB": 13,
         "McKinsey": 13,
         "ASEAN Secretariat": 10,
         "IADB": 8,
@@ -1428,6 +1240,7 @@
         "WEF/McKinsey": 2,
         "WEF/Pearson": 2,
         "World Resources Institute": 2,
+        "AU/OECD": 1,
         "Commons Transition/MIT Media Lab": 1,
         "Degrowth Research Network": 1,
         "Degrowth Research/OECD": 1,
@@ -1480,23 +1293,22 @@
         "Wellbeing Economy Alliance": 1
       },
       "future_2100": {
+        "CEPAL": 4,
         "IPCC": 4,
         "OECD": 4,
-        "CEPAL": 3,
         "NASA": 3,
-        "UNDP-RBLAC": 3,
         "United Nations": 3,
         "African Union": 2,
         "Centre for Effective Altruism": 2,
         "European Parliament": 2,
         "FAO": 2,
-        "IADB": 2,
         "International Energy Agency": 2,
         "JAXA": 2,
         "Long Now Foundation": 2,
         "NOAA": 2,
         "UC Berkeley CHAI": 2,
         "UN DESA": 2,
+        "UNDP-RBLAC": 2,
         "UNEP": 2,
         "World Economic Forum": 2,
         "ACS/NIH": 1,
@@ -1520,6 +1332,7 @@
         "Future of Life Institute": 1,
         "Future of Life Institute / EA": 1,
         "GCSP": 1,
+        "IADB": 1,
         "IAEA / IPCC": 1,
         "IPBES": 1,
         "IPCC / Climate Research": 1,
@@ -1596,7 +1409,7 @@
       },
       {
         "conf": 7,
-        "n": 144
+        "n": 145
       },
       {
         "conf": 6,
@@ -1621,41 +1434,41 @@
     ]
   },
   "gender": {
-    "total": 10850,
-    "women_pioneers_explicit": 370,
-    "name_pattern_estimated": 1202,
-    "name_pattern_pct": 11.1,
+    "total": 12810,
+    "women_pioneers_explicit": 1520,
+    "name_pattern_estimated": 1473,
+    "name_pattern_pct": 11.5,
     "by_era": {
-      "reiwa": 669,
-      "showa_post": 113,
-      "meiji": 37,
-      "taisho": 32,
-      "showa_pre": 35,
-      "heisei": 316
+      "reiwa": 697,
+      "showa_post": 213,
+      "meiji": 45,
+      "taisho": 39,
+      "showa_pre": 45,
+      "heisei": 434
     }
   },
   "academic_refs": {
-    "total": 104,
+    "total": 109,
     "by_decade": {
       "1860": 1,
       "1920": 2,
       "1930": 1,
       "1950": 3,
       "1960": 4,
-      "1970": 12,
-      "1980": 10,
+      "1970": 13,
+      "1980": 12,
       "1990": 18,
-      "2000": 29,
+      "2000": 31,
       "2010": 21,
       "2020": 3
     },
     "japan_authors": 0,
-    "western_authors": 104,
+    "western_authors": 109,
     "japan_pct": 0.0
   },
   "temporal_consistency": {
-    "inconsistent": 103,
-    "no_birth": 3063,
+    "inconsistent": 149,
+    "no_birth": 3302,
     "by_era": [
       {
         "era": "meiji",
@@ -1663,7 +1476,7 @@
           1830,
           1900
         ],
-        "issues": 7
+        "issues": 14
       },
       {
         "era": "taisho",
@@ -1671,7 +1484,7 @@
           1875,
           1915
         ],
-        "issues": 24
+        "issues": 57
       },
       {
         "era": "showa_pre",
@@ -1687,7 +1500,7 @@
           1900,
           1980
         ],
-        "issues": 58
+        "issues": 62
       },
       {
         "era": "heisei",
@@ -1703,7 +1516,7 @@
           1960,
           2010
         ],
-        "issues": 0
+        "issues": 2
       }
     ]
   }

@@ -58,7 +58,7 @@
     },
     {
       "timestamp": "2026-05-05T20:18:01.849495",
-      "phase": "6.0_baseline",
+      "phase": "6.7_final_after_full_codex",
       "summary": {
         "total_achievers": 12810,
         "reiwa_pct": 34.2,

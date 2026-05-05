@@ -52,8 +52,8 @@
     <span class="book-date">2026年5月</span>
   </div>
   <div class="book-metrics">
-    <span class="metric-item"><strong>31,444</strong> レコード</span>
-    <span class="metric-item"><strong>9,375</strong> 活躍人材</span>
+    <span class="metric-item"><strong>47,292</strong> レコード</span>
+    <span class="metric-item"><strong>12,960</strong> 活躍人材</span>
     <span class="metric-item"><strong>9</strong> 時代</span>
     <span class="metric-item"><strong>19</strong> 能力次元</span>
     <span class="metric-item"><strong>34</strong> 統合DB</span>
@@ -79,33 +79,35 @@
 <h2 class="chapter-title">規模と内訳</h2>
 
 <div class="stat-grid">
-  <div class="stat-card"><div class="label">総レコード</div><div class="value">31,444</div><div class="desc">9層統合</div></div>
-  <div class="stat-card"><div class="label">活躍人材 L3</div><div class="value">9,375</div><div class="desc">明治〜令和</div></div>
-  <div class="stat-card"><div class="label">能力スコア</div><div class="value">19,626</div><div class="desc">人物×能力</div></div>
+  <div class="stat-card"><div class="label">総レコード</div><div class="value">47,292</div><div class="desc">9層統合（Phase 6補正後）</div></div>
+  <div class="stat-card"><div class="label">活躍人材 L3</div><div class="value">12,960</div><div class="desc">明治〜令和</div></div>
+  <div class="stat-card"><div class="label">能力スコア</div><div class="value">31,436</div><div class="desc">人物×能力</div></div>
   <div class="stat-card"><div class="label">L1 言説</div><div class="value">800</div><div class="desc">当時の能力論</div></div>
-  <div class="stat-card"><div class="label">L2 事後評価</div><div class="value">927</div><div class="desc">歴史社会学</div></div>
-  <div class="stat-card"><div class="label">L4 未来予測</div><div class="value">397</div><div class="desc">2030/2050/2100</div></div>
-  <div class="stat-card"><div class="label">学術文献</div><div class="value">40</div><div class="desc">Galton〜WEF</div></div>
+  <div class="stat-card"><div class="label">L2 事後評価</div><div class="value">1,353</div><div class="desc">経営史/教育社会学/歴史/ジェンダー</div></div>
+  <div class="stat-card"><div class="label">L4 未来予測</div><div class="value">590</div><div class="desc">2030/50/00, 217機関</div></div>
+  <div class="stat-card"><div class="label">学術文献</div><div class="value">109</div><div class="desc">欧米日本+グローバルサウス</div></div>
   <div class="stat-card"><div class="label">統合DB</div><div class="value">34</div><div class="desc">miratuku-news-v2</div></div>
 </div>
 
 <h3 class="section-heading">時代別人物分布</h3>
 
+<p>Phase 6 バイアス補正後の最終分布。令和期集中（49%）と politics 過半数（44%）の歪みを解消し、各時代に均衡したデータが得られた。</p>
+
 <table>
-<thead><tr><th>時代</th><th>人数</th><th>うち偉人</th><th>うち無名卓越者</th></tr></thead>
+<thead><tr><th>時代</th><th>人数</th><th>比率</th><th>うち補正前→後</th></tr></thead>
 <tbody>
-<tr><td>明治（1868–1912）</td><td>866</td><td>137</td><td>605</td></tr>
-<tr><td>大正（1912–1926）</td><td>677</td><td>133</td><td>436</td></tr>
-<tr><td>昭和前期（1926–1945）</td><td>667</td><td>108</td><td>481</td></tr>
-<tr><td>昭和後期（1946–1989）</td><td>1,236</td><td>209</td><td>679</td></tr>
-<tr><td>平成（1989–2019）</td><td>1,177</td><td>298</td><td>458</td></tr>
-<tr><td>令和（2019–）</td><td>4,752</td><td>217</td><td>4,207</td></tr>
+<tr><td>明治（1868–1912）</td><td>1,377</td><td>10.6%</td><td>866 → 1,377</td></tr>
+<tr><td>大正（1912–1926）</td><td>1,150</td><td>8.9%</td><td>677 → 1,150</td></tr>
+<tr><td>昭和前期（1926–1945）</td><td>1,036</td><td>8.0%</td><td>667 → 1,036</td></tr>
+<tr><td>昭和後期（1946–1989）</td><td>1,911</td><td>14.7%</td><td>1,236 → 1,911</td></tr>
+<tr><td>平成（1989–2019）</td><td>2,952</td><td>22.8%</td><td>1,177 → 2,952</td></tr>
+<tr><td>令和（2019–）</td><td>4,382</td><td>33.8%</td><td>4,752 → 4,382</td></tr>
 </tbody>
 </table>
 
 <div class="insight-box">
-<div class="insight-box-label">Key Finding</div>
-<p>無名卓越者の比率は全体で76%を占め、偉人偏重バイアスを構造的に回避している。これは <code>is_local_excellent</code> フラグで意識的に確保された設計上の選択であり、「明治＝偉人の時代」という通念に対する実証的な修正である。</p>
+<div class="insight-box-label">Key Finding (Phase 6 補正後)</div>
+<p>令和集中 49%→34%、politics 過半数 44%→35% に改善。craft（職人・人間国宝）437→787人、women_pioneers 220→1,520人へ大幅増。L4 未来予測の機関多様性は30→217機関（7倍）に拡大。詳細は<a href="dashboards/index.html#bias">バイアス検証タブ</a>と<a href="reports/phase6_correction_report.md">Phase 6 補正レポート</a>参照。</p>
 </div>
 </section>
 
@@ -146,10 +148,10 @@
 <p>現代から振り返って各時代に「実際に効いた力」の評価。竹内洋・苅谷剛彦・Bourdieu・Mertonら歴史社会学・教育学・経営史の知見を統合。L1との差分を構造的に検出する。</p>
 
 <h3 class="section-heading">L3：活躍者特性</h3>
-<p>各時代に実際に活躍した人物の能力・背景・経験・ネットワーク。9,375人を13ドメイン（政治・実業・科学技術・文化芸術・スポーツ・社会運動・教育・宗教・メディア・農林水産・専門職・職人・女性活躍者横断）に分類。</p>
+<p>各時代に実際に活躍した人物の能力・背景・経験・ネットワーク。12,960人を13ドメイン（政治・実業・科学技術・文化芸術・スポーツ・社会運動・教育・宗教・メディア・農林水産・専門職・職人・女性活躍者横断）に分類。</p>
 
 <h3 class="section-heading">L4：未来予測</h3>
-<p>2030・2050・2100に求められる能力のシナリオ別予測。OECD・WEF・McKinsey・経産省・IPCC・UN・JAXAなど権威機関の一次資料に基づく397件。シナリオ分岐（IPCC SSP1〜5、ポスト成長、ポストヒューマン、AGI後、宇宙時代等）を併記している。</p>
+<p>2030・2050・2100に求められる能力のシナリオ別予測。OECD・WEF・McKinsey・経産省・IPCC・UN・JAXAなど権威機関の一次資料に基づく590件（217機関、Phase 6でアジア・アフリカ・ラテンアメリカ機関に多様化）。シナリオ分岐（IPCC SSP1〜5、ポスト成長、ポストヒューマン、AGI後、宇宙時代等）を併記している。</p>
 
 <div class="callout">
 <div class="callout-label">Data Schema</div>

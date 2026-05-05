@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>era-talents-db | 時代別活躍人材データベース</title>
+<style>
+:root { --bg: #0c0d10; --panel: #14161b; --line: #262a32; --text: #e6e9ee; --muted: #8a93a4; --accent: #cc1400; --link: #82aaff; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: "Noto Sans JP", -apple-system, sans-serif; font-size: 15px; line-height: 1.85; }
+.container { max-width: 960px; margin: 0 auto; padding: 64px 32px; }
+h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 12px; }
+.subtitle { color: var(--muted); font-size: 16px; }
+.accent-bar { height: 3px; width: 80px; background: var(--accent); margin: 24px 0 40px; }
+h2 { font-size: 22px; font-weight: 600; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+p { margin-bottom: 18px; text-align: justify; }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 24px 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 24px; transition: border-color 0.15s; }
+.card:hover { border-color: var(--accent); }
+.card a { color: var(--text); text-decoration: none; }
+.card h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.card .desc { color: var(--muted); font-size: 13px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 24px 0; }
+.stat { background: var(--panel); border: 1px solid var(--line); padding: 16px; border-radius: 6px; }
+.stat .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat .value { color: var(--accent); font-size: 24px; font-weight: 700; margin-top: 4px; }
+.footer { border-top: 1px solid var(--line); padding-top: 20px; margin-top: 48px; color: var(--muted); font-size: 13px; }
+.footer a { color: var(--link); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>era-talents-db</h1>
+<div class="subtitle">時代別活躍人材データベース ・ Era Talents Database</div>
+<div class="accent-bar"></div>
+
+<p>明治から令和までの活躍人材9,375人と、当時の能力言説800件、事後評価927件、未来予測（2030/2050/2100）397件、学術文献40件を統合した大規模学術DB。L1（当時言説）/ L2（事後評価）/ L3（活躍者特性）/ L4（未来予測）の4層構造で、9時代区分・19能力次元を実装。教育・採用・組織設計への新たな知見創出を目的とする。</p>
+
+<div class="stats">
+<div class="stat"><div class="label">総レコード</div><div class="value">31,444</div></div>
+<div class="stat"><div class="label">活躍人材</div><div class="value">9,375</div></div>
+<div class="stat"><div class="label">能力スコア</div><div class="value">19,626</div></div>
+<div class="stat"><div class="label">時代区分</div><div class="value">9</div></div>
+<div class="stat"><div class="label">能力次元</div><div class="value">19</div></div>
+<div class="stat"><div class="label">統合DB</div><div class="value">34</div></div>
+</div>
+
+<h2>コンテンツ</h2>
+<div class="card-grid">
+<a href="dashboards/index.html"><div class="card">
+<h3>ダッシュボード</h3>
+<div class="desc">時代×能力ヒートマップ・活躍人材リスト・言説/事後評価/未来予測・ギャップ知見・データソース・学術文献の統合ビュー</div>
+</div></a>
+<a href="reports/implications_3parts.html"><div class="card">
+<h3>含意レポート3部作</h3>
+<div class="desc">教育・採用・組織設計への新知見。6時代の能力遷移、未来の能力地形（2030/2050/2100）、各時代の盲点とその補完戦略</div>
+</div></a>
+<a href="reports/phase3_audit_report.md"><div class="card">
+<h3>Phase 3 監査レポート</h3>
+<div class="desc">品質保証・重複検出・時代再配分・整合性チェックの監査記録</div>
+</div></a>
+<a href="phase0_planning/integrated_foundation_plan.md"><div class="card">
+<h3>基礎計画書</h3>
+<div class="desc">プロジェクト構造・4層モデル・採用理論枠組み・チーム編成の詳細設計</div>
+</div></a>
+</div>
+
+<h2>データの構造</h2>
+<p>本DBは6つの主要理論枠組み（Csikszentmihalyi・Subotnik・Merton・Bourdieu・Granovetter＋日本特化として竹内洋・苅谷剛彦）を統合し、能力次元の標準化フレームとしてOECD Learning Compass 2030・P21 Framework・WEF Future of Jobs・JPMS-DB 5次元タクソノミーから19能力次元を構築している。</p>
+
+<p>基盤データは miratuku-news-v2 統合データベース30件（合計15,200,000+レコード）から構造化インポートを実施。experts-db（政府委員・有識者3,995人）、great-figures-db（9,178人物）、academic-knowledge-db（1,385人文概念＋936社会理論）、innovation-theory-db、futures-studies-db など既存資産との連結を確立している。</p>
+
+<h2>関連リソース</h2>
+<div class="card-grid">
+<a href="https://yuyanishimura0312.github.io/jpms-db/dashboards/analysis.html" target="_blank"><div class="card">
+<h3>JPMS-DB analysis</h3>
+<div class="desc">起点となった日本私立中学校DB の時代別ヒートマップ</div>
+</div></a>
+<a href="https://yuyanishimura0312.github.io/miratuku-news-v2/databases.html" target="_blank"><div class="card">
+<h3>miratuku-news-v2 統合DB</h3>
+<div class="desc">30DB・15.2M+レコードの統合データベース・カタログ</div>
+</div></a>
+<a href="https://github.com/yuyanishimura0312/era-talents-db" target="_blank"><div class="card">
+<h3>GitHub Repository</h3>
+<div class="desc">ソースコード・スキーマ・収集スクリプト・レポート全体</div>
+</div></a>
+</div>
+
+<div class="footer">
+era-talents-db v1.0 ・ 2026-05-05<br>
+Copyright © Yuya Nishimura / NPO法人ミラツク
+</div>
+
+</div>
+</body>
+</html>

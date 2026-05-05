@@ -1,0 +1,7125 @@
+{
+  "meta": {
+    "generated_at": "2026-05-05",
+    "total_records": 31444
+  },
+  "heatmap": [
+    {
+      "era": "heisei",
+      "cap": "age_entrepreneur",
+      "score": 8.39,
+      "n": 305
+    },
+    {
+      "era": "heisei",
+      "cap": "age_meta_learning",
+      "score": 8.04,
+      "n": 477
+    },
+    {
+      "era": "heisei",
+      "cap": "age_oecd_transformative",
+      "score": 8.0,
+      "n": 47
+    },
+    {
+      "era": "heisei",
+      "cap": "age_resilience",
+      "score": 8.0,
+      "n": 493
+    },
+    {
+      "era": "heisei",
+      "cap": "age_social_autonomy",
+      "score": 7.0,
+      "n": 88
+    },
+    {
+      "era": "heisei",
+      "cap": "age_social_change",
+      "score": 8.27,
+      "n": 256
+    },
+    {
+      "era": "heisei",
+      "cap": "cog_ai_collab",
+      "score": 8.8,
+      "n": 10
+    },
+    {
+      "era": "heisei",
+      "cap": "cog_creativity",
+      "score": 8.68,
+      "n": 485
+    },
+    {
+      "era": "heisei",
+      "cap": "cog_critical",
+      "score": 8.01,
+      "n": 287
+    },
+    {
+      "era": "heisei",
+      "cap": "cog_info",
+      "score": 7.51,
+      "n": 221
+    },
+    {
+      "era": "heisei",
+      "cap": "cog_logical",
+      "score": 8.47,
+      "n": 191
+    },
+    {
+      "era": "heisei",
+      "cap": "cog_math",
+      "score": 8.93,
+      "n": 27
+    },
+    {
+      "era": "heisei",
+      "cap": "cog_systems",
+      "score": 7.66,
+      "n": 348
+    },
+    {
+      "era": "heisei",
+      "cap": "cre_cross_domain",
+      "score": 8.02,
+      "n": 329
+    },
+    {
+      "era": "heisei",
+      "cap": "soc_interpersonal",
+      "score": 7.6,
+      "n": 382
+    },
+    {
+      "era": "heisei",
+      "cap": "val_collective",
+      "score": 8.22,
+      "n": 170
+    },
+    {
+      "era": "heisei",
+      "cap": "val_eco",
+      "score": 7.88,
+      "n": 51
+    },
+    {
+      "era": "heisei",
+      "cap": "val_tolerance",
+      "score": 7.82,
+      "n": 91
+    },
+    {
+      "era": "heisei",
+      "cap": "val_traditional",
+      "score": 8.36,
+      "n": 262
+    },
+    {
+      "era": "meiji",
+      "cap": "age_entrepreneur",
+      "score": 8.85,
+      "n": 206
+    },
+    {
+      "era": "meiji",
+      "cap": "age_meta_learning",
+      "score": 8.16,
+      "n": 262
+    },
+    {
+      "era": "meiji",
+      "cap": "age_resilience",
+      "score": 7.25,
+      "n": 281
+    },
+    {
+      "era": "meiji",
+      "cap": "age_social_change",
+      "score": 7.7,
+      "n": 366
+    },
+    {
+      "era": "meiji",
+      "cap": "cog_creativity",
+      "score": 8.37,
+      "n": 309
+    },
+    {
+      "era": "meiji",
+      "cap": "cog_critical",
+      "score": 8.02,
+      "n": 177
+    },
+    {
+      "era": "meiji",
+      "cap": "cog_info",
+      "score": 9.0,
+      "n": 2
+    },
+    {
+      "era": "meiji",
+      "cap": "cog_logical",
+      "score": 8.33,
+      "n": 175
+    },
+    {
+      "era": "meiji",
+      "cap": "cog_math",
+      "score": 8.0,
+      "n": 8
+    },
+    {
+      "era": "meiji",
+      "cap": "cog_systems",
+      "score": 8.26,
+      "n": 329
+    },
+    {
+      "era": "meiji",
+      "cap": "cre_cross_domain",
+      "score": 8.0,
+      "n": 101
+    },
+    {
+      "era": "meiji",
+      "cap": "soc_interpersonal",
+      "score": 7.5,
+      "n": 268
+    },
+    {
+      "era": "meiji",
+      "cap": "val_collective",
+      "score": 7.1,
+      "n": 77
+    },
+    {
+      "era": "meiji",
+      "cap": "val_eco",
+      "score": 8.29,
+      "n": 24
+    },
+    {
+      "era": "meiji",
+      "cap": "val_tolerance",
+      "score": 7.49,
+      "n": 100
+    },
+    {
+      "era": "meiji",
+      "cap": "val_traditional",
+      "score": 7.86,
+      "n": 251
+    },
+    {
+      "era": "reiwa",
+      "cap": "age_entrepreneur",
+      "score": 8.88,
+      "n": 227
+    },
+    {
+      "era": "reiwa",
+      "cap": "age_meta_learning",
+      "score": 7.73,
+      "n": 251
+    },
+    {
+      "era": "reiwa",
+      "cap": "age_oecd_transformative",
+      "score": 8.33,
+      "n": 6
+    },
+    {
+      "era": "reiwa",
+      "cap": "age_resilience",
+      "score": 8.01,
+      "n": 147
+    },
+    {
+      "era": "reiwa",
+      "cap": "age_social_autonomy",
+      "score": 7.02,
+      "n": 61
+    },
+    {
+      "era": "reiwa",
+      "cap": "age_social_change",
+      "score": 8.61,
+      "n": 195
+    },
+    {
+      "era": "reiwa",
+      "cap": "cog_ai_collab",
+      "score": 8.79,
+      "n": 42
+    },
+    {
+      "era": "reiwa",
+      "cap": "cog_creativity",
+      "score": 8.53,
+      "n": 189
+    },
+    {
+      "era": "reiwa",
+      "cap": "cog_critical",
+      "score": 7.98,
+      "n": 204
+    },
+    {
+      "era": "reiwa",
+      "cap": "cog_info",
+      "score": 8.9,
+      "n": 105
+    },
+    {
+      "era": "reiwa",
+      "cap": "cog_logical",
+      "score": 8.61,
+      "n": 135
+    },
+    {
+      "era": "reiwa",
+      "cap": "cog_math",
+      "score": 8.61,
+      "n": 46
+    },
+    {
+      "era": "reiwa",
+      "cap": "cog_systems",
+      "score": 8.1,
+      "n": 349
+    },
+    {
+      "era": "reiwa",
+      "cap": "cre_cross_domain",
+      "score": 7.62,
+      "n": 223
+    },
+    {
+      "era": "reiwa",
+      "cap": "soc_interpersonal",
+      "score": 7.57,
+      "n": 258
+    },
+    {
+      "era": "reiwa",
+      "cap": "val_collective",
+      "score": 7.44,
+      "n": 72
+    },
+    {
+      "era": "reiwa",
+      "cap": "val_eco",
+      "score": 8.26,
+      "n": 78
+    },
+    {
+      "era": "reiwa",
+      "cap": "val_tolerance",
+      "score": 7.64,
+      "n": 126
+    },
+    {
+      "era": "reiwa",
+      "cap": "val_traditional",
+      "score": 8.45,
+      "n": 78
+    },
+    {
+      "era": "showa_post",
+      "cap": "age_entrepreneur",
+      "score": 8.91,
+      "n": 129
+    },
+    {
+      "era": "showa_post",
+      "cap": "age_meta_learning",
+      "score": 7.58,
+      "n": 448
+    },
+    {
+      "era": "showa_post",
+      "cap": "age_oecd_transformative",
+      "score": 8.0,
+      "n": 11
+    },
+    {
+      "era": "showa_post",
+      "cap": "age_resilience",
+      "score": 7.82,
+      "n": 430
+    },
+    {
+      "era": "showa_post",
+      "cap": "age_social_change",
+      "score": 8.34,
+      "n": 337
+    },
+    {
+      "era": "showa_post",
+      "cap": "cog_ai_collab",
+      "score": 9.0,
+      "n": 1
+    },
+    {
+      "era": "showa_post",
+      "cap": "cog_creativity",
+      "score": 8.14,
+      "n": 518
+    },
+    {
+      "era": "showa_post",
+      "cap": "cog_critical",
+      "score": 8.36,
+      "n": 312
+    },
+    {
+      "era": "showa_post",
+      "cap": "cog_info",
+      "score": 8.67,
+      "n": 149
+    },
+    {
+      "era": "showa_post",
+      "cap": "cog_logical",
+      "score": 8.79,
+      "n": 202
+    },
+    {
+      "era": "showa_post",
+      "cap": "cog_math",
+      "score": 8.96,
+      "n": 26
+    },
+    {
+      "era": "showa_post",
+      "cap": "cog_systems",
+      "score": 7.92,
+      "n": 315
+    },
+    {
+      "era": "showa_post",
+      "cap": "cre_cross_domain",
+      "score": 7.26,
+      "n": 297
+    },
+    {
+      "era": "showa_post",
+      "cap": "soc_interpersonal",
+      "score": 7.79,
+      "n": 390
+    },
+    {
+      "era": "showa_post",
+      "cap": "val_collective",
+      "score": 7.61,
+      "n": 104
+    },
+    {
+      "era": "showa_post",
+      "cap": "val_eco",
+      "score": 8.01,
+      "n": 74
+    },
+    {
+      "era": "showa_post",
+      "cap": "val_tolerance",
+      "score": 7.42,
+      "n": 201
+    },
+    {
+      "era": "showa_post",
+      "cap": "val_traditional",
+      "score": 7.99,
+      "n": 361
+    },
+    {
+      "era": "showa_pre",
+      "cap": "age_entrepreneur",
+      "score": 8.36,
+      "n": 156
+    },
+    {
+      "era": "showa_pre",
+      "cap": "age_meta_learning",
+      "score": 7.95,
+      "n": 165
+    },
+    {
+      "era": "showa_pre",
+      "cap": "age_oecd_transformative",
+      "score": 8.0,
+      "n": 2
+    },
+    {
+      "era": "showa_pre",
+      "cap": "age_resilience",
+      "score": 8.04,
+      "n": 221
+    },
+    {
+      "era": "showa_pre",
+      "cap": "age_social_autonomy",
+      "score": 7.6,
+      "n": 5
+    },
+    {
+      "era": "showa_pre",
+      "cap": "age_social_change",
+      "score": 7.95,
+      "n": 207
+    },
+    {
+      "era": "showa_pre",
+      "cap": "cog_creativity",
+      "score": 8.37,
+      "n": 345
+    },
+    {
+      "era": "showa_pre",
+      "cap": "cog_critical",
+      "score": 8.19,
+      "n": 171
+    },
+    {
+      "era": "showa_pre",
+      "cap": "cog_info",
+      "score": 8.75,
+      "n": 32
+    },
+    {
+      "era": "showa_pre",
+      "cap": "cog_logical",
+      "score": 8.18,
+      "n": 146
+    },
+    {
+      "era": "showa_pre",
+      "cap": "cog_math",
+      "score": 8.06,
+      "n": 17
+    },
+    {
+      "era": "showa_pre",
+      "cap": "cog_systems",
+      "score": 7.6,
+      "n": 330
+    },
+    {
+      "era": "showa_pre",
+      "cap": "cre_cross_domain",
+      "score": 7.94,
+      "n": 176
+    },
+    {
+      "era": "showa_pre",
+      "cap": "soc_interpersonal",
+      "score": 7.27,
+      "n": 217
+    },
+    {
+      "era": "showa_pre",
+      "cap": "val_collective",
+      "score": 7.87,
+      "n": 86
+    },
+    {
+      "era": "showa_pre",
+      "cap": "val_tolerance",
+      "score": 7.71,
+      "n": 52
+    },
+    {
+      "era": "showa_pre",
+      "cap": "val_traditional",
+      "score": 8.24,
+      "n": 159
+    },
+    {
+      "era": "taisho",
+      "cap": "age_entrepreneur",
+      "score": 9.01,
+      "n": 116
+    },
+    {
+      "era": "taisho",
+      "cap": "age_meta_learning",
+      "score": 7.53,
+      "n": 272
+    },
+    {
+      "era": "taisho",
+      "cap": "age_resilience",
+      "score": 7.5,
+      "n": 175
+    },
+    {
+      "era": "taisho",
+      "cap": "age_social_autonomy",
+      "score": 8.18,
+      "n": 80
+    },
+    {
+      "era": "taisho",
+      "cap": "age_social_change",
+      "score": 8.24,
+      "n": 251
+    },
+    {
+      "era": "taisho",
+      "cap": "cog_creativity",
+      "score": 8.23,
+      "n": 313
+    },
+    {
+      "era": "taisho",
+      "cap": "cog_critical",
+      "score": 8.01,
+      "n": 158
+    },
+    {
+      "era": "taisho",
+      "cap": "cog_logical",
+      "score": 8.23,
+      "n": 39
+    },
+    {
+      "era": "taisho",
+      "cap": "cog_systems",
+      "score": 7.95,
+      "n": 191
+    },
+    {
+      "era": "taisho",
+      "cap": "cre_cross_domain",
+      "score": 7.25,
+      "n": 292
+    },
+    {
+      "era": "taisho",
+      "cap": "soc_interpersonal",
+      "score": 7.75,
+      "n": 294
+    },
+    {
+      "era": "taisho",
+      "cap": "val_collective",
+      "score": 7.29,
+      "n": 95
+    },
+    {
+      "era": "taisho",
+      "cap": "val_eco",
+      "score": 8.0,
+      "n": 28
+    },
+    {
+      "era": "taisho",
+      "cap": "val_tolerance",
+      "score": 7.0,
+      "n": 75
+    },
+    {
+      "era": "taisho",
+      "cap": "val_traditional",
+      "score": 8.41,
+      "n": 207
+    }
+  ],
+  "era_totals": [
+    {
+      "era": "heisei",
+      "n": 1327
+    },
+    {
+      "era": "meiji",
+      "n": 866
+    },
+    {
+      "era": "reiwa",
+      "n": 4752
+    },
+    {
+      "era": "showa_post",
+      "n": 1236
+    },
+    {
+      "era": "showa_pre",
+      "n": 752
+    },
+    {
+      "era": "taisho",
+      "n": 677
+    }
+  ],
+  "domain_totals": [
+    {
+      "domain": "politics",
+      "n": 4314
+    },
+    {
+      "domain": "culture_arts",
+      "n": 1005
+    },
+    {
+      "domain": "business",
+      "n": 966
+    },
+    {
+      "domain": "sports",
+      "n": 478
+    },
+    {
+      "domain": "science_tech",
+      "n": 455
+    },
+    {
+      "domain": "social_movement",
+      "n": 410
+    },
+    {
+      "domain": "science",
+      "n": 296
+    },
+    {
+      "domain": "education",
+      "n": 243
+    },
+    {
+      "domain": "women_pioneers",
+      "n": 200
+    },
+    {
+      "domain": "agriculture_local",
+      "n": 172
+    },
+    {
+      "domain": "professional",
+      "n": 153
+    },
+    {
+      "domain": "craft",
+      "n": 135
+    },
+    {
+      "domain": "media",
+      "n": 130
+    },
+    {
+      "domain": "education_practice",
+      "n": 100
+    },
+    {
+      "domain": "religion_thought",
+      "n": 88
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "age_entrepreneur",
+      "name_ja": "起業家精神",
+      "code": "age",
+      "framework": "Schumpeter"
+    },
+    {
+      "id": "age_meta_learning",
+      "name_ja": "学習戦略・適応性",
+      "code": "age",
+      "framework": "OECD2030"
+    },
+    {
+      "id": "age_oecd_transformative",
+      "name_ja": "OECD変革コンピテンシー",
+      "code": "age",
+      "framework": "OECD2030"
+    },
+    {
+      "id": "age_resilience",
+      "name_ja": "レジリエンス",
+      "code": "age",
+      "framework": "WEF"
+    },
+    {
+      "id": "age_social_autonomy",
+      "name_ja": "社会的自立性",
+      "code": "age",
+      "framework": "JPMS"
+    },
+    {
+      "id": "age_social_change",
+      "name_ja": "社会変革志向",
+      "code": "age",
+      "framework": "OECD"
+    },
+    {
+      "id": "cog_ai_collab",
+      "name_ja": "AI協働リテラシー",
+      "code": "cog",
+      "framework": "WEF2025"
+    },
+    {
+      "id": "cog_creativity",
+      "name_ja": "創造性",
+      "code": "cog",
+      "framework": "OECD/P21"
+    },
+    {
+      "id": "cog_critical",
+      "name_ja": "批判的思考",
+      "code": "cog",
+      "framework": "OECD/P21"
+    },
+    {
+      "id": "cog_info",
+      "name_ja": "情報リテラシー",
+      "code": "cog",
+      "framework": "P21"
+    },
+    {
+      "id": "cog_logical",
+      "name_ja": "論理的思考",
+      "code": "cog",
+      "framework": "P21"
+    },
+    {
+      "id": "cog_math",
+      "name_ja": "数学的リテラシー",
+      "code": "cog",
+      "framework": "PISA"
+    },
+    {
+      "id": "cog_systems",
+      "name_ja": "システム思考",
+      "code": "cog",
+      "framework": "OECD2030"
+    },
+    {
+      "id": "cre_cross_domain",
+      "name_ja": "異分野統合志向",
+      "code": "cre",
+      "framework": "Csikszentmihalyi"
+    },
+    {
+      "id": "soc_interpersonal",
+      "name_ja": "対人関係スキル",
+      "code": "soc",
+      "framework": "P21"
+    },
+    {
+      "id": "val_collective",
+      "name_ja": "集団協調性",
+      "code": "val",
+      "framework": "JPMS"
+    },
+    {
+      "id": "val_eco",
+      "name_ja": "エコロジカルリテラシー",
+      "code": "val",
+      "framework": "IPCC"
+    },
+    {
+      "id": "val_tolerance",
+      "name_ja": "寛容性",
+      "code": "val",
+      "framework": "UNESCO"
+    },
+    {
+      "id": "val_traditional",
+      "name_ja": "伝統文化尊重",
+      "code": "val",
+      "framework": "JPMS"
+    }
+  ],
+  "eras": [
+    {
+      "id": "all",
+      "name_ja": "全時代",
+      "year_start": 1868,
+      "year_end": 2030,
+      "is_future": 0
+    },
+    {
+      "id": "meiji",
+      "name_ja": "明治",
+      "year_start": 1868,
+      "year_end": 1912,
+      "is_future": 0
+    },
+    {
+      "id": "taisho",
+      "name_ja": "大正",
+      "year_start": 1912,
+      "year_end": 1926,
+      "is_future": 0
+    },
+    {
+      "id": "showa_pre",
+      "name_ja": "昭和前期",
+      "year_start": 1926,
+      "year_end": 1945,
+      "is_future": 0
+    },
+    {
+      "id": "showa_post",
+      "name_ja": "昭和後期",
+      "year_start": 1946,
+      "year_end": 1989,
+      "is_future": 0
+    },
+    {
+      "id": "heisei",
+      "name_ja": "平成",
+      "year_start": 1989,
+      "year_end": 2019,
+      "is_future": 0
+    },
+    {
+      "id": "reiwa",
+      "name_ja": "令和",
+      "year_start": 2019,
+      "year_end": 2030,
+      "is_future": 0
+    },
+    {
+      "id": "future_2030",
+      "name_ja": "2030年代",
+      "year_start": 2030,
+      "year_end": 2040,
+      "is_future": 1
+    },
+    {
+      "id": "future_2050",
+      "name_ja": "2050年代",
+      "year_start": 2050,
+      "year_end": 2060,
+      "is_future": 1
+    },
+    {
+      "id": "future_2100",
+      "name_ja": "2100年代",
+      "year_start": 2100,
+      "year_end": 2110,
+      "is_future": 1
+    }
+  ],
+  "sample_achievers": [
+    {
+      "id": 2453,
+      "name": "村田恒夫",
+      "birth": 1951,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2454,
+      "name": "奥田碩",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2455,
+      "name": "張富士夫",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2456,
+      "name": "カルロス・ゴーン",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2457,
+      "name": "宮内義彦",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2458,
+      "name": "樋口泰行",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2459,
+      "name": "出井伸之",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2460,
+      "name": "佐治信忠",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2461,
+      "name": "鳥井信宏",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2462,
+      "name": "重光昭夫",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2463,
+      "name": "岩田聡",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2464,
+      "name": "宮本茂",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2465,
+      "name": "糸井重里",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2466,
+      "name": "出澤剛",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2467,
+      "name": "森川亮",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2468,
+      "name": "笠原健治",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2469,
+      "name": "岡田光信",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2470,
+      "name": "関山和秀",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2471,
+      "name": "矢野博丈",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2472,
+      "name": "宗次徳二",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2473,
+      "name": "高田明",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2474,
+      "name": "松本大",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2475,
+      "name": "藤野英人",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2476,
+      "name": "鎌田和彦",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2477,
+      "name": "國光宏尚",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2478,
+      "name": "田端信太郎",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2479,
+      "name": "安田隆夫",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2480,
+      "name": "渡邉美樹",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2481,
+      "name": "貞末良雄",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2482,
+      "name": "澤田貴司",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2483,
+      "name": "井上雅博",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2484,
+      "name": "増田宗昭",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2485,
+      "name": "見城徹",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2486,
+      "name": "角川歴彦",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2487,
+      "name": "細谷功",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "平成期の企業経営、起業、新市場創出、組織変革で顕著な実績を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 5386,
+      "name": "村上世彰",
+      "birth": 1959,
+      "death": null,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "投資家、実業家",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 5427,
+      "name": "経済学者_0",
+      "birth": 1950,
+      "death": 2002,
+      "era": "heisei",
+      "domain": "business",
+      "summary": "社会的市場経済の提唱者。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2604,
+      "name": "吉本ばなな",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2605,
+      "name": "多和田葉子",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2606,
+      "name": "川上弘美",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2607,
+      "name": "角田光代",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2608,
+      "name": "桐野夏生",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2609,
+      "name": "宮部みゆき",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2610,
+      "name": "京極夏彦",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2611,
+      "name": "伊坂幸太郎",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2612,
+      "name": "森見登美彦",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2613,
+      "name": "綿矢りさ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2614,
+      "name": "金原ひとみ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2615,
+      "name": "平野啓一郎",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2616,
+      "name": "島田雅彦",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2617,
+      "name": "町田康",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2618,
+      "name": "又吉直樹",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2619,
+      "name": "林真理子",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2620,
+      "name": "俵万智",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2621,
+      "name": "穂村弘",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2622,
+      "name": "谷川俊太郎",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2623,
+      "name": "高橋源一郎",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2624,
+      "name": "村上龍",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2625,
+      "name": "浅田次郎",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2626,
+      "name": "佐藤愛子",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2627,
+      "name": "柳美里",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2628,
+      "name": "冲方丁",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2629,
+      "name": "有川浩",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2630,
+      "name": "海堂尊",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2631,
+      "name": "百田尚樹",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2632,
+      "name": "西加奈子",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2633,
+      "name": "朝井リョウ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2634,
+      "name": "辻村深月",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2635,
+      "name": "道尾秀介",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2638,
+      "name": "村上隆",
+      "birth": 1962,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2639,
+      "name": "奈良美智",
+      "birth": 1959,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2640,
+      "name": "北野武",
+      "birth": 1947,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2642,
+      "name": "黒沢清",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2643,
+      "name": "三池崇史",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2644,
+      "name": "周防正行",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2645,
+      "name": "三谷幸喜",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2646,
+      "name": "宮藤官九郎",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2647,
+      "name": "松尾スズキ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2648,
+      "name": "平田オリザ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2649,
+      "name": "鈴木忠志",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2650,
+      "name": "沖田修一",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2651,
+      "name": "片渕須直",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2652,
+      "name": "湯浅政明",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2653,
+      "name": "荒木哲郎",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2654,
+      "name": "幾原邦彦",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2655,
+      "name": "神山健治",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2656,
+      "name": "今敏",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2657,
+      "name": "原恵一",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2658,
+      "name": "会田誠",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2659,
+      "name": "草間彌生",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2660,
+      "name": "横尾忠則",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2661,
+      "name": "杉本博司",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2662,
+      "name": "宮島達男",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2663,
+      "name": "名和晃平",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2664,
+      "name": "森村泰昌",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2665,
+      "name": "鴻池朋子",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2666,
+      "name": "塩田千春",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2667,
+      "name": "束芋",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2668,
+      "name": "やなぎみわ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2672,
+      "name": "松任谷由実",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2673,
+      "name": "中島みゆき",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2674,
+      "name": "井上陽水",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2675,
+      "name": "松本隆",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2676,
+      "name": "小室哲哉",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2677,
+      "name": "つんく",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2678,
+      "name": "奥田民生",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2679,
+      "name": "桜井和寿",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2680,
+      "name": "草野マサムネ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2681,
+      "name": "稲葉浩志",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2682,
+      "name": "松本孝弘",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2683,
+      "name": "矢沢永吉",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2684,
+      "name": "氷室京介",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2685,
+      "name": "布袋寅泰",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2686,
+      "name": "山下達郎",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2687,
+      "name": "竹内まりや",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2688,
+      "name": "久石譲",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2689,
+      "name": "佐渡裕",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2690,
+      "name": "小澤征爾",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2691,
+      "name": "諏訪内晶子",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2692,
+      "name": "五嶋みどり",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2693,
+      "name": "辻井伸行",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2694,
+      "name": "葉加瀬太郎",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2695,
+      "name": "平原綾香",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2696,
+      "name": "MISIA",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2697,
+      "name": "浜崎あゆみ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2698,
+      "name": "安室奈美恵",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2699,
+      "name": "倉木麻衣",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2700,
+      "name": "aiko",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2701,
+      "name": "吉田美和",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2702,
+      "name": "きゃりーぱみゅぱみゅ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2703,
+      "name": "後藤正文",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2704,
+      "name": "宮本浩次",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2705,
+      "name": "小田和正",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2706,
+      "name": "藤井フミヤ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2707,
+      "name": "秋元康",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2708,
+      "name": "浜田雅功",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2709,
+      "name": "内村光良",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2710,
+      "name": "鳥山明",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2711,
+      "name": "高橋留美子",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2712,
+      "name": "井上雄彦",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2713,
+      "name": "冨樫義博",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2714,
+      "name": "浦沢直樹",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2715,
+      "name": "青山剛昌",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2716,
+      "name": "羽海野チカ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2717,
+      "name": "ヤマザキマリ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2718,
+      "name": "こうの史代",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2719,
+      "name": "士郎正宗",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2720,
+      "name": "永井豪",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2721,
+      "name": "藤子不二雄A",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2722,
+      "name": "弘兼憲史",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2723,
+      "name": "しりあがり寿",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2724,
+      "name": "西原理恵子",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2725,
+      "name": "みうらじゅん",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2726,
+      "name": "蛭子能収",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2727,
+      "name": "堀井雄二",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2728,
+      "name": "坂口博信",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2729,
+      "name": "小島秀夫",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2730,
+      "name": "野村哲也",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2731,
+      "name": "田尻智",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2732,
+      "name": "増田順一",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2733,
+      "name": "日野晃博",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2734,
+      "name": "上田文人",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2735,
+      "name": "桜井政博",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2736,
+      "name": "横井軍平",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2737,
+      "name": "岩谷徹",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2738,
+      "name": "水口哲也",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2739,
+      "name": "三宅一生",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2740,
+      "name": "森英恵",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2741,
+      "name": "コシノジュンコ",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 2742,
+      "name": "篠山紀信",
+      "birth": null,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期の文学、映像、音楽、美術、デザイン等で創造的成果を残した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10230,
+      "name": "池澤夏樹",
+      "birth": 1945,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "平成期に世界文学的視野と環境・移動の感覚を日本語小説と批評に接続した作家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10231,
+      "name": "高村薫",
+      "birth": 1953,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "社会構造と犯罪、組織倫理を重厚な長編小説で描いた平成期の代表的作家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10271,
+      "name": "河森正治",
+      "birth": 1960,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "メカデザイン、アニメ演出、メディアミックスを横断したクリエイター。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10272,
+      "name": "出崎統",
+      "birth": 1943,
+      "death": 2011,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "独自の画面演出でテレビアニメの表現語彙を拡張した演出家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10273,
+      "name": "渡辺信一郎",
+      "birth": 1965,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "音楽性と映像演出を融合し国際的評価を得たアニメーション監督。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10277,
+      "name": "岸本斉史",
+      "birth": 1974,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "忍者漫画を世界的コンテンツへ育て、平成漫画の国際化を象徴した漫画家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10278,
+      "name": "久保帯人",
+      "birth": 1977,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "スタイリッシュな画面構成とキャラクター造形で少年漫画文化に影響した漫画家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10279,
+      "name": "荒川弘",
+      "birth": 1973,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "少年漫画と農業・家族・倫理のテーマを結びつけた漫画家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10280,
+      "name": "矢沢あい",
+      "birth": 1967,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "ファッションと恋愛、若者文化を少女漫画に刻んだ漫画家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10285,
+      "name": "さくらももこ",
+      "birth": 1965,
+      "death": 2018,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "日常ユーモアを国民的漫画・アニメとして定着させた漫画家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10286,
+      "name": "武内直子",
+      "birth": 1967,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "少女漫画と変身ヒロインを世界的ポップカルチャーへ展開した漫画家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10287,
+      "name": "美内すずえ",
+      "birth": 1951,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "長期連載で演劇と成長物語を結びつけ少女漫画の古典を築いた漫画家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10289,
+      "name": "あだち充",
+      "birth": 1951,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "スポーツと恋愛の間合いを独自の漫画文法として確立した漫画家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10295,
+      "name": "植松伸夫",
+      "birth": 1959,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "ゲーム音楽をコンサート文化にも接続した作曲家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10296,
+      "name": "近藤浩治",
+      "birth": 1961,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "ゲーム体験と一体化したメロディを作り任天堂作品の記憶を支えた作曲家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10297,
+      "name": "すぎやまこういち",
+      "birth": 1931,
+      "death": 2021,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "ゲーム音楽を管弦楽的語法と結びつけ国民的シリーズを支えた作曲家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10298,
+      "name": "菅野よう子",
+      "birth": 1963,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "ジャズ、クラシック、電子音楽を横断しアニメ音楽の国際評価を高めた作曲家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10309,
+      "name": "小沢健二",
+      "birth": 1968,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "渋谷系以降の日本語ポップスに知性と都市感覚を持ち込んだ音楽家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10316,
+      "name": "YOSHIKI",
+      "birth": 1965,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "ロック、クラシック、ビジュアル系を結びつけ国際的活動を展開した音楽家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10317,
+      "name": "hide",
+      "birth": 1964,
+      "death": 1998,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "ビジュアル系ロックとポップな個人表現を融合したギタリスト・音楽家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10319,
+      "name": "甲本ヒロト",
+      "birth": 1963,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "パンク由来の簡潔な言葉と歌唱で平成ロックにも大きな影響を与えた音楽家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10321,
+      "name": "槇原敬之",
+      "birth": 1969,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "日常的な心情をポップスに落とし込み平成のヒット曲を多数生んだ音楽家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10354,
+      "name": "荒木経惟",
+      "birth": 1940,
+      "death": null,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "私写真の方法で写真と日常、欲望、都市を結びつけた写真家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 10372,
+      "name": "桂枝雀",
+      "birth": 1939,
+      "death": 1999,
+      "era": "heisei",
+      "domain": "culture_arts",
+      "summary": "独自の理論と身体表現で上方落語を平成期にも広く伝えた落語家。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 4489,
+      "name": "喜納昌吉",
+      "birth": 1948,
+      "death": null,
+      "era": "heisei",
+      "domain": "diaspora_ainu_okinawa",
+      "summary": "音楽『花』などで沖縄発の平和メッセージを国際化し、参議院議員としても発信した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 4500,
+      "name": "目取真俊",
+      "birth": 1960,
+      "death": null,
+      "era": "heisei",
+      "domain": "diaspora_ainu_okinawa",
+      "summary": "沖縄戦と基地問題を小説で描き、現代日本文学に沖縄の記憶政治を突きつけた。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 4506,
+      "name": "李良枝",
+      "birth": 1955,
+      "death": 1992,
+      "era": "heisei",
+      "domain": "diaspora_ainu_okinawa",
+      "summary": "在日韓国人女性の身体感覚・言語・帰属を小説化し、『由熙』で芥川賞を受賞した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 4509,
+      "name": "崔洋一",
+      "birth": 1949,
+      "death": 2022,
+      "era": "heisei",
+      "domain": "diaspora_ainu_okinawa",
+      "summary": "映画監督として暴力、差別、家族を描き、日本映画界で在日コリアンの視点を可視化した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 4531,
+      "name": "楊逸",
+      "birth": 1964,
+      "death": null,
+      "era": "heisei",
+      "domain": "diaspora_ainu_okinawa",
+      "summary": "中国語母語話者として日本語小説を書き、『時が滲む朝』で芥川賞を受賞した。",
+      "great": 1,
+      "local": 0
+    },
+    {
+      "id": 4534,
+      "name": "鳳蘭",
+      "birth": 1946,
+      "death": null,
+      "era": "heisei",
+      "domain": "diaspora_ainu_okinawa",
+      "summary": "宝塚歌劇団星組トップスターを経て俳優として活躍し、華人ルーツを持つ舞台人の代表例となった。",
+      "great": 1,
+      "local": 0
+    }
+  ],
+  "sample_discourses": [
+    {
+      "era": "future_2030",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "2030年代の社会課題解決型経済に向け、データ・AI・越境協働を重視した。 とくに「情報リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "2030年代の社会課題解決型経済に向け、データ・AI・越境協働を重視した。 とくに「起業家精神」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "2030年代の社会課題解決型経済に向け、データ・AI・越境協働を重視した。 とくに「AI協働リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "2030年代の社会課題解決型経済に向け、データ・AI・越境協働を重視した。 とくに「異分野統合志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "2030年代の社会課題解決型経済に向け、データ・AI・越境協働を重視した。 とくに「寛容性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "2030年代の社会課題解決型経済に向け、データ・AI・越境協働を重視した。 とくに「創造性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "2030年代の社会課題解決型経済に向け、データ・AI・越境協働を重視した。 とくに「OECD変革コンピテンシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "2030年代の社会課題解決型経済に向け、データ・AI・越境協働を重視した。 とくに「批判的思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "2030年の学習者に必要な変革コンピテンシー、エージェンシー、ウェルビーイングを示した。 とくに「システム思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "2030年の学習者に必要な変革コンピテンシー、エージェンシー、ウェルビーイングを示した。 とくに「レジリエンス」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "2030年の学習者に必要な変革コンピテンシー、エージェンシー、ウェルビーイングを示した。 とくに「情報リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "2030年の学習者に必要な変革コンピテンシー、エージェンシー、ウェルビーイングを示した。 とくに「起業家精神」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "2030年の学習者に必要な変革コンピテンシー、エージェンシー、ウェルビーイングを示した。 とくに「AI協働リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "2030年の学習者に必要な変革コンピテンシー、エージェンシー、ウェルビーイングを示した。 とくに「異分野統合志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "2030年の学習者に必要な変革コンピテンシー、エージェンシー、ウェルビーイングを示した。 とくに「寛容性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "2030年の学習者に必要な変革コンピテンシー、エージェンシー、ウェルビーイングを示した。 とくに「創造性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2030年を見据え、デジタル化・脱炭素化・産業転換に対応する人材政策を提示した。 とくに「AI協働リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2030年を見据え、デジタル化・脱炭素化・産業転換に対応する人材政策を提示した。 とくに「異分野統合志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2030年を見据え、デジタル化・脱炭素化・産業転換に対応する人材政策を提示した。 とくに「寛容性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2030年を見据え、デジタル化・脱炭素化・産業転換に対応する人材政策を提示した。 とくに「創造性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2030年を見据え、デジタル化・脱炭素化・産業転換に対応する人材政策を提示した。 とくに「OECD変革コンピテンシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2030年を見据え、デジタル化・脱炭素化・産業転換に対応する人材政策を提示した。 とくに「批判的思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2030年を見据え、デジタル化・脱炭素化・産業転換に対応する人材政策を提示した。 とくに「エコロジカルリテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2030年を見据え、デジタル化・脱炭素化・産業転換に対応する人材政策を提示した。 とくに「システム思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2030年を見据え、デジタル化・脱炭素化・産業転換に対応する人材政策を提示した。 とくに「レジリエンス」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "WEF Future of Jobs Report 2025",
+      "author": "World Economic Forum",
+      "year": 2025,
+      "summary": "2030年近傍の労働市場で分析思考、AI、レジリエンス、創造性の重要性を示す国際的言説。 とくに「批判的思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "WEF Future of Jobs Report 2025",
+      "author": "World Economic Forum",
+      "year": 2025,
+      "summary": "2030年近傍の労働市場で分析思考、AI、レジリエンス、創造性の重要性を示す国際的言説。 とくに「エコロジカルリテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "WEF Future of Jobs Report 2025",
+      "author": "World Economic Forum",
+      "year": 2025,
+      "summary": "2030年近傍の労働市場で分析思考、AI、レジリエンス、創造性の重要性を示す国際的言説。 とくに「システム思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "WEF Future of Jobs Report 2025",
+      "author": "World Economic Forum",
+      "year": 2025,
+      "summary": "2030年近傍の労働市場で分析思考、AI、レジリエンス、創造性の重要性を示す国際的言説。 とくに「レジリエンス」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "WEF Future of Jobs Report 2025",
+      "author": "World Economic Forum",
+      "year": 2025,
+      "summary": "2030年近傍の労働市場で分析思考、AI、レジリエンス、創造性の重要性を示す国際的言説。 とくに「情報リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "WEF Future of Jobs Report 2025",
+      "author": "World Economic Forum",
+      "year": 2025,
+      "summary": "2030年近傍の労働市場で分析思考、AI、レジリエンス、創造性の重要性を示す国際的言説。 とくに「起業家精神」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "WEF Future of Jobs Report 2025",
+      "author": "World Economic Forum",
+      "year": 2025,
+      "summary": "2030年近傍の労働市場で分析思考、AI、レジリエンス、創造性の重要性を示す国際的言説。 とくに「AI協働リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2030",
+      "title": "WEF Future of Jobs Report 2025",
+      "author": "World Economic Forum",
+      "year": 2025,
+      "summary": "2030年近傍の労働市場で分析思考、AI、レジリエンス、創造性の重要性を示す国際的言説。 とくに「異分野統合志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "長期的な包摂的成長に向け、技術革新を社会価値へ変換する能力を重視する。 とくに「AI協働リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "長期的な包摂的成長に向け、技術革新を社会価値へ変換する能力を重視する。 とくに「創造性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "長期的な包摂的成長に向け、技術革新を社会価値へ変換する能力を重視する。 とくに「システム思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "長期的な包摂的成長に向け、技術革新を社会価値へ変換する能力を重視する。 とくに「社会変革志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "長期的な包摂的成長に向け、技術革新を社会価値へ変換する能力を重視する。 とくに「エコロジカルリテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "長期的な包摂的成長に向け、技術革新を社会価値へ変換する能力を重視する。 とくに「レジリエンス」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "長期的な包摂的成長に向け、技術革新を社会価値へ変換する能力を重視する。 とくに「起業家精神」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "Society 5.0 －ともに創造する未来－",
+      "author": "日本経済団体連合会",
+      "year": 2018,
+      "summary": "長期的な包摂的成長に向け、技術革新を社会価値へ変換する能力を重視する。 とくに「OECD変革コンピテンシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "2050年級の社会変革に向け、AI・ロボット・健康・環境を横断する挑戦的研究能力を要請する。 とくに「システム思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "2050年級の社会変革に向け、AI・ロボット・健康・環境を横断する挑戦的研究能力を要請する。 とくに「社会変革志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "2050年級の社会変革に向け、AI・ロボット・健康・環境を横断する挑戦的研究能力を要請する。 とくに「エコロジカルリテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "2050年級の社会変革に向け、AI・ロボット・健康・環境を横断する挑戦的研究能力を要請する。 とくに「レジリエンス」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "2050年級の社会変革に向け、AI・ロボット・健康・環境を横断する挑戦的研究能力を要請する。 とくに「起業家精神」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "2050年級の社会変革に向け、AI・ロボット・健康・環境を横断する挑戦的研究能力を要請する。 とくに「OECD変革コンピテンシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "2050年級の社会変革に向け、AI・ロボット・健康・環境を横断する挑戦的研究能力を要請する。 とくに「学習戦略・適応性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "2050年級の社会変革に向け、AI・ロボット・健康・環境を横断する挑戦的研究能力を要請する。 とくに「異分野統合志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2050年の気候・社会経済シナリオを踏まえ、適応、システム思考、持続可能性リテラシーが重要化する。 とくに「異分野統合志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2050年の気候・社会経済シナリオを踏まえ、適応、システム思考、持続可能性リテラシーが重要化する。 とくに「寛容性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2050年の気候・社会経済シナリオを踏まえ、適応、システム思考、持続可能性リテラシーが重要化する。 とくに「AI協働リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2050年の気候・社会経済シナリオを踏まえ、適応、システム思考、持続可能性リテラシーが重要化する。 とくに「創造性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2050年の気候・社会経済シナリオを踏まえ、適応、システム思考、持続可能性リテラシーが重要化する。 とくに「システム思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2050年の気候・社会経済シナリオを踏まえ、適応、システム思考、持続可能性リテラシーが重要化する。 とくに「社会変革志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2050年の気候・社会経済シナリオを踏まえ、適応、システム思考、持続可能性リテラシーが重要化する。 とくに「エコロジカルリテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2050年の気候・社会経済シナリオを踏まえ、適応、システム思考、持続可能性リテラシーが重要化する。 とくに「レジリエンス」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2050年の産業構造転換を視野に、専門性と自律的キャリア形成の必要性を示した。 とくに「エコロジカルリテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2050年の産業構造転換を視野に、専門性と自律的キャリア形成の必要性を示した。 とくに「レジリエンス」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2050年の産業構造転換を視野に、専門性と自律的キャリア形成の必要性を示した。 とくに「起業家精神」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2050年の産業構造転換を視野に、専門性と自律的キャリア形成の必要性を示した。 とくに「OECD変革コンピテンシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2050年の産業構造転換を視野に、専門性と自律的キャリア形成の必要性を示した。 とくに「学習戦略・適応性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2050年の産業構造転換を視野に、専門性と自律的キャリア形成の必要性を示した。 とくに「異分野統合志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2050年の産業構造転換を視野に、専門性と自律的キャリア形成の必要性を示した。 とくに「寛容性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2050年の産業構造転換を視野に、専門性と自律的キャリア形成の必要性を示した。 とくに「AI協働リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2050",
+      "title": "未来人材ビジョン",
+      "author": "経済産業省",
+      "year": 2022,
+      "summary": "2050年の産業構造転換を視野に、専門性と自律的キャリア形成の必要性を示した。 とくに「創造性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "未来世代のウェルビーイングに責任をもつ変革コンピテンシーを示し、長期教育像に接続する。 とくに「システム思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "未来世代のウェルビーイングに責任をもつ変革コンピテンシーを示し、長期教育像に接続する。 とくに「学習戦略・適応性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "未来世代のウェルビーイングに責任をもつ変革コンピテンシーを示し、長期教育像に接続する。 とくに「エコロジカルリテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "未来世代のウェルビーイングに責任をもつ変革コンピテンシーを示し、長期教育像に接続する。 とくに「異分野統合志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "未来世代のウェルビーイングに責任をもつ変革コンピテンシーを示し、長期教育像に接続する。 とくに「対人関係スキル」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "未来世代のウェルビーイングに責任をもつ変革コンピテンシーを示し、長期教育像に接続する。 とくに「社会変革志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "未来世代のウェルビーイングに責任をもつ変革コンピテンシーを示し、長期教育像に接続する。 とくに「AI協働リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "OECD Learning Compass 2030",
+      "author": "OECD",
+      "year": 2019,
+      "summary": "未来世代のウェルビーイングに責任をもつ変革コンピテンシーを示し、長期教育像に接続する。 とくに「寛容性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "超長期課題へ向けた野心的目標設定、異分野統合、技術と倫理の接続を能力要件化する。 とくに「寛容性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "超長期課題へ向けた野心的目標設定、異分野統合、技術と倫理の接続を能力要件化する。 とくに「レジリエンス」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "超長期課題へ向けた野心的目標設定、異分野統合、技術と倫理の接続を能力要件化する。 とくに「OECD変革コンピテンシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "超長期課題へ向けた野心的目標設定、異分野統合、技術と倫理の接続を能力要件化する。 とくに「批判的思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "超長期課題へ向けた野心的目標設定、異分野統合、技術と倫理の接続を能力要件化する。 とくに「システム思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "超長期課題へ向けた野心的目標設定、異分野統合、技術と倫理の接続を能力要件化する。 とくに「学習戦略・適応性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "超長期課題へ向けた野心的目標設定、異分野統合、技術と倫理の接続を能力要件化する。 とくに「エコロジカルリテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "ムーンショット型研究開発制度 目標",
+      "author": "内閣府",
+      "year": 2020,
+      "summary": "超長期課題へ向けた野心的目標設定、異分野統合、技術と倫理の接続を能力要件化する。 とくに「異分野統合志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2100年級の気候リスクと社会経済分岐を前提に、持続可能性と長期的システム思考を求める。 とくに「エコロジカルリテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "UNESCO Futures of Education: Reimagining our futures together",
+      "author": "UNESCO",
+      "year": 2021,
+      "summary": "教育を公共的・共同的営みとして再構想し、未来世代との連帯と包摂を重視した。 とくに「OECD変革コンピテンシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2100年級の気候リスクと社会経済分岐を前提に、持続可能性と長期的システム思考を求める。 とくに「異分野統合志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "UNESCO Futures of Education: Reimagining our futures together",
+      "author": "UNESCO",
+      "year": 2021,
+      "summary": "教育を公共的・共同的営みとして再構想し、未来世代との連帯と包摂を重視した。 とくに「批判的思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2100年級の気候リスクと社会経済分岐を前提に、持続可能性と長期的システム思考を求める。 とくに「対人関係スキル」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "UNESCO Futures of Education: Reimagining our futures together",
+      "author": "UNESCO",
+      "year": 2021,
+      "summary": "教育を公共的・共同的営みとして再構想し、未来世代との連帯と包摂を重視した。 とくに「システム思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2100年級の気候リスクと社会経済分岐を前提に、持続可能性と長期的システム思考を求める。 とくに「社会変革志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "UNESCO Futures of Education: Reimagining our futures together",
+      "author": "UNESCO",
+      "year": 2021,
+      "summary": "教育を公共的・共同的営みとして再構想し、未来世代との連帯と包摂を重視した。 とくに「学習戦略・適応性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2100年級の気候リスクと社会経済分岐を前提に、持続可能性と長期的システム思考を求める。 とくに「AI協働リテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "UNESCO Futures of Education: Reimagining our futures together",
+      "author": "UNESCO",
+      "year": 2021,
+      "summary": "教育を公共的・共同的営みとして再構想し、未来世代との連帯と包摂を重視した。 とくに「エコロジカルリテラシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2100年級の気候リスクと社会経済分岐を前提に、持続可能性と長期的システム思考を求める。 とくに「寛容性」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "UNESCO Futures of Education: Reimagining our futures together",
+      "author": "UNESCO",
+      "year": 2021,
+      "summary": "教育を公共的・共同的営みとして再構想し、未来世代との連帯と包摂を重視した。 とくに「異分野統合志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2100年級の気候リスクと社会経済分岐を前提に、持続可能性と長期的システム思考を求める。 とくに「レジリエンス」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "UNESCO Futures of Education: Reimagining our futures together",
+      "author": "UNESCO",
+      "year": 2021,
+      "summary": "教育を公共的・共同的営みとして再構想し、未来世代との連帯と包摂を重視した。 とくに「対人関係スキル」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2100年級の気候リスクと社会経済分岐を前提に、持続可能性と長期的システム思考を求める。 とくに「OECD変革コンピテンシー」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "UNESCO Futures of Education: Reimagining our futures together",
+      "author": "UNESCO",
+      "year": 2021,
+      "summary": "教育を公共的・共同的営みとして再構想し、未来世代との連帯と包摂を重視した。 とくに「社会変革志向」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "future_2100",
+      "title": "IPCC Shared Socioeconomic Pathways",
+      "author": "IPCC",
+      "year": 2021,
+      "summary": "2100年級の気候リスクと社会経済分岐を前提に、持続可能性と長期的システム思考を求める。 とくに「批判的思考」を、当該時代に望ましい資質・行動様式として読み取れる。"
+    },
+    {
+      "era": "heisei",
+      "title": "小学校学習指導要領",
+      "author": "文部省",
+      "year": 1989,
+      "summary": "新しい学力観と生活科導入により主体的学習を重視した改訂。特に「学習戦略・適応性」を、当時の望ましい資質・行動様式として読み取れる。"
+    }
+  ],
+  "sample_retrospectives": [
+    {
+      "era": "heisei",
+      "title": "階層化日本と教育危機",
+      "year": 2001,
+      "finding": "平成期には教育改革と格差拡大のもとで、家庭背景に依存しない学習戦略の重要性が高まった。"
+    },
+    {
+      "era": "heisei",
+      "title": "多元化する「能力」と日本社会",
+      "year": 2005,
+      "finding": "ポスト工業化のなかで、基礎学力だけでなく自己管理、コミュニケーション、キャリア形成が能力として語られた。"
+    },
+    {
+      "era": "heisei",
+      "title": "情報の文明学",
+      "year": 1988,
+      "finding": "情報化社会の進展により、収集・編集・発信を行う情報リテラシーが主要な能力として浮上した。"
+    },
+    {
+      "era": "heisei",
+      "title": "リスク社会",
+      "year": 1986,
+      "finding": "バブル崩壊後の不確実性は、制度や専門知を批判的に読み解く能力を必要とした。"
+    },
+    {
+      "era": "heisei",
+      "title": "ディスタンクシオン",
+      "year": 1979,
+      "finding": "文化資本論は、趣味や教養が能力評価と階層再生産に関わることを説明する枠組みを与えた。"
+    },
+    {
+      "era": "heisei",
+      "title": "ベンチャー企業論",
+      "year": 1997,
+      "finding": "IT化と規制緩和のもと、組織内昇進だけでなく起業家的リスクテイクが能力として可視化された。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本のメリトクラシー",
+      "year": 1995,
+      "finding": "日本のメリトクラシーの教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で学校歴と試験を通じて能力主義が制度化される一方、文化資本と選抜経路の偏りも再生産された点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "教養主義の没落",
+      "year": 2003,
+      "finding": "教養主義の没落の教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で旧制高校的教養は批判的読書と人格形成を評価したが、大衆化のなかで威信と機能を変質させた点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "学歴貴族の栄光と挫折",
+      "year": 1999,
+      "finding": "学歴貴族の栄光と挫折の歴史社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で帝国大学を頂点とする学歴秩序は、官僚制に適した論理処理能力と資格威信を結び付けた点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "立身出世主義",
+      "year": 1997,
+      "finding": "立身出世主義の歴史社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で近代日本の上昇移動は自己鍛錬と学校達成を結び付け、個人努力の物語を広く流通させた点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "大衆教育社会のゆくえ",
+      "year": 1995,
+      "finding": "大衆教育社会のゆくえの教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で戦後の大衆教育社会は平等化を進めつつ、学校への同調と標準化された努力を能力評価の中心に置いた点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "階層化日本と教育危機",
+      "year": 2001,
+      "finding": "階層化日本と教育危機の教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈でポスト大衆教育社会では学習意欲と家庭背景の格差が結び付き、見えにくい階層化を強めた点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "教育と平等",
+      "year": 2009,
+      "finding": "教育と平等の教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で平等主義的教育理念は制度設計の基盤であるが、結果の不平等を測定し補正する視点が不可欠である点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "多元化する能力と日本社会",
+      "year": 2005,
+      "finding": "多元化する能力と日本社会の教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で近年の能力観は基礎学力からコミュニケーションや意欲へ広がり、評価対象を多元化させた点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "教育の職業的意義",
+      "year": 2009,
+      "finding": "教育の職業的意義の教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で学校知と職業能力の接続が弱い場合、若者は移行過程で自己責任化された適応を求められる点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "学歴社会の法則",
+      "year": 2006,
+      "finding": "学歴社会の法則の教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で学歴は単なる知識量ではなく、情報処理、選抜通過、社会的信用の複合的シグナルとして作用する点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "学歴分断社会",
+      "year": 2018,
+      "finding": "学歴分断社会の教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で高等教育到達の分断は価値観や生活機会の差として表れ、相互理解の能力を社会課題化した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "学歴の階層差はなぜ生まれるか",
+      "year": 2016,
+      "finding": "学歴の階層差はなぜ生まれるかの教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で進学期待と家庭資源の差は、早期から学習戦略と教育達成の格差を形成する点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "学力格差に挑む",
+      "year": 2014,
+      "finding": "学力格差に挑むの教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で学力格差の分析は、個人努力だけでなく学校・地域・家庭環境を含む制度的支援能力を問う点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "学力の社会学",
+      "year": 2004,
+      "finding": "学力の社会学の教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で学力を社会的に測定する視点は、学習成果を能力の自然差ではなく制度的産物として捉え直す点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "学歴の社会史",
+      "year": 1992,
+      "finding": "学歴の社会史の教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で学歴は近代日本で身分に代わる移動装置となり、自己形成と資格取得を結び付けた点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本の教育システム",
+      "year": 1996,
+      "finding": "日本の教育システムの教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で教育制度は学校種、入試、資格、労働市場を接続するシステムとして能力評価を組織化した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "大学とは何か",
+      "year": 2011,
+      "finding": "大学とは何かの教育社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で大学は専門知の供給だけでなく、公共的討議と知の編成を担う制度として時代ごとに役割を変えた点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "学校の挑戦",
+      "year": 2006,
+      "finding": "学校の挑戦の教育学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で授業改革は個人の学力だけでなく、協同学習と対話を通じた関係的能力を重視する点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本人のしつけは衰退したか",
+      "year": 1999,
+      "finding": "日本人のしつけは衰退したかの歴史社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈でしつけや道徳の変化は単純な衰退ではなく、家族・学校・社会の責任配分の変化として理解される点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本型教養の運命",
+      "year": 1995,
+      "finding": "日本型教養の運命の歴史社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で日本型教養はエリート形成、読書文化、政治意識を媒介し、時代に応じて威信を変えた点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本の思想",
+      "year": 1961,
+      "finding": "日本の思想の思想史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で日本近代の思想構造は自律的判断を育てる条件と、それを阻む制度的・文化的制約を併せ持った点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本政治思想史研究",
+      "year": 1952,
+      "finding": "日本政治思想史研究の思想史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で近世から近代への思想転換は、忠誠・公共性・主体性の評価軸を複雑に再編した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "現代日本の精神構造",
+      "year": 1965,
+      "finding": "現代日本の精神構造の社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で高度成長期以降の自己意識は、所属と自由、豊かさと空虚さの緊張のなかで形成された点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "社会学入門",
+      "year": 2006,
+      "finding": "社会学入門の社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で社会を関係と意味のシステムとして捉える視点は、能力評価を個人属性から社会過程へ広げる点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "新・日本の階級社会",
+      "year": 2018,
+      "finding": "新・日本の階級社会の社会階層論的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で階級構造の再編は、学歴・職業・所得を横断して機会格差と社会的分断を可視化した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "家父長制と資本制",
+      "year": 1990,
+      "finding": "家父長制と資本制のジェンダー研究的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で近代家族と労働市場の分析は、女性の能力が不可視化される制度的条件を明らかにした点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "戦略としての家族",
+      "year": 1996,
+      "finding": "戦略としての家族のジェンダー研究的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で家族は私的領域に閉じず、地位形成、ジェンダー規範、感情管理を通じて能力評価に関与した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "単一民族神話の起源",
+      "year": 1995,
+      "finding": "単一民族神話の起源の歴史社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で国民統合の物語は周縁化された人々の能力や貢献を見えにくくし、包摂の条件を問わせる点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "民主と愛国",
+      "year": 2002,
+      "finding": "民主と愛国の歴史社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で戦後思想は民主主義とナショナリズムの緊張を抱え、公共参加能力の意味を揺さぶった点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "近代日本の民衆思想",
+      "year": 1968,
+      "finding": "近代日本の民衆思想の思想史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で民衆思想の分析は、名望家中心史観では見えない地域実践と生活知の変革力を示す点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "Distinction",
+      "year": 1979,
+      "finding": "Distinctionの文化資本論的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で趣味と文化資本は能力の自然な差に見える評価が、階層的な訓練と承認に支えられることを示した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "Reproduction in Education, Society and Culture",
+      "year": 1970,
+      "finding": "Reproduction in Education, Society and Cultureの文化資本論的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で学校教育は中立的選抜を装いながら、家庭由来の文化資本を学力として承認する傾向を持つ点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "The State Nobility",
+      "year": 1989,
+      "finding": "The State Nobilityのエリート研究的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で高等教育機関は国家エリートを再生産し、資格化された知性と統治能力を結び付ける点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "The Matthew Effect in Science",
+      "year": 1968,
+      "finding": "The Matthew Effect in Scienceの科学社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で科学的評価は初期の承認が追加資源を呼ぶ累積優位を生み、能力の発現機会を偏らせる点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "Social Theory and Social Structure",
+      "year": 1949,
+      "finding": "Social Theory and Social Structureの社会学理論的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で制度、役割、準拠集団の分析は、個人能力を社会構造との相互作用として捉える枠組みを与える点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "The Strength of Weak Ties",
+      "year": 1973,
+      "finding": "The Strength of Weak Tiesのネットワーク論的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で弱い紐帯は新情報と機会を媒介し、閉じた集団内能力だけでは説明できない移動を生む点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "Social Capital in the Creation of Human Capital",
+      "year": 1988,
+      "finding": "Social Capital in the Creation of Human Capitalの社会関係資本論的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で家庭・地域・学校の関係資本は人的資本形成を支え、能力形成の社会的基盤となる点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "The Credential Society",
+      "year": 1979,
+      "finding": "The Credential Societyの資格社会論的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で資格は職務能力だけでなく地位競争の通貨となり、教育拡大が資格インフレを生む点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "Scientific Elite",
+      "year": 1977,
+      "finding": "Scientific Eliteの科学エリート研究的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で科学エリートの形成は才能だけでなく師弟関係、研究環境、早期承認の連鎖に左右される点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "The Uses of the University",
+      "year": 1963,
+      "finding": "The Uses of the Universityの高等教育研究的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で近代大学は教育、研究、産業、国家を接続するマルチバーシティとして能力形成を再編した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "The Visible Hand",
+      "year": 1977,
+      "finding": "The Visible Handの経営史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で近代大企業は市場だけでなく管理組織によって調整され、経営管理能力を中核資源にした点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "Scale and Scope",
+      "year": 1990,
+      "finding": "Scale and Scopeの経営史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で規模と範囲の経済を実現する企業者能力は、技術、流通、組織の統合に依存した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本経営史",
+      "year": 1995,
+      "finding": "日本経営史の経営史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で日本の企業発展は、制度移植、家業的資本、専門経営者、現場改善の複合として展開した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本の近代11 企業家たち",
+      "year": 1999,
+      "finding": "日本の近代11 企業家たちの経営史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で近代企業家は個人の才覚だけでなく、金融、官民関係、地域ネットワークを動員した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本経営史",
+      "year": 2010,
+      "finding": "日本経営史の経営史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で日本企業の競争力は、長期雇用、系列、技術蓄積、事業転換能力の組み合わせとして分析される点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本電力業発展のダイナミズム",
+      "year": 2004,
+      "finding": "日本電力業発展のダイナミズムの経営史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈でインフラ産業の発展は、技術選択、規制対応、地域需要調整を担う組織能力に支えられた点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "経営革命の構造",
+      "year": 1999,
+      "finding": "経営革命の構造の経営史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で産業発展は企業者の突破力だけでなく、制度変化を利用する組織学習と戦略構想に依存した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本の経営発展",
+      "year": 1994,
+      "finding": "日本の経営発展の経営史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で日本的経営の形成は、家族企業、専門経営者、労使関係を歴史的に組み合わせた結果である点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "日本の企業経営史",
+      "year": 1981,
+      "finding": "日本の企業経営史の経営史的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で企業経営史は、個別企業の成功を市場環境、技術、管理制度、人的組織の総合で説明する点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "British Factory Japanese Factory",
+      "year": 1973,
+      "finding": "British Factory Japanese Factoryの労働社会学的知見を踏まえると、平成期の能力評価は、長期不況、教育改革、雇用流動化、グローバル化の文脈で日英工場比較は、技能形成、企業内訓練、労使関係が職業能力の質を左右することを示した点に特徴がある。これは不確実性下での移行と再学習を支える能力として再解釈できる。"
+    },
+    {
+      "era": "heisei",
+      "title": "固定マインドセットと成長マインドセット",
+      "year": 2006,
+      "finding": "教育政策・コーチング・組織文化・子育てに世界的に影響を与えた。学校教育での成長マインドセット介入研究が多数実施されている。"
+    },
+    {
+      "era": "heisei",
+      "title": "用法基盤言語習得理論（トマセロ）",
+      "year": 1992,
+      "finding": "チョムスキー生得論への最大の対抗理論として、認知言語学・発達語用論・言語類型論研究に革命をもたらした。共同注意研究・文化学習理論との統合により実証研究が急拡大した。"
+    },
+    {
+      "era": "heisei",
+      "title": "共同注意と共有意図性（トマセロ）",
+      "year": 1995,
+      "finding": "霊長類との比較研究・ASD研究・言語発達研究の理論的中枢となり、ヒト固有の文化学習能力の進化的・発達的起源を解明する枠組みを提供した。"
+    },
+    {
+      "era": "heisei",
+      "title": "メンタライゼーション理論（フォナギー）",
+      "year": 1991,
+      "finding": "BPD（境界性パーソナリティ障害）の治療（MBT）・親訓練（親の省察機能）・発達精神病理学の実践的理論となり、愛着理論と精神分析の統合を実現した。"
+    },
+    {
+      "era": "heisei",
+      "title": "成人形成期理論（アーネット）",
+      "year": 2000,
+      "finding": "高度工業社会における成人移行の遅延を発達的に理論化し、大学生・20代支援の臨床・教育的実践に枠組みを提供した。批判もあるが、高所得国では広く支持されている。"
+    },
+    {
+      "era": "heisei",
+      "title": "思春期の脳発達とデュアルシステムズモデル",
+      "year": 2008,
+      "finding": "青年期の意思決定・危険行動・法的責任能力の理解に科学的根拠を提供し、少年司法改革・青年期健康教育・臨床実践に影響を与えた。"
+    },
+    {
+      "era": "heisei",
+      "title": "SOCモデル（選択・最適化・補償）",
+      "year": 1990,
+      "finding": "老年期の成功的老化・レジリエンス研究・産業組織心理学の実践的枠組みとなった。加齢研究のみならず職場・リハビリ・慢性疾患管理への応用が広がった。"
+    },
+    {
+      "era": "heisei",
+      "title": "ベルリン知恵パラダイム（バルテス）",
+      "year": 1990,
+      "finding": "知恵の科学的研究を可能にした先駆的枠組みで、老年期の強みとしての知恵に焦点を当てた肯定的老化研究を開拓した。スタンバーグの均衡理論と並ぶ主要知恵モデル。"
+    },
+    {
+      "era": "heisei",
+      "title": "認知予備力仮説（スターン）",
+      "year": 2002,
+      "finding": "老年期認知研究・認知症予防政策・生涯学習推進の科学的根拠として世界的に影響を持ち、教育投資の神経科学的正当化を提供した。"
+    },
+    {
+      "era": "heisei",
+      "title": "均衡理論（知恵のバランス理論・スタンバーグ）",
+      "year": 1998,
+      "finding": "知恵を公共善・倫理と結びつけた規範的モデルとして教育実践・リーダーシップ開発・市民教育への応用が提案されている。"
+    },
+    {
+      "era": "heisei",
+      "title": "動的システム理論（発達）",
+      "year": 1994,
+      "finding": "段階論的・プログラム論的発達観に代わる非線型・創発的発達モデルを提供し、運動発達・認知発達・言語発達研究の新パラダイムとなった。"
+    },
+    {
+      "era": "heisei",
+      "title": "発達的神経科学：前頭前皮質の成熟と認知発達",
+      "year": 1999,
+      "finding": "思春期のリスク行動・衝動性・判断力未熟の神経科学的根拠を提供し、少年司法・学校規律・青年期支援の政策に影響を与えた。"
+    },
+    {
+      "era": "heisei",
+      "title": "生産的失敗理論（カプール）",
+      "year": 2010,
+      "finding": "数学・科学教育の実践的研究で注目を集め、直接指導と探索学習のシーケンス設計の再考を促した。比較的新しい理論だが再現研究が積み重なっている。"
+    },
+    {
+      "era": "heisei",
+      "title": "乳幼児の数感覚と近似数システム（ドゥアンヌ）",
+      "year": 1997,
+      "finding": "算数教育・発達性算数障害研究・脳神経科学的数処理研究の統合的枠組みを提供した。数感覚訓練プログラム（Number Sense）の科学的根拠となった。"
+    },
+    {
+      "era": "heisei",
+      "title": "発達資産理論（サーチ・インスティテュート）",
+      "year": 1990,
+      "finding": "地域・学校・家族の青少年支援プログラムの設計・評価の標準ツールとなり、米国を中心に世界的に普及した。ポジティブ青年発達論の実践版として機能している。"
+    },
+    {
+      "era": "heisei",
+      "title": "認知的徒弟制理論（コリンズ・ブラウン・ニューマン）",
+      "year": 1989,
+      "finding": "数学・理科・読み書き指導の明示的思考可視化教授法の基盤となり、PBL・メンタリング・オンライン学習設計に広く応用されている。"
+    },
+    {
+      "era": "heisei",
+      "title": "マインドフルネス認知療法（MBCT）",
+      "year": 1995,
+      "finding": "過去2回以上のうつ病エピソードを持つ患者の再発率を約43%低下させることが複数のRCTで示されている（効果量d≈0.70〜0.80）。英国NICEガイドラインで推奨されている。"
+    },
+    {
+      "era": "heisei",
+      "title": "精神化に基づく療法（MBT）",
+      "year": 1999,
+      "finding": "RCTでBPDの自傷・入院日数・うつ・全般的機能の有意な改善が示されており（効果量d≈1.0〜1.5）、長期フォローアップでも維持。"
+    },
+    {
+      "era": "heisei",
+      "title": "グリット（粘り強さ）",
+      "year": 2007,
+      "finding": "陸軍士官学校定着率・スペリングビー順位・学業成績を予測。教育政策・コーチング・HR領域で広く応用されたが、Big Fiveの誠実性との弁別妥当性・予測増分には批判的研究もある。"
+    },
+    {
+      "era": "heisei",
+      "title": "感情知能の能力モデル（メイヤー＆サロヴェイ）",
+      "year": 1990,
+      "finding": "感情知能を測定可能な認知能力として定義し、科学的研究を可能にした。ゴールマンの大衆向けEIとは異なる実証的枠組みを提供。リーダーシップ・意思決定・ウェルビーイング研究に応用。"
+    },
+    {
+      "era": "heisei",
+      "title": "配偶者選択理論（バス）",
+      "year": 1989,
+      "finding": "配偶者選択の普遍的性差を多文化研究で実証し進化心理学の中心的データとなった。ただし文化的変動・WEIRD（西洋・教育高水準・産業化・富裕・民主的）サンプルへの依存への批判が続く。"
+    },
+    {
+      "era": "heisei",
+      "title": "感情の機能的アセスメント（情動知能応用版）",
+      "year": 1993,
+      "finding": "辺縁性人格障害（DBT）・不安・慢性疼痛・うつ（ACT・MBCT）への実証的効果が確認。感情制御の「変化モデル」から「受容モデル」への転換を実践的に体系化。グロスのプロセスモデルとの統合が議論されている。"
+    },
+    {
+      "era": "heisei",
+      "title": "ポリヴェーガル理論（ポージェス）",
+      "year": 1994,
+      "finding": "トラウマ・PTSD・自閉スペクトラム・解離の治療において「身体」への注目を促進。ソマティックな心理療法（ソマティック・エクスペリエンシング・SE）の理論的基盤として広まった。ただし一部の神経解剖学的主張への批判がある。"
+    },
+    {
+      "era": "heisei",
+      "title": "オーセンティック・リーダーシップ理論",
+      "year": 2003,
+      "finding": "エンロン不正事件後の倫理的リーダーシップへの関心を背景に急成長した研究領域であり、従業員の信頼・ウェルビーイング・エンゲージメントとの関連が実証されている。"
+    },
+    {
+      "era": "heisei",
+      "title": "ポジティブ組織行動論（POB）",
+      "year": 2002,
+      "finding": "ポジティブ心理学を組織場面に応用する研究領域を確立し、強みベースの組織開発・HRM実践に理論的根拠を与えた。"
+    },
+    {
+      "era": "heisei",
+      "title": "文化的知能理論",
+      "year": 2003,
+      "finding": "グローバル人材育成・多文化チームのパフォーマンス向上の実践ツールとして急速に普及し、組織の国際化対応に貢献した。"
+    },
+    {
+      "era": "heisei",
+      "title": "場所愛着理論",
+      "year": 1992,
+      "finding": "都市計画・コミュニティ開発・気候変動への適応行動研究において、場所への愛着が行動的・社会的動機に与える影響を理解する基盤となった。"
+    },
+    {
+      "era": "heisei",
+      "title": "タスク-能力インターフェースモデル（交通心理学）",
+      "year": 2005,
+      "finding": "交通安全教育・道路設計・車両安全システム設計の理論的根拠として用いられており、ドライバーの行動予測と事故抑止政策に応用されている。"
+    },
+    {
+      "era": "heisei",
+      "title": "検索練習効果（テスト効果）の精緻化理論",
+      "year": 2006,
+      "finding": "テストを学習の手段として捉え直す転換をもたらし、教育・訓練設計に「練習テスト」を組み込む根拠となった。フラッシュカードやスペーシング学習アプリの科学的基盤でもある。"
+    },
+    {
+      "era": "heisei",
+      "title": "社会脳仮説",
+      "year": 1992,
+      "finding": "「ダンバー数」という概念を生み出し、組織・コミュニティ設計（最適集団規模）、ソーシャルネットワーク研究、進化社会心理学に広く影響を与えた。"
+    },
+    {
+      "era": "heisei",
+      "title": "心の知覚理論（経験とエージェンシーの2次元モデル）",
+      "year": 2007,
+      "finding": "AI・ロボット倫理、集団への責任帰属、道徳的地位の研究に理論的枠組みを提供し、社会・技術倫理の議論に実証的基盤をもたらした。"
+    },
+    {
+      "era": "heisei",
+      "title": "使用基盤言語理論",
+      "year": 2003,
+      "finding": "生成文法に対する最も体系的な使用基盤的代替案として、第一言語・第二言語習得研究、認知言語学、言語療法に理論的基盤を与えている。"
+    },
+    {
+      "era": "heisei",
+      "title": "「人はいかに学ぶか」フレームワーク（学習科学）",
+      "year": 2000,
+      "finding": "約27,000件以上引用される影響力ある報告書として、世界中の教育政策・カリキュラム設計・教員養成に根本的な影響を与え、学習科学という分野の中心文献となっている。"
+    },
+    {
+      "era": "heisei",
+      "title": "成長マインドセット理論（暗黙的知能観）",
+      "year": 1999,
+      "finding": "学校教育・企業研修・スポーツコーチングに「努力と戦略の重要性」を科学的に根拠付け、マインドセット介入プログラムが世界中に普及。近年は再現可能性・測定問題をめぐる議論も進行中。"
+    },
+    {
+      "era": "heisei",
+      "title": "反転授業モデル",
+      "year": 2012,
+      "finding": "世界3000人以上の実践者ネットワークを有し、K-12から高等教育まで世界的に普及。COVID-19後のハイブリッド授業設計の基盤モデルとしても再注目されている。"
+    },
+    {
+      "era": "heisei",
+      "title": "グローバル/ローカル処理優先性理論（キンボーリー・キムチら）",
+      "year": 1992,
+      "finding": "注意・知覚研究の基盤理論として、自閉症の知覚スタイル、気分と認知スタイルの関係、デザイン・可視化の認知研究に広く援用されている。"
+    },
+    {
+      "era": "heisei",
+      "title": "感情調節困難の多次元モデル",
+      "year": 2004,
+      "finding": "感情調節困難尺度（DERS）が世界50,000件超の研究で使用され、DBT・ACT・CFTなど多様な療法の治療ターゲットと臨床アウトカムを接続する標準的測定ツールとなった。"
+    },
+    {
+      "era": "heisei",
+      "title": "COM-Bモデル（能力・機会・動機づけ行動モデル）",
+      "year": 2011,
+      "finding": "介入設計・政策立案・ヘルスケアにおける行動変容支援において、最も広く使用される統合的枠組みの一つとなった。COVID-19ワクチン接種行動・喫煙・食事・運動など多領域で応用され、19の既存理論を一つのホイールに統合した実用性が評価されている。"
+    },
+    {
+      "era": "heisei",
+      "title": "精神病理の階層分類モデル（HiTOP）",
+      "year": 2017,
+      "finding": "診断の不均一性・境界問題・診断不安定性・高いコモービディティというDSMの根本的問題を解決するためのエンピリカルな代替案として、国際的な精神医学・心理学研究コンソーシアムが開発。RDoC（米国NIMH）と並ぶ次世代診断システムとして注目される。"
+    },
+    {
+      "era": "heisei",
+      "title": "精神病理の一般因子（pファクター）",
+      "year": 2014,
+      "finding": "カスピらのダニーデン縦断研究から生まれ、コモービディティの高さ・治療抵抗性・精神疾患の重篤化を予測する指標として注目された。脳機能・遺伝・発達的要因との関連研究が急増し、次世代診断システムへの影響が大きい。"
+    },
+    {
+      "era": "heisei",
+      "title": "コア知識理論",
+      "year": 2007,
+      "finding": "ピアジェの段階発達論を超えた乳児認知能力の早期出現を実証的に裏付け、発達心理学・教育心理学・比較認知科学・AIの理論的基礎を更新した。数概念・物体概念の早期発達に関する多数の研究を生み出した。"
+    },
+    {
+      "era": "heisei",
+      "title": "心理的柔軟性モデル（ACT）",
+      "year": 1999,
+      "finding": "ACTの有効性が慢性疼痛・うつ・不安・職場ストレス・パフォーマンス向上など200件超のRCTで実証された。心理的柔軟性という単一構成概念が精神的健康の中核的指標として広く使用され、健康心理学・産業心理学・コーチングに普及した。"
+    },
+    {
+      "era": "heisei",
+      "title": "人間開発指数",
+      "year": 1990,
+      "finding": "GDP偏重の開発評価を転換し、国連開発計画の中心指標として世界の政策に影響を与えた。"
+    },
+    {
+      "era": "heisei",
+      "title": "ジェンダーとケイパビリティ",
+      "year": 1995,
+      "finding": "開発政策におけるジェンダー主流化の理論的根拠を強化した。"
+    }
+  ],
+  "sample_futures": [
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Future of Jobs Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "2030年までに労働力の39%のコア技能が変化し、AI協働とデータリテラシーが必須スキル化する",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Future of Jobs Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "AIとビッグデータがスキル需要上位。データ駆動意思決定リテラシーが全職員に求められる",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Future of Jobs Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "AIが苦手とする対人コミュニケーションとリーダーシップがいっそう重要。信頼構築と感情知性が差別化要因",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "Future of Jobs Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "AIによる自動化が進む中、創造的思考がコア競争力化。新規アイデア創出と革新性の価値が急騰",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Future of Jobs Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "レジリエンス・柔軟性・俊敏性がスキル需要トップ10入り。VUCAな環境での適応能力が必須",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "OECD Learning Compass 2030",
+      "org": "OECD",
+      "year": 2019,
+      "finding": "OECD変革コンピテンシー：ステータスクオーバーを疑い、既得権層に依存しない思考が変革の基礎",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "OECD Learning Compass 2030",
+      "org": "OECD",
+      "year": 2019,
+      "finding": "「新たな価値創造」：ゼロからイチを生み出す能力。革新的なアイデア、知識、技術戦略の開発が核心",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "OECD Learning Compass 2030",
+      "org": "OECD",
+      "year": 2019,
+      "finding": "「責任を取る」：自分の行動の結果を理解し、社会的責任を自分事とする姿勢が基盤",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "OECD Learning Compass 2030",
+      "org": "OECD",
+      "year": 2019,
+      "finding": "「矛盾を調和させる」：複数の立場を同時に理解し、二項対立を超えた統合的思考が求められる",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "未来人材ビジョン",
+      "org": "経済産業省",
+      "year": 2022,
+      "finding": "ゼロからイチを生み出す能力に加え、AI時代に対応した問題発見力と的確な予測力が2030年の核心能力",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "未来人材ビジョン",
+      "org": "経済産業省",
+      "year": 2022,
+      "finding": "グローバル社会課題を解決する意欲と問題発見力。従来の「正確さ・責任感」から「革新性・予測」へのシフト",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "未来人材ビジョン",
+      "org": "経済産業省",
+      "year": 2022,
+      "finding": "多様性を受容し他者と協働する能力。異なる背景・考えを持つメンバーとの統合的な働き方が基本",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "DXリテラシー標準",
+      "org": "IPA/経済産業省",
+      "year": 2024,
+      "finding": "DXリテラシー標準ver.1.2（2024年7月）：生成AIの登場を踏まえた新たなデータ・技術リテラシーが全職員必須",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "DXリテラシー標準",
+      "org": "IPA/経済産業省",
+      "year": 2024,
+      "finding": "生成AI時代のマインド・スタンス：新たな価値を生み出すための土台として、データ駆動思考と技術への適応姿勢が必須",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "DXリテラシー標準",
+      "org": "IPA/経済産業省",
+      "year": 2024,
+      "finding": "Why-What-Howの統合的理解：DXを自分事とし、変革に向けて行動するにはシステム全体の因果関係を把握する必要",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "McKinsey Future of Work 2025",
+      "org": "McKinsey Global Institute",
+      "year": 2025,
+      "finding": "高次認知スキルが24%増、社会・感情スキルが33%増。対話とリーダーシップがAI協働の要",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "McKinsey Future of Work 2025",
+      "org": "McKinsey Global Institute",
+      "year": 2025,
+      "finding": "AI時代の高次思考：複雑な問題解決、戦略的思考、適応的学習が従来の「正確さ・注意」に取って代わる",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "McKinsey Future of Work 2025",
+      "org": "McKinsey Global Institute",
+      "year": 2025,
+      "finding": "AI協働スキル：人間とAIエージェント両者が含まれるチームを運営するリーダーシップと協働マインドが求められる",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "McKinsey Future of Work 2025",
+      "org": "McKinsey Global Institute",
+      "year": 2025,
+      "finding": "継続的学習：5年で59%の労働力が再教育を必要とし、学習戦略・適応性が個人の競争力の基盤",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "New Economy Skills 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "68%のデジタルスキルがAIで変容される中、人間中心スキル（共感・倫理・判断）の相対的価値が35%のみ変容に留まる",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "New Economy Skills 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "AI出力の妥当性評価能力：生成AIの限界を理解し、倫理的・社会的含意を判断する批判的思考が必須",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Society 5.0時代を切り拓く人材の育成",
+      "org": "経団連",
+      "year": 2020,
+      "finding": "デジタル革新対応スキル：デジタル技術の自社への応用とビジネス転換を理解する能力が経営層から一般職まで必須化",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "生成AI×2030年の未来予測",
+      "org": "野村総合研究所",
+      "year": 2024,
+      "finding": "プロンプト・スキル：生成AIの活用には指示語の習熟と言語化能力、対話力が必須。日本語表現力の重要性が増す",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "AI時代の職業構造変化への対応",
+      "org": "マッキンゼー",
+      "year": 2025,
+      "finding": "Agentic AI協働：人間とAIエージェントが共存するワークフロー設計に対応したマネジメントと協働スキルが職業要件化",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "The Future of Jobs Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "職務スキルの陳腐化が早まるため、2030年には一度の専門教育より、短周期で学び直し成果を業務へ移すメタ学習力が重要になる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "AR6 Synthesis Report",
+      "org": "IPCC",
+      "year": 2023,
+      "finding": "1.5度目標を意識した2030年シナリオでは、排出削減、適応、公正な移行を同時に考えるエコロジカルリテラシーが職種横断の基礎になる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "AR6 Synthesis Report",
+      "org": "IPCC",
+      "year": 2023,
+      "finding": "気候リスクはエネルギー、食料、水、健康、都市インフラに連鎖するため、2030年には相互依存を読むシステム思考が能力差になる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "Future of Jobs Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "複雑性への対応能力として、全体システムを俯瞰し相互関係を理解する思考が必須",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "OECD Skills Outlook 2025",
+      "org": "OECD",
+      "year": 2025,
+      "finding": "デジタル化が進む労働市場において、文識性・計数性・適応的問題解決に加え、創造性と革新力がいっそう必須化",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "OECD Skills Outlook 2025",
+      "org": "OECD",
+      "year": 2025,
+      "finding": "デジタルスキルの基盤としての計数性（リテラシー・ニューメラシー・統計的思考）が全職員レベルで必須化",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "OECD Skills Outlook 2025",
+      "org": "OECD",
+      "year": 2025,
+      "finding": "ライフコース全体を通じた継続学習：教育システムが人生100年時代の「学び直し」の仕組みへの転換が急務",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "OECD Skills Outlook 2025",
+      "org": "OECD",
+      "year": 2025,
+      "finding": "グリーントランスフォーメーション対応：環境持続性への理解とスキルが全産業分野で必須要件化",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "New Economy Skills 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "AI時代の包摂性：テクノロジー格差とAI導入に伴う不安への対応として、寛容性と共存の価値が組織文化の要となる",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "未来人材ビジョン",
+      "org": "経済産業省",
+      "year": 2022,
+      "finding": "グローバルな対話力：多言語・多文化環境での対人スキルがシニア層含め全年代で必須化する",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "未来人材ビジョン",
+      "org": "経済産業省",
+      "year": 2022,
+      "finding": "異分野統合志向：単一分野の深掘りから異なる産業・分野を統合する複合型人材へのシフト",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Society 5.0に向けた人材育成",
+      "org": "文部科学省",
+      "year": 2018,
+      "finding": "Society 5.0実現の基盤：情報を正確に解釈し対話する能力、科学的思考の適用と価値創造スキル",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Society 5.0に向けた人材育成",
+      "org": "文部科学省",
+      "year": 2018,
+      "finding": "Society 5.0時代の共通能力：感度と価値発見・創造能力、好奇心と探究スキルがシステム的問題解決に必須",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "Society 5.0に向けた人材育成",
+      "org": "文部科学省",
+      "year": 2018,
+      "finding": "デジタル化時代における人文学の価値：文化・伝統の理解が、AIには不可能な共感的価値判断の基礎となる",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "Society 5.0時代を切り拓く人材の育成",
+      "org": "経団連",
+      "year": 2020,
+      "finding": "レジリエンス育成：人口減・社会構造変化への対応として、自律的なキャリア形成と適応能力の組織文化整備が必須",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Society 5.0時代を切り拓く人材の育成",
+      "org": "経団連",
+      "year": 2020,
+      "finding": "リカレント教育の加速：シニア層を含む全年代対象の「学び直し」制度がSociety 5.0への人材対応の鍵",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "生成AI×2030年の未来予測",
+      "org": "野村総合研究所",
+      "year": 2024,
+      "finding": "データ思考：アナログ情報のデータ化と収集したデータから解決策を導出する「データ思考」がコア能力化",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "生成AI×2030年の未来予測",
+      "org": "野村総合研究所",
+      "year": 2024,
+      "finding": "学習思考：生成AIの急速な進化への対応として、継続的な学習・理解・適応姿勢が個人・組織の競争力基盤",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "生成AI×2030年の未来予測",
+      "org": "野村総合研究所",
+      "year": 2024,
+      "finding": "クリエイティブ・スキル化：ルーティン業務の自動化進行に伴い、起業家精神や創造的なビジネス・デザインスキルが差別化要因",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "生成AIが浸透する時代の倫理的課題",
+      "org": "経済産業省",
+      "year": 2023,
+      "finding": "AI時代の倫理的意識：生成AIの公正性と公平性を確保するため、使用データとAI活用方法について常に倫理的考慮が必須",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "AI時代に求められる真の対人能力",
+      "org": "ビジネスキャリア・コンサルティング",
+      "year": 2024,
+      "finding": "AI時代のリーダーシップ：感情理解と共感、深い対話を通じた信頼構築がAI協働時代の組織運営の必須条件",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "データリテラシー育成の急務",
+      "org": "データのじかん",
+      "year": 2024,
+      "finding": "ビジネスパーソン必須スキル：82%の経営層がすべての従業員にデータリテラシーの習得を期待。データ読解・分析・活用力が基本動作化",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "DX時代のデータ活用スキル",
+      "org": "インソース",
+      "year": 2024,
+      "finding": "データ活用の四つの力：収集力・読解力・分析力・活用力がDX実装の基盤として全職員に求められる",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "2030年労働市場の推計から見える課題",
+      "org": "パーソル総合研究所",
+      "year": 2023,
+      "finding": "644万人の労働力不足への対応：生産性向上（最低4%）が必須であり、変化への適応能力とレジリエンスが個人スキルの要",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "2030年問題の多層的対応",
+      "org": "NTTドコモビジネス",
+      "year": 2024,
+      "finding": "システム的課題解決：労働人口減への対応は女性・シニア・外国人活用と生産性向上のバランスを取る統合的思考が必須",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "2029年問題の本質：デジタルリテラシーギャップ",
+      "org": "日本の人事部",
+      "year": 2024,
+      "finding": "デジタルリテラシー格差への対応：既存社員と新入世代の差異を埋める継続的なスキル育成が組織継続性の要件",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "脱炭素・グリーン領域の人材育成",
+      "org": "OECD",
+      "year": 2024,
+      "finding": "グリーンスキルの大規模需要：脱炭素化と環境持続性に関わる技術・知識・態度が全業種・全年代で必須化の見通し",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "持続可能社会への人材転換",
+      "org": "SDGsコンパス",
+      "year": 2023,
+      "finding": "Society 5.0とSDGs統合：環境・社会課題を同時解決する統合的思考とステークホルダー対話スキルが必須",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "ダイバーシティ・インクルージョン推進",
+      "org": "OECD Skills Outlook",
+      "year": 2025,
+      "finding": "包摂的成長：女性・移民・障害者が労働市場に参入する中、寛容性と異文化協働スキルが組織運営の基盤",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "サイバーセキュリティリテラシー化",
+      "org": "WEF",
+      "year": 2025,
+      "finding": "ネットワーク・サイバーセキュリティがスキル需要急上位：AIやクラウド環境での情報保護リテラシーが全職員レベルで必須化",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "複雑な意思決定環境への対応",
+      "org": "デロイト トーマツ",
+      "year": 2025,
+      "finding": "AI時代の統合的判断：複数情報源の統合、不確実性下の意思決定、ステークホルダー利益の調整スキルが経営層から実務層まで必須",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "継続的学習文化への組織転換",
+      "org": "JMAM",
+      "year": 2024,
+      "finding": "学習組織化：スキル陳腐化サイクルが高速化する中、学習と実践の反復サイクル構築が人材競争力の源泉",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "グローバルチーム運営スキル",
+      "org": "WEF New Economy Skills",
+      "year": 2025,
+      "finding": "多地域・多言語・多文化環境での対話力と文化的感応性が職場基本スキル化。リモート・ハイブリッド環境での信頼構築が必須",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "AI出力のプロンプト最適化スキル",
+      "org": "McKinsey",
+      "year": 2025,
+      "finding": "生成AI活用の極大化：効果的なプロンプト設計、出力品質の評価、フィードバック反復が知識労働者の基本操作スキル化",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "AI学習データへの理解リテラシー",
+      "org": "OECD",
+      "year": 2025,
+      "finding": "AI透明性理解：AIの訓練データ、学習方法、バイアス源について理解し、結果を解釈する能力が経営判断に不可欠",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "ステークホルダー対話スキルの価値向上",
+      "org": "OECD",
+      "year": 2025,
+      "finding": "利益相反の調整：従業員・顧客・株主・社会の異なる利益を理解し、交渉・説得・合意形成する高次対話スキル",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "AI導入変更管理スキル",
+      "org": "McKinsey",
+      "year": 2024,
+      "finding": "オーガニゼーション・チェンジ：AI導入時の組織抵抗を克服し、新しい協働モデルへの移行を主導するスキル",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "ビジネスモデル・イノベーションスキル",
+      "org": "McKinsey",
+      "year": 2025,
+      "finding": "AIが既存ビジネスを破壊する中、新しい収益源・市場・顧客セグメントを創造するビジネスモデル思考スキル",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "不確実性への意思決定力",
+      "org": "McKinsey",
+      "year": 2025,
+      "finding": "VUCAな環境への対応：完全な情報を待たずに、限定された情報で判断・実行・改善するアジャイル的意思決定スキル",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "感情知性（EQ）の組織的価値",
+      "org": "WEF",
+      "year": 2025,
+      "finding": "AIが拡大する中、人間の感情理解・自己認識・関係調整能力が組織パフォーマンスの中核競争力化",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "AI倫理と規制への対応スキル",
+      "org": "IPA",
+      "year": 2024,
+      "finding": "AIガバナンス理解：EU AI法など国際的な規制動向を踏まえ、倫理的かつコンプライアント的なAI導入を判断するスキル",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "フェイクニュース・AI詐欺への防御スキル",
+      "org": "OECD Skills Outlook",
+      "year": 2025,
+      "finding": "デジタル信頼の維持：生成AIによる詐欺コンテンツ増加への対抗として、メディア・情報リテラシーがセキュリティスキル化",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "職業転換への心理的準備",
+      "org": "WEF",
+      "year": 2025,
+      "finding": "9,200万の職業消滅への対応：キャリア転換の不安を克服し、新しい職業分野への学習・移行意欲を保つメンタルスキル",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "エビデンス・ベースド思考の実装",
+      "org": "McKinsey",
+      "year": 2024,
+      "finding": "意見駆動から証拠駆動へ：経験則や勘ではなく、データと科学的知見に基づいて判断・提案するスキル",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "カーボンニュートラル経営への知識",
+      "org": "OECD",
+      "year": 2025,
+      "finding": "2050年CO2ゼロへの対応：サプライチェーンのカーボン会計と脱炭素技術選択が全企業の経営判断スキル化",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "ネゴシエーション・スキルの高度化",
+      "org": "WEF New Economy Skills",
+      "year": 2025,
+      "finding": "利益相反の複雑化：環境・社会・経済・技術の複数次元での意見対立を解決する創造的交渉スキル",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "データプライバシー・個人情報保護の理解",
+      "org": "OECD",
+      "year": 2025,
+      "finding": "GDPRなどの規制対応：個人情報の扱いと顧客信頼の維持が企業存続の必須スキルとなる",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "AI Index Report 2025",
+      "org": "Stanford HAI",
+      "year": 2025,
+      "finding": "2030年に向け、AIモデルの性能・導入速度・コスト低下を前提に、人間はモデル選定、検証、業務統合、失敗時の責任分担を設計する能力で差がつく。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "AI Index Report 2025",
+      "org": "Stanford HAI",
+      "year": 2025,
+      "finding": "生成AIが専門職の初稿作成を担うほど、出力の妥当性・バイアス・根拠不足を検査する批判的思考が生産性差を左右する。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "The Future of Jobs Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "AIで定型分析が自動化されるほど、顧客・同僚・規制当局との信頼形成、合意形成、対話設計の差が人間側の付加価値になる。",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "The Economic Potential of Generative AI",
+      "org": "McKinsey Global Institute",
+      "year": 2023,
+      "finding": "生成AIは単体ツールではなく業務プロセス全体を変えるため、2030年の差はタスク単位ではなく組織・データ・責任のシステム再設計力に出る。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "OECD Digital Education Outlook 2023",
+      "org": "OECD",
+      "year": 2023,
+      "finding": "教育・職場のデジタル化が進む2030年には、情報検索だけでなく、学習ログ、アルゴリズム推薦、データ保護を理解する情報リテラシーが基礎能力化する。",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "AR6 Synthesis Report",
+      "org": "IPCC",
+      "year": 2023,
+      "finding": "高排出・分断型シナリオでは災害・熱波・供給途絶への対応頻度が上がり、個人と組織のレジリエンス設計能力が重要になる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "Climate Change 2022: Impacts, Adaptation and Vulnerability",
+      "org": "IPCC",
+      "year": 2022,
+      "finding": "適応策は地域共同体、自治体、企業、弱者支援の連携を要するため、2030年には集団協調性が気候適応の実装能力として評価される。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "Net Zero Roadmap",
+      "org": "International Energy Agency",
+      "year": 2023,
+      "finding": "脱炭素投資では排出量、効率、コスト、需要予測を扱うため、炭素会計とエネルギー指標を読む数学的リテラシーが広く必要になる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "Global Resources Outlook 2024",
+      "org": "UNEP International Resource Panel",
+      "year": 2024,
+      "finding": "資源制約下では製品設計、調達、廃棄、消費行動を横断して考える必要があり、異分野統合志向が循環経済の中核能力になる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "Global Risks Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "偽情報、社会分断、国家間対立が重なるシナリオでは、情報源の意図と利害を読む批判的思考が安全保障上の市民能力になる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "Global Risks Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "複合危機が常態化する2030年像では、計画通りに進まない状況で優先順位を組み替えるレジリエンスが個人・組織双方で不可欠になる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "OECD AI Principles",
+      "org": "OECD",
+      "year": 2019,
+      "finding": "AI利用が普及する2030年には、透明性、説明可能性、責任ある利用を理解し、業務判断に反映する情報リテラシーが必要になる。",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "UNESCO Recommendation on the Ethics of Artificial Intelligence",
+      "org": "UNESCO",
+      "year": 2021,
+      "finding": "AIが差別や偏りを増幅し得るため、異なる背景の人に与える影響を想像し補正する寛容性と公平性の感覚が問われる。",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "UNESCO Recommendation on the Ethics of Artificial Intelligence",
+      "org": "UNESCO",
+      "year": 2021,
+      "finding": "倫理的AI利用では、便利さだけでなく人権、説明責任、監督可能性を踏まえてAIとの協働範囲を決める能力が重要になる。",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "OECD Skills Outlook 2023",
+      "org": "OECD",
+      "year": 2023,
+      "finding": "グリーン・デジタル移行は職場内外の協働を要するため、専門スキルと同時に他者を巻き込む対人関係スキルが重要になる。",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "OECD Skills Outlook 2023",
+      "org": "OECD",
+      "year": 2023,
+      "finding": "デジタル化と脱炭素化が同時進行するため、2030年にはIT、経営、環境、教育を横断して接続する異分野統合力が必要になる。",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "Global Cybersecurity Outlook 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "サイバー能力格差が企業規模や地域間で広がる場合、基礎的な脅威理解、認証、データ共有判断があらゆる職種の差になる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "未来人材ビジョン",
+      "org": "経済産業省",
+      "year": 2022,
+      "finding": "スタートアップマインド：分断シナリオでは、既存組織に依存せず自律的に価値創造する起業家精神が生存戦略となる",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "AI時代のメディア・コミュニケーション",
+      "org": "早稲田大学",
+      "year": 2024,
+      "finding": "情報リテラシーの進化：メディアの多様化とAI生成コンテンツの増加に対応した、情報の真偽判定と解釈能力",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "IT人材の大規模不足への対応戦略",
+      "org": "日本経済新聞",
+      "year": 2024,
+      "finding": "2030年にIT人材80万人不足予測：単なるテクニカルスキルではなく、戦略的思考と創造性を備えたIT人材育成が課題",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "スタートアップ環境での人材要件",
+      "org": "株式会社デジタルグロース",
+      "year": 2024,
+      "finding": "起業家マインド化：大企業含め全職場でイノベーション思考と失敗からの学習が組織文化要件化",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "ビジネスエコシステム理解スキル",
+      "org": "McKinsey",
+      "year": 2025,
+      "finding": "プラットフォーム経済対応：自社・他社・顧客・ステークホルダーが相互接続するエコシステム内での価値創造スキル",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "デザイン思考の組織標準化",
+      "org": "McKinsey",
+      "year": 2024,
+      "finding": "ユーザー中心設計：顧客課題を深く理解し、インクルーシブなソリューションを協働で創造するデザイン思考スキル",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "AI失業への心理的レジリエンス",
+      "org": "McKinsey Learning Perspectives",
+      "year": 2025,
+      "finding": "AI代替への心理的対応：職業転換や職種変更への不安に対処する適応スキルと精神的回復力が重要課題",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "仮説検証とA/Bテスト思考",
+      "org": "McKinsey",
+      "year": 2024,
+      "finding": "実験的マインドセット：データ駆動の仮説形成と検証、失敗からの学習スピードが組織イノベーション力の源泉",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "社会起業家マインドの組織浸透",
+      "org": "McKinsey",
+      "year": 2024,
+      "finding": "持続可能社会への貢献意識：利益追求と社会課題解決を両立するミッション・ドリブンなマインドセットが人材吸引力となる",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "相互依存性の理解と対応",
+      "org": "OECD Learning Compass",
+      "year": 2019,
+      "finding": "グローバル相互依存への対応：サプライチェーン・金融・環境が相互連結した世界で、複数主体の利益を調整する能力",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "チームベース学習の内制化",
+      "org": "OECD Skills Outlook",
+      "year": 2025,
+      "finding": "集団学習文化：個人の学習に加え、チーム全体での知識共有と学習サイクル構築が組織学習力の要件",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "キャリア多元化への心理的対応",
+      "org": "IPA DX推進スキル標準",
+      "year": 2024,
+      "finding": "キャリア流動性への対応：単一組織・単一職種の想定から、複数回の転職・転換を想定した自己マネジメント能力",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "バイアス認識とインクルーシブ行動",
+      "org": "OECD",
+      "year": 2025,
+      "finding": "アンコンシャスバイアス対策：無意識の偏見を認識し、多様な視点を活かすインクルーシブな組織行動スキル",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "サイバーフィジカルシステム理解",
+      "org": "IPA DX推進スキル標準",
+      "year": 2024,
+      "finding": "IoT・AI・クラウド統合環境での業務設計：デジタルと物理世界の融合領域での問題解決スキル",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "マイクロラーニングの効果的活用",
+      "org": "McKinsey",
+      "year": 2025,
+      "finding": "学習効率化：短時間での知識習得と実践の反復を自己組織的に行える学習メタ能力が継続学習の要件",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "アートとテクノロジーの統合スキル",
+      "org": "OECD",
+      "year": 2019,
+      "finding": "リベラルアーツの復権：技術最適化だけでは対応できない人間的課題の解決に、文化・芸術的思考と感受性が必須",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "図表解読と可視化スキル",
+      "org": "OECD",
+      "year": 2025,
+      "finding": "ビジュアル・コミュニケーション化：複雑なデータを視覚的に理解・伝達する能力が情報共有の効率化と意思決定の鍵",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "シニア人材のリスキリング対応",
+      "org": "JMAM",
+      "year": 2024,
+      "finding": "シニア学習への支援：50代以上の人材が新技術を学ぶ際の心理的・生理的課題を踏まえた教育設計が組織効率化の鍵",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "サーキュラーエコノミー理解スキル",
+      "org": "OECD",
+      "year": 2025,
+      "finding": "循環経済への転換：線形経済から循環経済への移行に対応した、ライフサイクル思考とシステムデザインスキル",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "多文化チーム運営の難題対応",
+      "org": "WEF",
+      "year": 2025,
+      "finding": "文化的葛藤の管理：異なる価値観・言語・労働慣行を持つメンバーの利益を調整する高次対話スキル",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "スケールアップ思考の内制化",
+      "org": "McKinsey",
+      "year": 2025,
+      "finding": "スタートアップ的スケーリング：限定資源での最大価値創造と急速な規模拡大を同時追求するレジリエント経営スキル",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "APIとマイクロサービス理解スキル",
+      "org": "IPA DX推進スキル標準",
+      "year": 2024,
+      "finding": "デジタルアーキテクチャ理解：クラウド・API・マイクロサービス時代での業務設計と外部連携を判断するスキル",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "不公正への声上げスキル（スピークアップ）",
+      "org": "OECD Learning Compass",
+      "year": 2019,
+      "finding": "組織内の不正・ハラスメント・差別への対抗：権力構造に抗して正義を声高に主張する心理的レジリエンスと論理的説得力",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "AIレイオフ予告への適応スキル",
+      "org": "McKinsey",
+      "year": 2024,
+      "finding": "AI代替警告への心理的対応：職業消滅の現実化に対し、前向きな転身を準備するメンタルレジリエンスと行動性",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_acceleration",
+      "title": "The Economic Potential of Generative AI",
+      "org": "McKinsey Global Institute",
+      "year": 2023,
+      "finding": "AIにより少人数で新規事業を試せる範囲が拡大し、仮説検証・市場投入・自動化設計を一体で進める起業家的能力が強まる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Global Digital Compact",
+      "org": "United Nations",
+      "year": 2024,
+      "finding": "デジタル空間で国境を越えた協働が増える一方、差別・排除・分断も増幅するため、多様な主体を包摂する寛容性がネットワーク社会の能力になる。",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Global Digital Compact",
+      "org": "United Nations",
+      "year": 2024,
+      "finding": "AI・データ・デジタル公共財の議論では、権利、セキュリティ、経済便益を切り分けて論理的に整理する能力が政策・実務双方で求められる。",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "Net Zero Roadmap",
+      "org": "International Energy Agency",
+      "year": 2023,
+      "finding": "ネットゼロ移行では省エネ、再エネ、電化、循環利用の事業機会が増え、技術制約と市場機会を結ぶ起業家精神が評価される。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "post_growth",
+      "title": "Global Resources Outlook 2024",
+      "org": "UNEP International Resource Panel",
+      "year": 2024,
+      "finding": "ポスト成長寄りの2030年像では、GDP拡大だけでなく資源効率、福祉、地域循環を同時に設計するシステム思考が差を生む。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "post_growth",
+      "title": "Human Development Report 2023/2024",
+      "org": "UNDP",
+      "year": 2024,
+      "finding": "不確実性と地球環境制約が強まる中、生活の質と環境負荷を同時に評価する価値判断がポスト成長型の人材要件になる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "post_growth",
+      "title": "Human Development Report 2023/2024",
+      "org": "UNDP",
+      "year": 2024,
+      "finding": "分断と不確実性の時代には、外部の成長物語に依存せず、自分の生活・仕事・学習を主体的に選び直す社会的自立性が重要になる。",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "Human Development Report 2023/2024",
+      "org": "UNDP",
+      "year": 2024,
+      "finding": "制度不信や分断を超えて共通課題に取り組むため、2030年には抗議だけでなく実装まで担う社会変革志向が求められる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "Global Risks Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "地政学的緊張下では、価値観の異なる相手との交渉、誤解の緩和、合意可能領域の発見が専門知識以上に成果を左右する。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "NATO 2022 Strategic Concept",
+      "org": "NATO",
+      "year": 2022,
+      "finding": "サイバー攻撃と情報操作が安全保障課題化するため、2030年には一般職にも基本的なサイバー衛生と情報防衛リテラシーが必要になる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "NATO 2022 Strategic Concept",
+      "org": "NATO",
+      "year": 2022,
+      "finding": "サプライチェーン、重要インフラ、デジタル通信、同盟関係が連動するため、地政学リスクを単独事象でなくシステムとして読む力が求められる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "A New Agenda for Peace",
+      "org": "United Nations",
+      "year": 2023,
+      "finding": "国家・民族・宗教をめぐる分断が深まる場合、対立相手を全否定せず共存条件を探る寛容性が平和構築の基礎能力になる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "A New Agenda for Peace",
+      "org": "United Nations",
+      "year": 2023,
+      "finding": "安全保障が軍事だけでなく気候、食料、情報、格差を含むほど、組織や国境を越えて協働する集団協調性の価値が上がる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_singularity",
+      "title": "Frontier AI Regulation: Managing Emerging Risks to Public Safety",
+      "org": "Ada Lovelace Institute",
+      "year": 2023,
+      "finding": "フロンティアAIのリスクが増すほど、性能向上の期待と社会的危害の可能性を分けて評価する批判的思考が不可欠になる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_singularity",
+      "title": "Frontier AI Regulation: Managing Emerging Risks to Public Safety",
+      "org": "Ada Lovelace Institute",
+      "year": 2023,
+      "finding": "AIガバナンスが未成熟な場合、技術者・市民・政策担当者が制度形成に参加する社会変革志向が能力差を生む。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_singularity",
+      "title": "Governing AI for Humanity",
+      "org": "United Nations AI Advisory Body",
+      "year": 2024,
+      "finding": "高度AIの国際治理では、リスク階層、監査、責任、公益を論理的に組み立てる能力が政策実装の前提となる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_singularity",
+      "title": "Governing AI for Humanity",
+      "org": "United Nations AI Advisory Body",
+      "year": 2024,
+      "finding": "高度AIの便益とリスクは国境を越えるため、競争だけでなく共有ルールを作る集団協調性が2030年の重要能力になる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "post_growth",
+      "title": "Risks That Matter 2024",
+      "org": "OECD",
+      "year": 2024,
+      "finding": "生活不安や制度不信が高まる場合、個人は所得・健康・家族・地域支援を組み合わせて立て直すレジリエンスを求められる。",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "post_growth",
+      "title": "Risks That Matter 2024",
+      "org": "OECD",
+      "year": 2024,
+      "finding": "社会保障や地域支援の持続性が問われる2030年には、個人最適だけでなく支え合いを設計する集団協調性が評価される。",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Global Employment Trends for Youth 2024",
+      "org": "International Labour Organization",
+      "year": 2024,
+      "finding": "若年雇用は教育、地域、ジェンダー、デジタルアクセスの影響を受けるため、2030年のキャリア支援には労働市場を構造的に読む力が必要になる。",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "Global Employment Trends for Youth 2024",
+      "org": "International Labour Organization",
+      "year": 2024,
+      "finding": "若者、移民、女性、非正規労働者の包摂が課題化するため、多様な就業経路を認める寛容性が雇用設計の能力になる。",
+      "conf": 7,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "Global Cybersecurity Outlook 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "攻撃経路と防御策を切り分けるには、感覚的な危機感ではなく、原因、影響、対策を順序立てる論理的思考が必要になる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "posthuman",
+      "title": "WHO Guideline: Recommendations on Digital Interventions for Health System Strengthening",
+      "org": "World Health Organization",
+      "year": 2019,
+      "finding": "健康データ、遠隔医療、AI支援診断が広がる場合、人間の判断と機械支援の境界を管理するAI協働リテラシーが医療・介護で重要になる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "posthuman",
+      "title": "WHO Guideline: Recommendations on Digital Interventions for Health System Strengthening",
+      "org": "World Health Organization",
+      "year": 2019,
+      "finding": "身体拡張・デジタル医療・健康格差が同時に進む場合、異なる身体条件や技術アクセスを尊重する寛容性が必要になる。",
+      "conf": 7,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "分断シナリオ下の人材ニーズ",
+      "org": "McKinsey",
+      "year": 2025,
+      "finding": "分断シナリオでは、既得権益層を超えた自律的起業家スピリットと地域密着の価値創造が生き残り戦略",
+      "conf": 6,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp3",
+      "title": "分断への脆弱性への備え",
+      "org": "WEF Four Futures",
+      "year": 2025,
+      "finding": "分断シナリオ対応：地域格差・所得格差が深刻化する中、自地域の課題を自力で解決する地域基盤スキルが生存戦略",
+      "conf": 6,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ssp1",
+      "title": "ローカル価値創造スキル",
+      "org": "OECD Skills Outlook",
+      "year": 2025,
+      "finding": "地域経済の自立：グローバル依存から脱却し、地域資源とコミュニティニーズを結びつける価値創造スキル",
+      "conf": 6,
+      "unique": 0
+    },
+    {
+      "era": "future_2030",
+      "scenario": "baseline",
+      "title": "ブロックチェーン・分散システム理解",
+      "org": "IPA DX推進スキル標準",
+      "year": 2024,
+      "finding": "分散型経済の理解：ブロックチェーン・Web3・分散ガバナンスなど新しい組織形態の可能性を評価するスキル",
+      "conf": 6,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "post_growth",
+      "title": "ウェルビーイング経営への設計思考",
+      "org": "OECD Skills Outlook",
+      "year": 2025,
+      "finding": "脱成長・脱資本主義時代への転換：従業員・コミュニティの幸福度を最優先するビジネスモデル設計とリーダーシップ",
+      "conf": 6,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "ai_singularity",
+      "title": "Preparing for the Future of Artificial Intelligence",
+      "org": "White House OSTP",
+      "year": 2016,
+      "finding": "強いAI加速シナリオでは、AIを単なる補助ツールでなく、制約条件を持つ共同作業者として扱う設計能力が必要になる。",
+      "conf": 6,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "space_civilization",
+      "title": "Global Exploration Roadmap",
+      "org": "International Space Exploration Coordination Group",
+      "year": 2018,
+      "finding": "宇宙利用が通信、測位、観測、資源探査へ広がる2030年像では、宇宙データを地上産業に接続する起業家的能力が出る。",
+      "conf": 6,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "space_civilization",
+      "title": "Global Exploration Roadmap",
+      "org": "International Space Exploration Coordination Group",
+      "year": 2018,
+      "finding": "宇宙ミッションや衛星データ活用では軌道、リスク、通信、観測精度の基礎を扱うため、数学的リテラシーが実務能力になる。",
+      "conf": 6,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "space_civilization",
+      "title": "JAXA Vision 2030",
+      "org": "JAXA",
+      "year": 2018,
+      "finding": "宇宙と地上のインフラが結びつくほど、観測、通信、防災、産業利用を統合して考えるシステム思考が2030年代の差になる。",
+      "conf": 6,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "posthuman",
+      "title": "Human Enhancement and the Future of Work",
+      "org": "European Parliament STOA",
+      "year": 2020,
+      "finding": "能力増強技術が職場に入る場合、公平性、同意、健康影響、競争圧力を評価する批判的思考が制度設計の前提となる。",
+      "conf": 6,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "posthuman",
+      "title": "Human Enhancement and the Future of Work",
+      "org": "European Parliament STOA",
+      "year": 2020,
+      "finding": "身体・認知能力の増強が選択肢になるほど、技術利用を周囲の圧力ではなく自律的に選ぶ社会的自立性が問われる。",
+      "conf": 6,
+      "unique": 1
+    },
+    {
+      "era": "future_2030",
+      "scenario": "post_growth",
+      "title": "脱成長経済への適応スキル",
+      "org": "WEF",
+      "year": 2025,
+      "finding": "脱成長シナリオ：経済成長以外の価値指標（幸福度・環境・地域貢献）に基づくビジネスデザインと価値創造スキル",
+      "conf": 5,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Shared Socioeconomic Pathways Framework",
+      "org": "IPCC",
+      "year": 2021,
+      "finding": "SSP1低排出シナリオでは、気候変動への適応と持続可能な社会転換を主導するシステム思考能力が不可欠。複雑な相互依存システムの理解と対応能力の需要が高まる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "IPCC Sustainability Transition Pathways",
+      "org": "IPCC",
+      "year": 2021,
+      "finding": "エコロジカルリテラシーと生態系思考は、生物多様性保全と人間活動のバランスを構築する2050年社会での必須能力。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "post_growth",
+      "title": "McKinsey Agents Robots and Us 2025",
+      "org": "McKinsey Global Institute",
+      "year": 2025,
+      "finding": "AI・ロボティクス進化下で、2050年までにAI協働リテラシーは、人間固有の判断・共感・人間関係構築能力を補完するための中核スキル。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "McKinsey AI Fluency Report",
+      "org": "McKinsey Global Institute",
+      "year": 2025,
+      "finding": "情報リテラシーの需要が7倍に増加（過去2年）。2050年までにAI時代のデータ・情報管理・識別能力がベーススキルとなる。$3兆の経済価値創出に不可欠。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "WHO Aging and Gerontology 2050 Forecast",
+      "org": "World Health Organization",
+      "year": 2025,
+      "finding": "2050年には延命ケアニーズが3倍に増加。高齢者自身のレジリエンス（自己決定・適応力）と支援者の精神的回復力が、持続可能な長寿社会の基盤となる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Human-AI Orchestration Framework McKinsey",
+      "org": "McKinsey Global Institute",
+      "year": 2025,
+      "finding": "2050年のAI・ロボット統合職場では、人間とAIエージェント・ロボットの役割分担と最適協働を「オーケストレーション」する能力が経営者に必須。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Human-Centered Workplace Design 2050",
+      "org": "McKinsey/WEF",
+      "year": 2025,
+      "finding": "自動化進展下での2050年職場では、AI相互作用、交渉・コーチング・紛争解決などの人間中心スキルが、機械に代替不可能な人間労働の中核。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "post_growth",
+      "title": "AR6 Synthesis Report: Climate Change 2023",
+      "org": "IPCC",
+      "year": 2023,
+      "finding": "2050年の気候制約下では、緩和・適応・損失と損害・地域経済を同時に扱うシステム思考が、行政と企業の基礎能力になる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "post_growth",
+      "title": "AR6 Synthesis Report: Climate Change 2023",
+      "org": "IPCC",
+      "year": 2023,
+      "finding": "カーボンバジェットが逼迫する2050年には、自然資本を外部条件ではなく意思決定の制約として扱うエコロジカルリテラシーが不可欠になる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ai_singularity",
+      "title": "The Future of Jobs Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "AIが専門職タスクを広く代替する2050年には、AI出力を監査し人間の責任判断へ接続するAI協働リテラシーが全職種の基盤となる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ai_singularity",
+      "title": "The Future of Jobs Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "スキル更新周期が短縮する2050年では、資格の蓄積よりも学習戦略を継続的に再設計するメタ学習能力が雇用移動の鍵になる。",
+      "conf": 9,
+      "unique": 0
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "OECD Learning Compass 2030",
+      "org": "OECD",
+      "year": 2019,
+      "finding": "持続可能性とウェルビーイングを同時に追う2050年には、責任ある行動・新価値創造・緊張関係の調整を統合する変革コンピテンシーが中心化する。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ai_singularity",
+      "title": "Recommendation on the Ethics of Artificial Intelligence",
+      "org": "UNESCO",
+      "year": 2021,
+      "finding": "AI生成情報が社会基盤化する2050年には、データ由来・モデル限界・偏りを読解する情報リテラシーが市民参加の前提になる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ai_singularity",
+      "title": "Recommendation on the Ethics of Artificial Intelligence",
+      "org": "UNESCO",
+      "year": 2021,
+      "finding": "自動意思決定が公共サービスに浸透する2050年では、便利さと権利侵害の境界を評価する批判的思考が制度監視能力になる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Net Zero Roadmap: A Global Pathway to Keep the 1.5 C Goal in Reach",
+      "org": "International Energy Agency",
+      "year": 2023,
+      "finding": "2050年ネットゼロ社会では、電力・産業・建築・交通を個別最適でなく連結システムとして最適化する思考が専門職の標準技能になる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "post_growth",
+      "title": "Global Assessment Report on Biodiversity and Ecosystem Services",
+      "org": "IPBES",
+      "year": 2019,
+      "finding": "生物多様性損失が経済リスク化する2050年では、食料・水・健康・土地利用の連鎖を読むシステム思考が地域政策の基礎となる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "post_growth",
+      "title": "Global Assessment Report on Biodiversity and Ecosystem Services",
+      "org": "IPBES",
+      "year": 2019,
+      "finding": "自然の寄与を不可視の前提にしない2050年には、生態系サービスを生活と産業の条件として扱う価値判断能力が高まる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp3",
+      "title": "Global Risks Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "サイバー攻撃・異常気象・供給網寸断が複合化する2050年では、単一障害点を避けて活動を継続するレジリエンスが組織能力になる。",
+      "conf": 9,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "IPCC AR6 Education Outcomes Analysis",
+      "org": "IPCC",
+      "year": 2021,
+      "finding": "2050年までに高教育社会（SSP1）では、批判的思考とシナリオプランニング能力が気候適応政策の根幹となる。欧州レベルの教育水準到達が前提。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp2",
+      "title": "WEF Reskilling Revolution 2030-2050",
+      "org": "World Economic Forum",
+      "year": 2023,
+      "finding": "SSP2中道シナリオでは、不確実な経済変動に対応するレジリエンス能力が労働市場の30%の職務変化に対応するため重要。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "McKinsey Skills Partnerships Study",
+      "org": "McKinsey Global Institute",
+      "year": 2025,
+      "finding": "2050年社会では、自動化不可能な創造性と設計思考が企業競争力の源泉。経営者の70%がスキル変化を予想。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "post_growth",
+      "title": "Pearson Future of Skills Research",
+      "org": "Pearson/Nesta",
+      "year": 2017,
+      "finding": "生涯リカレント教育が2050年の脱成長経済では必須。学習戦略・適応性・メタ認知能力が、急速な産業構造変化に対応するための基礎スキル。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Japan Carbon Neutral 2050 Strategy",
+      "org": "Ministry of Environment/METI",
+      "year": 2021,
+      "finding": "カーボンニュートラル社会では、再生エネルギー・水素・CCUS等の複合的な技術導入を判断する論理的思考能力が産業構造転換の鍵となる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Japan Ministry Environment Education Roadmap",
+      "org": "Ministry of Environment",
+      "year": 2021,
+      "finding": "カーボンニュートラル2050年達成には、産業人材の継続的リスキリング能力が不可欠。15-30年の産業転換期間で複数回のキャリア転換への適応力が必要。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Service Robots in Elder Care 2025",
+      "org": "ScienceDirect/Nature",
+      "year": 2025,
+      "finding": "2050年までに高齢者（1.6億人）の介護支援ロボット導入が加速。AI協働リテラシーと同時に、ロボットとの相互作用設計能力が介護労働者に必須となる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Elderly Care Human-Robot Interaction Studies",
+      "org": "Frontiers in Neuroscience",
+      "year": 2023,
+      "finding": "ロボット補助介護では、高齢者との信頼関係構築、共感的かつ効率的なコミュニケーションスキルが、人間らしい介護環境維持に不可欠。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Gerontology Systems Thinking Japan 2050",
+      "org": "National Academy of Sciences",
+      "year": 2023,
+      "finding": "生産年齢人口5,275万人（2021比-29.2%）への急激な転換では、社会全体の労働・福祉システムを再設計する能力が行政・経営層に必須。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "OECD 2030-2050 Competency Framework",
+      "org": "OECD",
+      "year": 2023,
+      "finding": "OECD変革コンピテンシーの2050年版では、AI・気候・民主主義の同時危機への対応能力が、世界市民に必須の基盤スキルとなる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "AI Job Automation and Re-employment Analysis",
+      "org": "McKinsey/WEF",
+      "year": 2025,
+      "finding": "2030年までに米国労働の40%が自動化可能性を指摘。2050年までの再就職では、自動化対象職務を論理的に分析し、人間固有の価値を見出す能力が必須。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Rural Infrastructure Resilience and Community Leadership",
+      "org": "MLIT Japan",
+      "year": 2021,
+      "finding": "過疎化進展下で地方インフラを維持する2050年社会では、地域共同体の組織化と合意形成を主導する社会変革志向人材が急務。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp2",
+      "title": "Japan 2050 Population Policy and Regional Integration",
+      "org": "Ministry of Economy Trade Industry",
+      "year": 2018,
+      "finding": "SSP2シナリオの日本では、出生数65万人への急減、100歳以上50万人超への急増に対応する地域統合型システム設計能力が必須。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Cross-Domain Skill Integration for Green Transition",
+      "org": "WEF/McKinsey",
+      "year": 2025,
+      "finding": "グリーン転換では、エネルギー・農業・製造・都市計画の異分野知識を統合する能力が、イノベーション型ソリューション企業の競争力源泉。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Lifelong Learning as Core Competency 2050",
+      "org": "Pearson/UNESCO",
+      "year": 2020,
+      "finding": "AI・自動化・気候変動により職務内容が10年ごとに大きく変わる2050年では、学習方法自体を学ぶメタ学習能力が、職業人生全体の基盤スキルに昇格。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp2",
+      "title": "Multi-Stakeholder Collaboration for Climate Adaptation",
+      "org": "WEF/IPCC",
+      "year": 2023,
+      "finding": "気候適応では政府・企業・NGO・地域の複数ステークホルダー協働が不可避。利害関係の異なる者同士を仲介・統合する対人関係スキルが必須。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Creativity and Originality as Economic Cornerstone",
+      "org": "Pearson/Nesta",
+      "year": 2017,
+      "finding": "創造性と独自思想は、自動化時代2050年において最高価値スキル。個性・創意工夫・非標準的思考が差別化競争力の源泉。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Collaborative Problem-Solving in Complex Systems",
+      "org": "Pearson/OECD",
+      "year": 2020,
+      "finding": "グローバル課題（気候・パンデミック・不平等）では、自分の分野外の専門家・ステークホルダーと協働する対人スキルが極めて重要。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Planetary Boundaries Literacy and Decision-Making",
+      "org": "OECD/Wellbeing Alliance",
+      "year": 2024,
+      "finding": "地球有限性制約下の2050年では、気候・生物多様性・水資源等の惑星境界を理解し、その中での最適化判断ができる生態系リテラシーが必須。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Transformative Competency for Multiple Global Crises",
+      "org": "OECD",
+      "year": 2023,
+      "finding": "AI・気候・民主主義危機への同時対応では、複数システムの相互作用を理解し、統合的ソリューションを提案する変革コンピテンシーが不可欠。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Misinformation and Truth Discernment in AI Age",
+      "org": "WEF/McKinsey",
+      "year": 2025,
+      "finding": "AI生成コンテンツ時代の2050年では、真実と虚偽を識別し、情報源の信頼性を批判的に評価する能力が民主的意思決定の基盤。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Innovation at Domain Boundaries for Climate Solutions",
+      "org": "WEF/Pearson",
+      "year": 2023,
+      "finding": "気候対応型イノベーションは、物理学・生物学・経営・社会政策等の領域境界での統合創造に依存。異分野融合志向が新規事業開発の中核。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Digital Literacy and Cybersecurity in AI Era",
+      "org": "WEF/G20",
+      "year": 2025,
+      "finding": "ネットワーク化・AI化・自動化進展下での2050年では、デジタル識字と同時に、サイバー脅威・プライバシー侵害への防御的理解が全労働者に不可欠。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Adaptability and Flexibility as Core Mindset",
+      "org": "WEF Future of Jobs Report",
+      "year": 2025,
+      "finding": "WEFが2025年に指摘：2030年までに39%の基礎スキルが変化。2050年到達点では、環境変化への柔軟適応能力が終身スキルの基盤。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp2",
+      "title": "Human-AI Collaboration in Knowledge Work",
+      "org": "WEF/Pearson",
+      "year": 2025,
+      "finding": "知識労働の2050年では、AIとの協働が基本となり、プロンプト設計・結果解釈・倫理判断を統合するAI人間パートナーシップ能力が必須。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp3",
+      "title": "AR6 Synthesis Report: Climate Change 2023",
+      "org": "IPCC",
+      "year": 2023,
+      "finding": "地域分断と災害頻発が重なるSSP3型2050年では、インフラ途絶時にも生活・物流・ケアを再構成するレジリエンスが中核能力となる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp3",
+      "title": "Human Development Report 2023-24: Breaking the Gridlock",
+      "org": "UNDP",
+      "year": 2024,
+      "finding": "格差と政治的分極が深まる2050年では、敵対的ナラティブを検証し協力可能な争点へ翻訳する批判的思考が民主的安定の条件となる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "Human Development Report 2023-24: Breaking the Gridlock",
+      "org": "UNDP",
+      "year": 2024,
+      "finding": "多国間協力の再設計が進む2050年には、価値観の異なる集団間で合意形成を続ける寛容性が気候・AI統治の実装能力になる。",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2050",
+      "scenario": "post_growth",
+      "title": "The Future of Jobs Report 2025",
+      "org": "World Economic Forum",
+      "year": 2025,
+      "finding": "グリーン移行と生成AIが同時進行する2050年には、気候科学・業務設計・地域金融を横断して解を作る異分野統合力が高需要となる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "OECD Learning Compass 2030",
+      "org": "OECD",
+      "year": 2019,
+      "finding": "2050年の協働型社会では、エージェンシーを持つ個人同士が対話で目的を調整する対人関係スキルが、学校教育後も継続的に必要となる。",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2050",
+      "scenario": "post_growth",
+      "title": "Our Common Agenda",
+      "org": "United Nations",
+      "year": 2021,
+      "finding": "成長率より将来世代への責任が重視される2050年では、世代間の負担配分を正当化し合意する集団協調性が政策実装の核となる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "post_growth",
+      "title": "Our Common Agenda",
+      "org": "United Nations",
+      "year": 2021,
+      "finding": "複合危機に対応する2050年には、既存制度を批判するだけでなく地域・企業・行政を接続して制度更新する社会変革志向が求められる。",
+      "conf": 8,
+      "unique": 1
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp1",
+      "title": "OECD Skills Outlook 2023: Skills for a Resilient Green and Digital Transition",
+      "org": "OECD",
+      "year": 2023,
+      "finding": "2050年のグリーン・デジタル移行では、排出量・費用便益・不確実性を読み解く数学的リテラシーが職業横断の基礎技能になる。",
+      "conf": 8,
+      "unique": 0
+    },
+    {
+      "era": "future_2050",
+      "scenario": "ssp2",
+      "title": "OECD Skills Outlook 2023: Skills for a Resilient Green and Digital Transition",
+      "org": "OECD",
+      "year": 2023,
+      "finding": "移行速度が不均一なSSP2型2050年では、産業衰退と新職種出現の間を乗り切る職業的レジリエンスが生活安定の条件となる。",
+      "conf": 8,
+      "unique": 0
+    }
+  ],
+  "gap_insights": [
+    {
+      "type": "l1_l2_gap",
+      "title": "showa_preに「批判的思考」は事後重視されたが当時は言及少",
+      "desc": "showa_pre期において、現代の研究は「批判的思考」の重要性を6件指摘しているが、当時の言説では明示されていなかった。これは時代の盲点を示唆する。",
+      "eras": "[\"showa_pre\"]",
+      "caps": "[\"cog_critical\"]",
+      "edu": "現代の教育では、批判的思考を意識的にカリキュラムに組み込むことで、当時の盲点を補完できる",
+      "hire": "採用要件として批判的思考を明示的に評価することで、見落とされがちな潜在力を発掘できる",
+      "org": "組織設計では批判的思考を発揮できる場と評価制度の設計が不可欠",
+      "conf": 6
+    },
+    {
+      "type": "cross_era",
+      "title": "「起業家精神」は時代を跨いで一貫して重要",
+      "desc": "事後評価において「起業家精神」は6時代にわたり計39件言及されており、時代を超えた普遍的能力と言える。",
+      "eras": "[\"all\"]",
+      "caps": "[\"age_entrepreneur\"]",
+      "edu": "普遍的能力として起業家精神は基礎教育の柱に据えるべき",
+      "hire": "起業家精神は時代を超えて評価される能力なので、長期キャリア形成の核",
+      "org": "組織の継続的価値創造には起業家精神を持つ人材の安定確保が不可欠",
+      "conf": 8
+    },
+    {
+      "type": "cross_era",
+      "title": "「批判的思考」は時代を跨いで一貫して重要",
+      "desc": "事後評価において「批判的思考」は6時代にわたり計38件言及されており、時代を超えた普遍的能力と言える。",
+      "eras": "[\"all\"]",
+      "caps": "[\"cog_critical\"]",
+      "edu": "普遍的能力として批判的思考は基礎教育の柱に据えるべき",
+      "hire": "批判的思考は時代を超えて評価される能力なので、長期キャリア形成の核",
+      "org": "組織の継続的価値創造には批判的思考を持つ人材の安定確保が不可欠",
+      "conf": 8
+    },
+    {
+      "type": "cross_era",
+      "title": "「システム思考」は時代を跨いで一貫して重要",
+      "desc": "事後評価において「システム思考」は6時代にわたり計37件言及されており、時代を超えた普遍的能力と言える。",
+      "eras": "[\"all\"]",
+      "caps": "[\"cog_systems\"]",
+      "edu": "普遍的能力としてシステム思考は基礎教育の柱に据えるべき",
+      "hire": "システム思考は時代を超えて評価される能力なので、長期キャリア形成の核",
+      "org": "組織の継続的価値創造にはシステム思考を持つ人材の安定確保が不可欠",
+      "conf": 8
+    },
+    {
+      "type": "cross_era",
+      "title": "「学習戦略・適応性」は時代を跨いで一貫して重要",
+      "desc": "事後評価において「学習戦略・適応性」は6時代にわたり計28件言及されており、時代を超えた普遍的能力と言える。",
+      "eras": "[\"all\"]",
+      "caps": "[\"age_meta_learning\"]",
+      "edu": "普遍的能力として学習戦略・適応性は基礎教育の柱に据えるべき",
+      "hire": "学習戦略・適応性は時代を超えて評価される能力なので、長期キャリア形成の核",
+      "org": "組織の継続的価値創造には学習戦略・適応性を持つ人材の安定確保が不可欠",
+      "conf": 8
+    },
+    {
+      "type": "cross_era",
+      "title": "「社会変革志向」は時代を跨いで一貫して重要",
+      "desc": "事後評価において「社会変革志向」は6時代にわたり計27件言及されており、時代を超えた普遍的能力と言える。",
+      "eras": "[\"all\"]",
+      "caps": "[\"age_social_change\"]",
+      "edu": "普遍的能力として社会変革志向は基礎教育の柱に据えるべき",
+      "hire": "社会変革志向は時代を超えて評価される能力なので、長期キャリア形成の核",
+      "org": "組織の継続的価値創造には社会変革志向を持つ人材の安定確保が不可欠",
+      "conf": 8
+    },
+    {
+      "type": "era_to_future",
+      "title": "未来固有能力「AI協働リテラシー」",
+      "desc": "未来予測で28件言及されているが、過去には事後評価でも見当たらない新しい能力次元。AI協働リテラシーは未来固有の要求である。",
+      "eras": "[\"future_2030\", \"future_2050\", \"future_2100\"]",
+      "caps": "[\"cog_ai_collab\"]",
+      "edu": "既存教育パラダイムには存在しないAI協働リテラシーを新規カリキュラムとして設計する必要がある",
+      "hire": "AI協働リテラシーの評価は既存の採用基準では不可能。新たな評価フレームが必要",
+      "org": "AI協働リテラシーを発揮できる組織形態の刷新が、未来適応の鍵になる",
+      "conf": 7
+    }
+  ],
+  "data_sources": [
+    {
+      "id": "SIF",
+      "name": "SI歴史的構造変革DB",
+      "layer": "conceptual",
+      "stat": "1,096事象 / 232関係 / 10文明圏 / 10システム法則",
+      "repo": "social-innovation-framework",
+      "dashboard": "dashboards/sif.html",
+      "status": "pending"
+    },
+    {
+      "id": "IT",
+      "name": "イノベーション理論DB",
+      "layer": "conceptual",
+      "stat": "9,998件 / 14サブフィールド / 2,539理論間関係 / 8,552分野横断関係",
+      "repo": "academic-knowledge-db",
+      "dashboard": null,
+      "status": "pending"
+    },
+    {
+      "id": "BM",
+      "name": "ビジネスモデル/マネタイズパターンDB",
+      "layer": "conceptual",
+      "stat": "735概念 / 2570関係 / 1515分野横断 / 10属性条件レイヤー",
+      "repo": "business-model-patterns-db",
+      "dashboard": "dashboards/business_models.html",
+      "status": "pending"
+    },
+    {
+      "id": "MS",
+      "name": "マーケティング・営業拡大学術DB",
+      "layer": "conceptual",
+      "stat": "2,211概念 / 5,507関係 / 1,522研究者 / 16サブフィールド (Phase 2途中、目標10,000)",
+      "repo": "marketing-sales-db",
+      "dashboard": "dashboards/marketing_sales.html",
+      "status": "pending"
+    },
+    {
+      "id": "AN",
+      "name": "人類学概念DB",
+      "layer": "conceptual",
+      "stat": "500概念 / 395関係 / 22,138シグナルマッチ / 10クラスター",
+      "repo": "anthropology-concepts",
+      "dashboard": "dashboards/an.html",
+      "status": "pending"
+    },
+    {
+      "id": "TK",
+      "name": "先住民伝統知識DB",
+      "layer": "conceptual",
+      "stat": "3,002グループ / 36,360知識項目 / 16,260関係 / 77K GTAコード",
+      "repo": "traditional-knowledge-db",
+      "dashboard": "dashboards/tk.html",
+      "status": "pending"
+    },
+    {
+      "id": "AK",
+      "name": "学術知識DB",
+      "layer": "conceptual",
+      "stat": "8,212知識単位 / 50系譜関係 / 5分野",
+      "repo": "academic-knowledge-db",
+      "dashboard": "https://yuyanishimura0312.github.io/academic-knowledge-db/",
+      "status": "pending"
+    },
+    {
+      "id": "TA",
+      "name": "技術発展加速度検証DB",
+      "layer": "conceptual",
+      "stat": "227Kレコード / 44テーブル / 13外部ソース",
+      "repo": "tech-acceleration-db",
+      "dashboard": "dashboards/ta.html",
+      "status": "pending"
+    },
+    {
+      "id": "FS",
+      "name": "未来学知識DB",
+      "layer": "conceptual",
+      "stat": "99手法 / 17学派 / 448研究者 / 507概念",
+      "repo": "futures-studies-db",
+      "dashboard": "reports/futures-studies-knowledge-db.html",
+      "status": "pending"
+    },
+    {
+      "id": "MY",
+      "name": "神話ナラティブDB",
+      "layer": "conceptual",
+      "stat": "10,615物語 / 90文化 / 12.2Mパラレル",
+      "repo": "myth-function-db",
+      "dashboard": "dashboards/my.html",
+      "status": "pending"
+    },
+    {
+      "id": "MG",
+      "name": "経営学概念DB",
+      "layer": "conceptual",
+      "stat": "3,458概念 / 232研究者 / 5,267関係 / 10クラスター",
+      "repo": "miratuku-news-v2",
+      "dashboard": "dashboards/mg.html",
+      "status": "pending"
+    },
+    {
+      "id": "PE",
+      "name": "PESTLEニュースDB",
+      "layer": "core",
+      "stat": "196,714記事 / 日次更新",
+      "repo": "pestle-signal-db",
+      "dashboard": "dashboards/pe.html",
+      "status": "pending"
+    },
+    {
+      "id": "FK",
+      "name": "フォーサイト知識基盤",
+      "layer": "core",
+      "stat": "309機関 / 45,323レポート / 23,272予測",
+      "repo": "foresight-knowledge-base",
+      "dashboard": "dashboards/fk.html",
+      "status": "pending"
+    },
+    {
+      "id": "GR",
+      "name": "地政学リスクDB",
+      "layer": "core",
+      "stat": "132カ国 / 422,075レコード",
+      "repo": "geopolitical-risk-db",
+      "dashboard": "dashboards/gr.html",
+      "status": "pending"
+    },
+    {
+      "id": "CI",
+      "name": "文化インテリジェンスDB",
+      "layer": "core",
+      "stat": "576,434記事 / 21カテゴリ",
+      "repo": "cultural-intelligence-db",
+      "dashboard": "dashboards/ci.html",
+      "status": "pending"
+    },
+    {
+      "id": "AA",
+      "name": "LLM親和領域DB",
+      "layer": "detection",
+      "stat": "551言及 / 464出典 / 97ドメイン",
+      "repo": "ai-acceleration-evidence-db",
+      "dashboard": "https://yuyanishimura0312.github.io/foresight-tools/ai-acceleration-evidence.html",
+      "status": "pending"
+    },
+    {
+      "id": "IR",
+      "name": "VC投資DB",
+      "layer": "detection",
+      "stat": "4,180組織 / 1,927ラウンド",
+      "repo": "investment-signal-radar",
+      "dashboard": "dashboards/ir.html",
+      "status": "pending"
+    },
+    {
+      "id": "SG",
+      "name": "シグナルDB",
+      "layer": "detection",
+      "stat": "7,668シグナル / 1,806クロスインパクト",
+      "repo": "pestle-signal-db",
+      "dashboard": "dashboards/sg.html",
+      "status": "pending"
+    },
+    {
+      "id": "IC",
+      "name": "企業IRDB",
+      "layer": "detection",
+      "stat": "7,658件",
+      "repo": "ir-collector",
+      "dashboard": "dashboards/ic.html",
+      "status": "pending"
+    },
+    {
+      "id": "SGRD",
+      "name": "企業R&DプレスリリースDB",
+      "layer": "detection",
+      "stat": "17,503件 / 3,872社 / 13,415分析済",
+      "repo": "corporate-rd-press",
+      "dashboard": "dashboards/sgrd.html",
+      "status": "pending"
+    },
+    {
+      "id": "SI",
+      "name": "企業ニーズDB",
+      "layer": "detection",
+      "stat": "3,872社 / 492,646レコード",
+      "repo": "sangaku-matcher-v2",
+      "dashboard": "dashboards/si.html",
+      "status": "pending"
+    },
+    {
+      "id": "UPR",
+      "name": "大学プレスリリースDB",
+      "layer": "detection",
+      "stat": "14,681件 / 247大学 / 46カテゴリ / 296全文",
+      "repo": "university-press-releases",
+      "dashboard": "dashboards/upr.html",
+      "status": "pending"
+    },
+    {
+      "id": "PD",
+      "name": "政策DB",
+      "layer": "detection",
+      "stat": "30,118件 / 23省庁",
+      "repo": "policy-db",
+      "dashboard": "dashboards/pd.html",
+      "status": "pending"
+    },
+    {
+      "id": "SGPR",
+      "name": "産学プレスリリースDB",
+      "layer": "detection",
+      "stat": "6,581件",
+      "repo": "investment-signal-radar",
+      "dashboard": "dashboards/sgpr.html",
+      "status": "pending"
+    },
+    {
+      "id": "MT",
+      "name": "18メガトレンド",
+      "layer": "structural",
+      "stat": "18テーマ / 5メガドメイン",
+      "repo": "foresight-taxonomy",
+      "dashboard": "dashboards/mt.html",
+      "status": "pending"
+    },
+    {
+      "id": "CLA",
+      "name": "因果階層分析DB",
+      "layer": "structural",
+      "stat": "127年統合CLA / 91,550レコード",
+      "repo": "pestle-signal-db",
+      "dashboard": "dashboards/cla.html",
+      "status": "pending"
+    },
+    {
+      "id": "AL",
+      "name": "学術ランドスケープ",
+      "layer": "structural",
+      "stat": "233,779ジャーナル / 62,379学会 / 114カ国",
+      "repo": "academic-landscape-db",
+      "dashboard": "dashboards/al.html",
+      "status": "pending"
+    },
+    {
+      "id": "GF",
+      "name": "歴史構造DB",
+      "layer": "structural",
+      "stat": "9,178人物 / 10,033イベント / 568概念 / 12パターン",
+      "repo": "great-figures-db",
+      "dashboard": "dashboards/gf.html",
+      "status": "pending"
+    },
+    {
+      "id": "AD",
+      "name": "AI発展DB",
+      "layer": "supplementary",
+      "stat": "LLM 1,097 + AGI 1,139 = 2,236論文",
+      "repo": "miratuku-news-v2",
+      "dashboard": "dashboards/ta-ai-agent-genealogy.html",
+      "status": "pending"
+    },
+    {
+      "id": "ME",
+      "name": "マクロ経済DB",
+      "layer": "supplementary",
+      "stat": "61カ国 / 42指標 / 52,259件",
+      "repo": "macro-economy-db",
+      "dashboard": "dashboards/me.html",
+      "status": "pending"
+    },
+    {
+      "id": "YK",
+      "name": "妖怪データベース",
+      "layer": "supplementary",
+      "stat": "1,010体 / 33属性 / 60データソース",
+      "repo": "yokai-sns",
+      "dashboard": "dashboards/yk.html",
+      "status": "pending"
+    },
+    {
+      "id": "EX",
+      "name": "有識者DB",
+      "layer": "supplementary",
+      "stat": "3,995人 / 1,541審議会",
+      "repo": "experts-db",
+      "dashboard": null,
+      "status": "pending"
+    },
+    {
+      "id": "GPT",
+      "name": "汎用技術×生活の質DB",
+      "layer": "supplementary",
+      "stat": "34,715事象 / 3DB構成",
+      "repo": "gpt-qol",
+      "dashboard": null,
+      "status": "pending"
+    },
+    {
+      "id": "RG",
+      "name": "規制動態DB",
+      "layer": "supplementary",
+      "stat": "1,332法令",
+      "repo": "regulatory-db-japan",
+      "dashboard": "dashboards/rg.html",
+      "status": "pending"
+    }
+  ],
+  "academic_refs": [
+    {
+      "citation": "Galton, F. (1869). Hereditary Genius. Macmillan.",
+      "author": "Francis Galton",
+      "year": 1869,
+      "title": "Hereditary Genius",
+      "framework": "galton",
+      "layer": "L1"
+    },
+    {
+      "citation": "Terman, L. M. (1925). Genetic Studies of Genius Vol. 1. Stanford University Press.",
+      "author": "Lewis M. Terman",
+      "year": 1925,
+      "title": "Genetic Studies of Genius Vol. 1",
+      "framework": "terman",
+      "layer": "L3"
+    },
+    {
+      "citation": "Cox, C. M. (1926). The Early Mental Traits of 300 Geniuses. Stanford University Press.",
+      "author": "Catharine M. Cox",
+      "year": 1926,
+      "title": "The Early Mental Traits of 300 Geniuses",
+      "framework": "galton",
+      "layer": "L2"
+    },
+    {
+      "citation": "Schumpeter, J. A. (1934). The Theory of Economic Development. Harvard University Press.",
+      "author": "Joseph Alois Schumpeter",
+      "year": 1934,
+      "title": "The Theory of Economic Development",
+      "framework": "schumpeter",
+      "layer": "L1"
+    },
+    {
+      "citation": "Terman, L. M. (1954). The Discovery and Encouragement of Exceptional Talent. American Psychologist, 9(6).",
+      "author": "Lewis M. Terman",
+      "year": 1954,
+      "title": "The Discovery and Encouragement of Exceptional Talent",
+      "framework": "terman",
+      "layer": "L3"
+    },
+    {
+      "citation": "Terman, L. M. & Oden, M. H. (1959). The Gifted Child at Mid-Life. Stanford University Press.",
+      "author": "Lewis M. Terman & Melita H. Oden",
+      "year": 1959,
+      "title": "The Gifted Child at Mid-Life",
+      "framework": "terman",
+      "layer": "L3"
+    },
+    {
+      "citation": "Chandler, A. D. (1962). Strategy and Structure. MIT Press.",
+      "author": "Alfred D. Chandler Jr.",
+      "year": 1962,
+      "title": "Strategy and Structure",
+      "framework": "chandler",
+      "layer": "L1"
+    },
+    {
+      "citation": "Merton, R. K. (1968). The Matthew Effect in Science. Science, 159(3810).",
+      "author": "Robert K. Merton",
+      "year": 1968,
+      "title": "The Matthew Effect in Science",
+      "framework": "merton",
+      "layer": "L1"
+    },
+    {
+      "citation": "Granovetter, M. S. (1973). The Strength of Weak Ties. American Journal of Sociology, 78(6).",
+      "author": "Mark S. Granovetter",
+      "year": 1973,
+      "title": "The Strength of Weak Ties",
+      "framework": "granovetter",
+      "layer": "L1"
+    },
+    {
+      "citation": "Zuckerman, H. (1977). Scientific Elite: Nobel Laureates in the United States. Free Press.",
+      "author": "Harriet Zuckerman",
+      "year": 1977,
+      "title": "Scientific Elite",
+      "framework": "zuckerman",
+      "layer": "L1"
+    },
+    {
+      "citation": "Renzulli, J. S. (1978). Three-Ring Conception of Giftedness. New England Center for Gifted Education.",
+      "author": "Joseph S. Renzulli",
+      "year": 1978,
+      "title": "Three-Ring Conception of Giftedness",
+      "framework": "renzulli",
+      "layer": "L3"
+    },
+    {
+      "citation": "Burns, J. M. (1978). Leadership. Harper & Row.",
+      "author": "James MacGregor Burns",
+      "year": 1978,
+      "title": "Leadership",
+      "framework": "burns",
+      "layer": "L1"
+    },
+    {
+      "citation": "Simonton, D. K. (1978). Thematic Variation and Artistic Originality in Shakespeare and Other Renaissance Playwrights. Journal of Personality, 46(3).",
+      "author": "Dean K. Simonton",
+      "year": 1978,
+      "title": "Thematic Variation in Shakespeare",
+      "framework": "simonton",
+      "layer": "L2"
+    },
+    {
+      "citation": "Becker, H. S. (1982). Art Worlds. University of California Press.",
+      "author": "Howard S. Becker",
+      "year": 1982,
+      "title": "Art Worlds",
+      "framework": "becker",
+      "layer": "L1"
+    },
+    {
+      "citation": "Bourdieu, P. (1984). Distinction: A Social Critique of Taste. Routledge.",
+      "author": "Pierre Bourdieu",
+      "year": 1984,
+      "title": "Distinction",
+      "framework": "bourdieu",
+      "layer": "L1"
+    },
+    {
+      "citation": "Drucker, P. F. (1988). The Coming of the New Organization. Harvard Business Review, 66(1).",
+      "author": "Peter F. Drucker",
+      "year": 1988,
+      "title": "The Coming of the New Organization",
+      "framework": "drucker",
+      "layer": "L1"
+    },
+    {
+      "citation": "Naoi, A. & Hara, J. (Eds.). (1990). Shakai Kaiso no Kozo to Katei. Tokyo University Press.",
+      "author": "Atsushi Naoi & Junsuke Hara",
+      "year": 1990,
+      "title": "Social Stratification: Structure and Process",
+      "framework": "naoi",
+      "layer": "L1"
+    },
+    {
+      "citation": "Simonton, D. K. (1990). Psychology, Science, and History. Psychological Inquiry, 1(3).",
+      "author": "Dean K. Simonton",
+      "year": 1990,
+      "title": "Psychology, Science, and History",
+      "framework": "simonton",
+      "layer": "methodology"
+    },
+    {
+      "citation": "Ericsson, K. A. et al. (1993). Role of Deliberate Practice. Psychological Review, 100(3).",
+      "author": "K. Anders Ericsson et al.",
+      "year": 1993,
+      "title": "The Role of Deliberate Practice in Expert Performance",
+      "framework": "ericsson",
+      "layer": "L3"
+    },
+    {
+      "citation": "Csikszentmihalyi, M., Rathunde, K., & Whalen, S. (1993). Talented Teenagers. Cambridge University Press.",
+      "author": "Mihaly Csikszentmihalyi et al.",
+      "year": 1993,
+      "title": "Talented Teenagers",
+      "framework": "csikszentmihalyi",
+      "layer": "L3"
+    },
+    {
+      "citation": "Eysenck, H. J. (1995). Genius: The Natural History of Creativity. Cambridge University Press.",
+      "author": "Hans J. Eysenck",
+      "year": 1995,
+      "title": "Genius: The Natural History of Creativity",
+      "framework": "eysenck",
+      "layer": "L2"
+    },
+    {
+      "citation": "Csikszentmihalyi, M. (1996). Creativity: Flow and Psychology of Discovery. Harper Collins.",
+      "author": "Mihaly Csikszentmihalyi",
+      "year": 1996,
+      "title": "Creativity: Flow and Psychology of Discovery",
+      "framework": "csikszentmihalyi",
+      "layer": "L3"
+    },
+    {
+      "citation": "Takeuchi, Y. (1996). Nihon no Meritocracy. Tokyo University Press.",
+      "author": "Yasushi Takeuchi",
+      "year": 1996,
+      "title": "Japanese Meritocracy: Structure and Mentality",
+      "framework": "takeuchi",
+      "layer": "L1"
+    },
+    {
+      "citation": "Simonton, D. K. (1999). Origins of Genius. Oxford University Press.",
+      "author": "Dean K. Simonton",
+      "year": 1999,
+      "title": "Origins of Genius",
+      "framework": "simonton",
+      "layer": "L2"
+    },
+    {
+      "citation": "Collins, J. C. (2001). Good to Great. HarperBusiness.",
+      "author": "Jim Collins",
+      "year": 2001,
+      "title": "Good to Great",
+      "framework": "collins",
+      "layer": "L1"
+    },
+    {
+      "citation": "Kariya, T. (2001). Kaiso-ka Nihon to Kyoiku Kiki. Yushin-do Takabun-sha.",
+      "author": "Takehiko Kariya",
+      "year": 2001,
+      "title": "Stratified Japan and Education Crisis",
+      "framework": "kariya",
+      "layer": "L4"
+    },
+    {
+      "citation": "Simonton, D. K. (2004). Greatness: Who Makes History and Why. Guilford Press.",
+      "author": "Dean K. Simonton",
+      "year": 2004,
+      "title": "Greatness: Who Makes History and Why",
+      "framework": "simonton",
+      "layer": "L1"
+    },
+    {
+      "citation": "Dweck, C. S. (2006). Mindset: The New Psychology of Success. Random House.",
+      "author": "Carol S. Dweck",
+      "year": 2006,
+      "title": "Mindset: The New Psychology of Success",
+      "framework": "dweck",
+      "layer": "L3"
+    },
+    {
+      "citation": "Cote, J., Baker, J., & Abernethy, B. (2007). Practice and Play in Sport Expertise. Handbook of Sport Psychology.",
+      "author": "Jean Cote et al.",
+      "year": 2007,
+      "title": "Practice and Play in the Development of Sport Expertise",
+      "framework": "cote",
+      "layer": "L3"
+    },
+    {
+      "citation": "Partnership for 21st Century Learning (2009). P21 Framework for 21st Century Learning. Battelle for Kids.",
+      "author": "Partnership for 21st Century Learning",
+      "year": 2009,
+      "title": "Framework for 21st Century Learning",
+      "framework": "p21",
+      "layer": "L4"
+    },
+    {
+      "citation": "Subotnik, R. F. et al. (2011). Rethinking Giftedness and Gifted Education. Psychological Science in Public Interest, 12(3).",
+      "author": "Rena F. Subotnik et al.",
+      "year": 2011,
+      "title": "Rethinking Giftedness and Gifted Education",
+      "framework": "subotnik",
+      "layer": "L3"
+    },
+    {
+      "citation": "Griffin, P., McGaw, B., & Care, E. (Eds.). (2012). Assessment and Teaching of 21st Century Skills. Springer.",
+      "author": "Patrick Griffin et al.",
+      "year": 2012,
+      "title": "Assessment and Teaching of 21st Century Skills",
+      "framework": "atc21s",
+      "layer": "methodology"
+    },
+    {
+      "citation": "Gagne, F. (2015). Differentiating Giftedness from Talent: DMGT Perspective. Routledge.",
+      "author": "Francoys Gagne",
+      "year": 2015,
+      "title": "Differentiating Giftedness from Talent",
+      "framework": "gagne",
+      "layer": "L3"
+    },
+    {
+      "citation": "Duckworth, A. L. (2016). Grit: The Power of Passion and Perseverance. Scribner.",
+      "author": "Angela L. Duckworth",
+      "year": 2016,
+      "title": "Grit: The Power of Passion and Perseverance",
+      "framework": "duckworth",
+      "layer": "L3"
+    },
+    {
+      "citation": "Yu, A. Z. et al. (2016). Pantheon 1.0: A Dataset of Globally Famous Biographies. Scientific Data, 3.",
+      "author": "Amy Zhao Yu et al.",
+      "year": 2016,
+      "title": "Pantheon 1.0: A Manually Verified Dataset of Globally Famous Biographies",
+      "framework": "pantheon",
+      "layer": "methodology"
+    },
+    {
+      "citation": "Ministry of Education, Culture, Sports, Science and Technology (2018). Talent Development for Society 5.0.",
+      "author": "MEXT",
+      "year": 2018,
+      "title": "Talent Development for Society 5.0",
+      "framework": "mext",
+      "layer": "L4"
+    },
+    {
+      "citation": "OECD (2019). OECD Learning Compass 2030. OECD Publishing.",
+      "author": "OECD",
+      "year": 2019,
+      "title": "OECD Learning Compass 2030",
+      "framework": "oecd",
+      "layer": "L4"
+    },
+    {
+      "citation": "UNESCO (2021). Reimagining Our Futures Together. UNESCO Publishing.",
+      "author": "UNESCO",
+      "year": 2021,
+      "title": "Futures of Education: Reimagining Our Futures Together",
+      "framework": "unesco",
+      "layer": "L4"
+    },
+    {
+      "citation": "Ministry of Economy, Trade and Industry (2022). Vision for Future Talents (Mirai Jinzai Vision).",
+      "author": "METI",
+      "year": 2022,
+      "title": "Vision for Future Talents (Mirai Jinzai Vision)",
+      "framework": "meti",
+      "layer": "L4"
+    },
+    {
+      "citation": "World Economic Forum (2025). Future of Jobs Report 2025. WEF.",
+      "author": "World Economic Forum",
+      "year": 2025,
+      "title": "Future of Jobs Report 2025",
+      "framework": "wef",
+      "layer": "L4"
+    }
+  ]
+}

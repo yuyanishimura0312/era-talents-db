@@ -1,7 +1,7 @@
 {
   "meta": {
     "generated_at": "2026-05-05",
-    "total_records": 31444
+    "total_records": 32194
   },
   "heatmap": [
     {
@@ -331,8 +331,8 @@
     {
       "era": "showa_post",
       "cap": "age_entrepreneur",
-      "score": 8.91,
-      "n": 129
+      "score": 8.96,
+      "n": 279
     },
     {
       "era": "showa_post",
@@ -349,8 +349,8 @@
     {
       "era": "showa_post",
       "cap": "age_resilience",
-      "score": 7.82,
-      "n": 430
+      "score": 7.86,
+      "n": 580
     },
     {
       "era": "showa_post",
@@ -397,8 +397,8 @@
     {
       "era": "showa_post",
       "cap": "cog_systems",
-      "score": 7.92,
-      "n": 315
+      "score": 7.95,
+      "n": 465
     },
     {
       "era": "showa_post",
@@ -409,8 +409,8 @@
     {
       "era": "showa_post",
       "cap": "soc_interpersonal",
-      "score": 7.79,
-      "n": 390
+      "score": 7.85,
+      "n": 540
     },
     {
       "era": "showa_post",
@@ -644,7 +644,7 @@
     },
     {
       "era": "showa_post",
-      "n": 1236
+      "n": 1386
     },
     {
       "era": "showa_pre",
@@ -661,12 +661,12 @@
       "n": 4314
     },
     {
-      "domain": "culture_arts",
-      "n": 1005
+      "domain": "business",
+      "n": 1116
     },
     {
-      "domain": "business",
-      "n": 966
+      "domain": "culture_arts",
+      "n": 1005
     },
     {
       "domain": "sports",

@@ -348,8 +348,19 @@ function renderOverview() {
 }
 
 function renderGapmap() {
-  // Load matrix data
-  fetch("l1l2_matrix.json").then(r => r.json()).then(matrix => {
+  const target = document.getElementById("gapmap-display");
+  target.innerHTML = '<p style="color: var(--text-muted); padding: 24px;">L1↔L2適合度データを読み込んでいます...</p>';
+  fetch("l1l2_matrix.json")
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}: l1l2_matrix.json`);
+      return r.json();
+    })
+    .catch(err => {
+      target.innerHTML = `<div class="callout"><div class="callout-label">読み込みエラー</div><p>L1↔L2適合度データを取得できませんでした（${err.message}）。dashboards/l1l2_matrix.json が公開されているか確認してください。</p></div>`;
+      throw err;
+    })
+    .then(matrix => {
+      if (!matrix) return;
     const capById = {};
     matrix.caps.forEach(c => { capById[c.id] = c; });
 
@@ -404,7 +415,7 @@ function renderGapmap() {
       </div>`;
     }).join("");
 
-    document.getElementById("gapmap-display").innerHTML = `<div class="gapmap-grid">${html}</div>`;
+    target.innerHTML = `<div class="gapmap-grid">${html}</div>`;
   });
 }
 

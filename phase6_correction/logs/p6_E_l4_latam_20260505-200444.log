@@ -1,0 +1,473 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-ce09-7950-b572-bfc46683924d
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.E
+theme: l4_latam
+追加目標: 40 件
+説明: L4: ラテンアメリカ機関（CEPAL/IADB/UNDP-RBLAC）の予測
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.E' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_l4_latam' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【E==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まずDBの現状とスキーマを確認します。投入先がE寄りのテーマですが、指示には全Packageの制約が混ざっているので、既存データの列と今回入れるべきレコード種別を見てから、重複を避けてまとめてINSERTします。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands WHERE source_team='codex_correction_l4_latam' OR source_org IN ('CEPAL','IADB','UNDP-RBLAC','Inter-American Development Bank','Economic Commission for Latin America and the Caribbean','UNDP Regional Bureau for Latin America and the Caribbean')\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE future_demands (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),  -- future_2030 / future_2050 / future_2100
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    scenario        TEXT,                    -- baseline, ssp1, ssp3, post_growth, posthuman
+    source_title    TEXT NOT NULL,
+    source_org      TEXT,                    -- OECD, WEF, METI, IPCC, etc
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+ exited 1 in 0ms:
+Error: in prepare, no such column: source_team
+  SELECT COUNT(*) FROM future_demands WHERE source_team='codex_correction_l4_lat
+                              error here ---^
+
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+codex
+`future_demands`には`source_team`列がありませんでした。今回のPhase 6.E/l4_latamはPackage Eとして、`source_org`にCEPAL/IADB/UNDP-RBLAC等を入れる形で40件追加し、`achievers.correction_phase`のルールは人物投入がないため適用不能として扱います。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM eras ORDER BY sort_order"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+all|全時代
+meiji|明治
+taisho|大正
+showa_pre|昭和前期
+showa_post|昭和後期
+heisei|平成
+reiwa|令和
+future_2030|2030年代
+future_2050|2050年代
+future_2100|2100年代
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT MAX(id), COUNT(*) FROM future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+408|397
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT era_id, scenario, source_org, COUNT(*) FROM future_demands GROUP BY era_id, scenario, source_org ORDER BY era_id, source_org LIMIT 80"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+future_2030|ai_singularity|Ada Lovelace Institute|2
+future_2030|posthuman|European Parliament STOA|2
+future_2030|baseline|IPA|1
+future_2030|ai_acceleration|IPA DX推進スキル標準|2
+future_2030|baseline|IPA DX推進スキル標準|2
+future_2030|ai_acceleration|IPA/経済産業省|1
+future_2030|baseline|IPA/経済産業省|2
+future_2030|ssp1|IPCC|3
+future_2030|ssp3|IPCC|1
+future_2030|ssp1|International Energy Agency|2
+future_2030|baseline|International Labour Organization|2
+future_2030|space_civilization|International Space Exploration Coordination Group|2
+future_2030|space_civilization|JAXA|1
+future_2030|ai_acceleration|JMAM|1
+future_2030|baseline|JMAM|1
+future_2030|ai_acceleration|McKinsey|4
+future_2030|baseline|McKinsey|7
+future_2030|ssp1|McKinsey|1
+future_2030|ssp3|McKinsey|1
+future_2030|ai_acceleration|McKinsey Global Institute|4
+future_2030|baseline|McKinsey Global Institute|2
+future_2030|ai_acceleration|McKinsey Learning Perspectives|1
+future_2030|ssp3|NATO|2
+future_2030|baseline|NTTドコモビジネス|1
+future_2030|ai_acceleration|OECD|1
+future_2030|baseline|OECD|17
+future_2030|post_growth|OECD|2
+future_2030|ssp1|OECD|3
+future_2030|baseline|OECD Learning Compass|1
+future_2030|ssp1|OECD Learning Compass|1
+future_2030|baseline|OECD Skills Outlook|1
+future_2030|post_growth|OECD Skills Outlook|1
+future_2030|ssp1|OECD Skills Outlook|3
+future_2030|ssp1|SDGsコンパス|1
+future_2030|ai_acceleration|Stanford HAI|2
+future_2030|post_growth|UNDP|2
+future_2030|ssp1|UNDP|1
+future_2030|post_growth|UNEP International Resource Panel|1
+future_2030|ssp1|UNEP International Resource Panel|1
+future_2030|baseline|UNESCO|2
+future_2030|baseline|United Nations|2
+future_2030|ssp3|United Nations|2
+future_2030|ai_singularity|United Nations AI Advisory Body|2
+future_2030|ai_acceleration|WEF|2
+future_2030|baseline|WEF|1
+future_2030|post_growth|WEF|1
+future_2030|ssp1|WEF|1
+future_2030|ssp3|WEF Four Futures|1
+future_2030|baseline|WEF New Economy Skills|2
+future_2030|ai_singularity|White House OSTP|1
+future_2030|ai_acceleration|World Economic Forum|6
+future_2030|baseline|World Economic Forum|4
+future_2030|ssp1|World Economic Forum|1
+future_2030|ssp3|World Economic Forum|5
+future_2030|posthuman|World Health Organization|2
+future_2030|baseline|インソース|1
+future_2030|baseline|デロイト トーマツ|1
+future_2030|baseline|データのじかん|1
+future_2030|baseline|パーソル総合研究所|1
+future_2030|baseline|ビジネスキャリア・コンサルティング|1
+future_2030|ai_acceleration|マッキンゼー|1
+future_2030|baseline|文部科学省|2
+future_2030|ssp1|文部科学省|1
+future_2030|baseline|日本の人事部|1
+future_2030|baseline|日本経済新聞|1
+future_2030|baseline|早稲田大学|1
+future_2030|baseline|株式会社デジタルグロース|1
+future_2030|baseline|経団連|2
+future_2030|ssp1|経団連|1
+future_2030|ai_acceleration|経済産業省|2
+future_2030|baseline|経済産業省|3
+future_2030|ssp1|経済産業省|1
+future_2030|ssp3|経済産業省|1
+future_2030|ai_acceleration|野村総合研究所|2
+future_2030|baseline|野村総合研究所|2
+future_2050|post_industrial|Cabinet Office Japan|2
+future_2050|post_growth|Circle Economy Foundation|2
+future_2050|bio_planetary|Commons Transition/MIT Media Lab|1
+future_2050|post_growth|Degrowth Research Network|1
+future_2050|ssp1|Degrowth Research/OECD|1
+
+web search: 
+web search: site:cepal.org digital agenda Latin America Caribbean eLAC 2024 skills digital transformation report CEPAL PDF
+web search: 
+web search: site:iadb.org "The Future of Work in Latin America and the Caribbean" "skills" "automation"
+web search: 
+web search: site:undp.org/latin-america/publications Regional Human Development Report 2021 Latin America Caribbean trapped high inequality low growth resilience
+codex
+公式ソースを確認しました。CEPAL/eLAC2026、IDBのFuture of Work系列と2026年求人分析、UNDP-RBLACの2025年地域人間開発報告を軸に、`notes`へ`source_team=codex_correction_l4_latam; phase=6.E`を残して追跡できるようにします。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_latam%'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+codex
+これから40件を1トランザクションで投入します。各行は同一`source_title`と`finding_ja`の組み合わせが既にある場合はスキップする形にして、再実行時の二重投入を避けます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+BEGIN;
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','cog_info','global_south','Digital agenda for Latin America and the Caribbean (eLAC2026)','CEPAL',2024,'https://www.cepal.org/en/publications/80861-digital-agenda-latin-america-and-caribbean-elac2026','ラテンアメリカ・カリブでは、包摂的な接続性とデジタル公共サービスを前提に、情報を評価し行政・市場サービスを使いこなす市民の情報リテラシーが2030年代の基盤能力になる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Digital agenda for Latin America and the Caribbean (eLAC2026)' AND finding_ja='ラテンアメリカ・カリブでは、包摂的な接続性とデジタル公共サービスを前提に、情報を評価し行政・市場サービスを使いこなす市民の情報リテラシーが2030年代の基盤能力になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','cog_ai_collab','multipolar','Digital agenda for Latin America and the Caribbean (eLAC2026)','CEPAL',2024,'https://www.cepal.org/en/publications/80861-digital-agenda-latin-america-and-caribbean-elac2026','AI、IoT、5Gなどの新興技術を持続可能な開発に結びつけるため、AIを単なる自動化ではなく公共価値・生産性向上に使う協働リテラシーが求められる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Digital agenda for Latin America and the Caribbean (eLAC2026)' AND finding_ja='AI、IoT、5Gなどの新興技術を持続可能な開発に結びつけるため、AIを単なる自動化ではなく公共価値・生産性向上に使う協働リテラシーが求められる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','age_entrepreneur','global_south','Digital agenda for Latin America and the Caribbean (eLAC2026)','CEPAL',2024,'https://www.cepal.org/en/publications/80861-digital-agenda-latin-america-and-caribbean-elac2026','中小企業と技術系起業を地域の生産構造に埋め込む政策が重視され、デジタル市場で事業を構想し実装する起業家精神が重要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Digital agenda for Latin America and the Caribbean (eLAC2026)' AND finding_ja='中小企業と技術系起業を地域の生産構造に埋め込む政策が重視され、デジタル市場で事業を構想し実装する起業家精神が重要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','val_tolerance','global_south','Digital agenda for Latin America and the Caribbean (eLAC2026)','CEPAL',2024,'https://www.cepal.org/en/publications/80861-digital-agenda-latin-america-and-caribbean-elac2026','デジタル包摂とジェンダー横断視点を進めるには、脆弱層・農村・国境地域のアクセス格差を前提に設計できる寛容性と包摂志向が必要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Digital agenda for Latin America and the Caribbean (eLAC2026)' AND finding_ja='デジタル包摂とジェンダー横断視点を進めるには、脆弱層・農村・国境地域のアクセス格差を前提に設計できる寛容性と包摂志向が必要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','cog_systems','multipolar','Digital agenda for Latin America and the Caribbean (eLAC2026)','CEPAL',2024,'https://www.cepal.org/en/publications/80861-digital-agenda-latin-america-and-caribbean-elac2026','データガバナンス、サイバーセキュリティ、相互運用性を同時に扱うデジタル政府では、制度・技術・信頼を結びつけるシステム思考が中核能力になる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Digital agenda for Latin America and the Caribbean (eLAC2026)' AND finding_ja='データガバナンス、サイバーセキュリティ、相互運用性を同時に扱うデジタル政府では、制度・技術・信頼を結びつけるシステム思考が中核能力になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','cre_cross_domain','multipolar','Digital agenda for Latin America and the Caribbean (eLAC2026)','CEPAL',2024,'https://www.cepal.org/en/publications/80861-digital-agenda-latin-america-and-caribbean-elac2026','地域デジタル市場の形成では、商流、物流、データ流通、規制調和を横断して統合する異分野統合志向が必要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Digital agenda for Latin America and the Caribbean (eLAC2026)' AND finding_ja='地域デジタル市場の形成では、商流、物流、データ流通、規制調和を横断して統合する異分野統合志向が必要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','val_eco','global_south','Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition','CEPAL',2023,'https://www.cepal.org/en/node/60091','気候投資を成長戦略に組み込む移行では、環境制約と財政・投資判断を結びつけるエコロジカルリテラシーが2050年に向けて高まる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition' AND finding_ja='気候投資を成長戦略に組み込む移行では、環境制約と財政・投資判断を結びつけるエコロジカルリテラシーが2050年に向けて高まる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','cog_math','global_south','Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition','CEPAL',2023,'https://www.cepal.org/en/node/60091','持続可能な金融、気候ショックの財政影響、投資戦略を扱うには、リスク・収益・外部性を数量化する数学的リテラシーが重要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition' AND finding_ja='持続可能な金融、気候ショックの財政影響、投資戦略を扱うには、リスク・収益・外部性を数量化する数学的リテラシーが重要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','age_resilience','global_south','Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition','CEPAL',2023,'https://www.cepal.org/en/node/60091','気候ショックを受ける経済で成長と財政安定を両立するには、産業・地域・家計レベルでのレジリエンス設計能力が需要化する。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition' AND finding_ja='気候ショックを受ける経済で成長と財政安定を両立するには、産業・地域・家計レベルでのレジリエンス設計能力が需要化する。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','age_social_change','multipolar','Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition','CEPAL',2023,'https://www.cepal.org/en/node/60091','脱炭素投資を包摂的な雇用・成長へ変えるには、制度改革と産業転換を社会的合意に接続する社会変革志向が必要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition' AND finding_ja='脱炭素投資を包摂的な雇用・成長へ変えるには、制度改革と産業転換を社会的合意に接続する社会変革志向が必要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','cog_critical','multipolar','Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition','CEPAL',2023,'https://www.cepal.org/en/node/60091','持続可能な金融の拡大では、短期成長、債務、気候適応、分配影響のトレードオフを検証する批判的思考が不可欠になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition' AND finding_ja='持続可能な金融の拡大では、短期成長、債務、気候適応、分配影響のトレードオフを検証する批判的思考が不可欠になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2100','cog_systems','multipolar','Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition','CEPAL',2023,'https://www.cepal.org/en/node/60091','長期の気候・財政・産業構造転換を扱う2100年代像では、複数世代にまたがるフィードバックを読むシステム思考がさらに重要になる。',7,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Economic Survey of Latin America and the Caribbean 2023: Financing a sustainable transition' AND finding_ja='長期の気候・財政・産業構造転換を扱う2100年代像では、複数世代にまたがるフィードバックを読むシステム思考がさらに重要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2100','val_collective','global_south','Digital agenda for Latin America and the Caribbean (eLAC2026)','CEPAL',2024,'https://www.cepal.org/en/publications/80861-digital-agenda-latin-america-and-caribbean-elac2026','越境データ、デジタル公共財、地域協力が常態化する長期未来では、国境を越えて標準と信頼をつくる集団協調性が重視される。',7,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Digital agenda for Latin America and the Caribbean (eLAC2026)' AND finding_ja='越境データ、デジタル公共財、地域協力が常態化する長期未来では、国境を越えて標準と信頼をつくる集団協調性が重視される。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2100','age_oecd_transformative','global_south','Digital agenda for Latin America and the Caribbean (eLAC2026)','CEPAL',2024,'https://www.cepal.org/en/publications/80861-digital-agenda-latin-america-and-caribbean-elac2026','デジタル化を格差縮小、公共サービス、持続可能性に結びつける変革コンピテンシーは、ラテンアメリカ発の長期開発能力として評価される。',7,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Digital agenda for Latin America and the Caribbean (eLAC2026)' AND finding_ja='デジタル化を格差縮小、公共サービス、持続可能性に結びつける変革コンピテンシーは、ラテンアメリカ発の長期開発能力として評価される。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','age_meta_learning','global_south','The Future of Work in Latin America and the Caribbean: A Great Opportunity for the Region?','IADB',2018,'https://publications.iadb.org/en/future-work-latin-america-and-caribbean-great-opportunity-region-interactive-version','技術変化と高齢化が労働市場を変えるため、学校教育だけに依存せず継続的に学び直す学習戦略・適応性が2030年代の基礎能力になる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0001339'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean: A Great Opportunity for the Region?' AND finding_ja='技術変化と高齢化が労働市場を変えるため、学校教育だけに依存せず継続的に学び直す学習戦略・適応性が2030年代の基礎能力になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','cog_info','multipolar','The Future of Work in Latin America and the Caribbean: What Are The Most In-Demand Occupations and Emerging Skills in The Region?','IADB',2019,'https://publications.iadb.org/en/future-work-latin-america-and-caribbean-what-are-most-demand-occupations-and-emerging-skills-region','オンライン求人など新しい労働市場データを読む能力が、衰退職種から成長職種へ移動するための情報リテラシーとして重要になる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0001677'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean: What Are The Most In-Demand Occupations and Emerging Skills in The Region?' AND finding_ja='オンライン求人など新しい労働市場データを読む能力が、衰退職種から成長職種へ移動するための情報リテラシーとして重要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','cog_ai_collab','global_south','The Future of Work in Latin America and the Caribbean: What is the Impact of Automation on Employment and Wages?','IADB',2020,'https://publications.iadb.org/en/future-work-latin-america-and-caribbean-what-impact-automation-employment-and-wages','先進国側のロボット導入やAIが貿易経路を通じて域内雇用に影響するため、AIと補完的に働く能力が雇用維持の条件になる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0002960'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean: What is the Impact of Automation on Employment and Wages?' AND finding_ja='先進国側のロボット導入やAIが貿易経路を通じて域内雇用に影響するため、AIと補完的に働く能力が雇用維持の条件になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','val_tolerance','global_south','The Future of Work in Latin America and the Caribbean: What will The Labor Market Be Like for Women?','IADB',2019,'https://publications.iadb.org/en/the-future-of-work-in-latin-america-and-the-caribbean-what-will-the-labor-market-be-like-for-women-interactive-version','自動化とプラットフォーム経済が女性に異なるリスクを与えるため、ジェンダー差を織り込んだ包摂的な職務設計能力が求められる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0001933'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean: What will The Labor Market Be Like for Women?' AND finding_ja='自動化とプラットフォーム経済が女性に異なるリスクを与えるため、ジェンダー差を織り込んだ包摂的な職務設計能力が求められる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','soc_interpersonal','global_south','The Future of Work in Latin America and the Caribbean: What will The Labor Market Be Like for Women?','IADB',2019,'https://publications.iadb.org/en/the-future-of-work-in-latin-america-and-the-caribbean-what-will-the-labor-market-be-like-for-women-interactive-version','自動化されにくい共感、ケア、調整を含む対人関係スキルは、女性の雇用機会とプラットフォーム労働の質を左右する能力になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0001933'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean: What will The Labor Market Be Like for Women?' AND finding_ja='自動化されにくい共感、ケア、調整を含む対人関係スキルは、女性の雇用機会とプラットフォーム労働の質を左右する能力になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','age_resilience','global_south','The Future of Work in Latin America and the Caribbean: How Can Technology Facilitate Job Recovery after COVID-19?','IADB',2020,'https://publications.iadb.org/en/future-work-latin-america-and-caribbean-how-can-technology-facilitate-job-recovery-after-covid-19','パンデミック後の雇用回復で技術を活用するには、ショック後に職務・技能・働き方を再構成するレジリエンスが必要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0002647'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean: How Can Technology Facilitate Job Recovery after COVID-19?' AND finding_ja='パンデミック後の雇用回復で技術を活用するには、ショック後に職務・技能・働き方を再構成するレジリエンスが必要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','age_social_autonomy','multipolar','The Future of Work in Latin America and the Caribbean : Flexibility, is it Here to Stay?','IADB',2022,'https://publications.iadb.org/en/future-work-latin-america-and-caribbean-flexibility-it-here-stay','柔軟な働き方が定着する一方で非公式雇用が多い地域では、契約・時間・社会保障を自律的に管理する社会的自立性が重要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0004504'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean : Flexibility, is it Here to Stay?' AND finding_ja='柔軟な働き方が定着する一方で非公式雇用が多い地域では、契約・時間・社会保障を自律的に管理する社会的自立性が重要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','cog_critical','multipolar','What Jobs are Being Created in Latin America?: Analysis of Online Job Postings in Latin America and the Caribbean','IADB',2026,'https://publications.iadb.org/en/what-jobs-are-being-created-latin-america-analysis-online-job-postings-latin-america-and-caribbean','求人データに現れるAI・デジタル技能需要を読み解くには、表面的な職種名ではなく技能クラスタと偏りを検証する批判的思考が必要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0013929'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='What Jobs are Being Created in Latin America?: Analysis of Online Job Postings in Latin America and the Caribbean' AND finding_ja='求人データに現れるAI・デジタル技能需要を読み解くには、表面的な職種名ではなく技能クラスタと偏りを検証する批判的思考が必要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','age_meta_learning','global_south','The Future of Work in Latin America and the Caribbean: A Great Opportunity for the Region?','IADB',2018,'https://publications.iadb.org/en/future-work-latin-america-and-caribbean-great-opportunity-region-interactive-version','長寿化と技術更新が同時に進む2050年代には、職業人生を通じて技能を更新し続けるメタ学習能力が競争力を左右する。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0001339'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean: A Great Opportunity for the Region?' AND finding_ja='長寿化と技術更新が同時に進む2050年代には、職業人生を通じて技能を更新し続けるメタ学習能力が競争力を左右する。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','cog_logical','multipolar','What Jobs are Being Created in Latin America?: Analysis of Online Job Postings in Latin America and the Caribbean','IADB',2026,'https://publications.iadb.org/en/what-jobs-are-being-created-latin-america-analysis-online-job-postings-latin-america-and-caribbean','データ、金融、小売など複数産業でデジタル職務が増えるため、業務プロセスを分解し再設計する論理的思考が中核になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0013929'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='What Jobs are Being Created in Latin America?: Analysis of Online Job Postings in Latin America and the Caribbean' AND finding_ja='データ、金融、小売など複数産業でデジタル職務が増えるため、業務プロセスを分解し再設計する論理的思考が中核になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','age_entrepreneur','global_south','The Future of Work in Latin America and the Caribbean: What Are The Most In-Demand Occupations and Emerging Skills in The Region?','IADB',2019,'https://publications.iadb.org/en/future-work-latin-america-and-caribbean-what-are-most-demand-occupations-and-emerging-skills-region','労働市場のGPS型情報を活用して成長職種へ移るには、個人・企業が技能投資を事業機会に変える起業家精神が重要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0001677'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean: What Are The Most In-Demand Occupations and Emerging Skills in The Region?' AND finding_ja='労働市場のGPS型情報を活用して成長職種へ移るには、個人・企業が技能投資を事業機会に変える起業家精神が重要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','cre_cross_domain','multipolar','The Future of Work in Latin America and the Caribbean: What is the Impact of Automation on Employment and Wages?','IADB',2020,'https://publications.iadb.org/en/future-work-latin-america-and-caribbean-what-impact-automation-employment-and-wages','自国の自動化だけでなく貿易相手国の技術変化が雇用に波及するため、産業・貿易・技能政策を横断する統合志向が必要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0002960'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean: What is the Impact of Automation on Employment and Wages?' AND finding_ja='自国の自動化だけでなく貿易相手国の技術変化が雇用に波及するため、産業・貿易・技能政策を横断する統合志向が必要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2100','age_social_autonomy','multipolar','The Future of Work in Latin America and the Caribbean : Flexibility, is it Here to Stay?','IADB',2022,'https://publications.iadb.org/en/future-work-latin-america-and-caribbean-flexibility-it-here-stay','長期的に雇用契約が多様化する社会では、組織に依存せず権利・所得・学習機会を組み合わせる社会的自立性が高まる。',7,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0004504'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean : Flexibility, is it Here to Stay?' AND finding_ja='長期的に雇用契約が多様化する社会では、組織に依存せず権利・所得・学習機会を組み合わせる社会的自立性が高まる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2100','cog_creativity','global_south','The Future of Work in Latin America and the Caribbean: What will The Labor Market Be Like for Women?','IADB',2019,'https://publications.iadb.org/en/the-future-of-work-in-latin-america-and-the-caribbean-what-will-the-labor-market-be-like-for-women-interactive-version','自動化されにくい創造性とケア・共感を組み合わせる職務は、2100年代まで続く人間中心労働の価値源泉になる。',7,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast; DOI 10.18235/0001933'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='The Future of Work in Latin America and the Caribbean: What will The Labor Market Be Like for Women?' AND finding_ja='自動化されにくい創造性とケア・共感を組み合わせる職務は、2100年代まで続く人間中心労働の価値源泉になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','age_resilience','global_south','Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean','UNDP-RBLAC',2025,'https://www.undp.org/latin-america/publications/overview-under-pressure-recalibrating-future-development-latin-america-and-caribbean','不確実性、重なる危機、技術変化、気候変動が同時進行する地域では、開発戦略の中心能力としてレジリエンスが求められる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean' AND finding_ja='不確実性、重なる危機、技術変化、気候変動が同時進行する地域では、開発戦略の中心能力としてレジリエンスが求められる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','cog_systems','multipolar','Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean','UNDP-RBLAC',2025,'https://www.undp.org/latin-america/publications/overview-under-pressure-recalibrating-future-development-latin-america-and-caribbean','危機対応、社会分断、気候リスク、技術変化を個別政策ではなく相互依存する圧力として扱うシステム思考が必要になる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean' AND finding_ja='危機対応、社会分断、気候リスク、技術変化を個別政策ではなく相互依存する圧力として扱うシステム思考が必要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','val_tolerance','global_south','Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean','UNDP-RBLAC',2025,'https://www.undp.org/latin-america/publications/overview-under-pressure-recalibrating-future-development-latin-america-and-caribbean','社会的分断が開発の圧力として強まるため、多様な脆弱性を認識し信頼を再構築する寛容性が重要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean' AND finding_ja='社会的分断が開発の圧力として強まるため、多様な脆弱性を認識し信頼を再構築する寛容性が重要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','age_social_change','global_south','Regional Human Development Report 2021: Trapped: High Inequality and Low Growth in Latin America and the Caribbean','UNDP-RBLAC',2021,'https://www.undp.org/latin-america/publications/regional-human-development-report-2021-trapped-high-inequality-and-low-growth-latin-america-and-caribbean','高格差・低成長の罠を断つには、社会保護、権力集中、暴力、低生産性を結びつけて変える社会変革志向が必要になる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2021: Trapped: High Inequality and Low Growth in Latin America and the Caribbean' AND finding_ja='高格差・低成長の罠を断つには、社会保護、権力集中、暴力、低生産性を結びつけて変える社会変革志向が必要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','val_collective','global_south','Regional Human Development Report 2021: Trapped: High Inequality and Low Growth in Latin America and the Caribbean','UNDP-RBLAC',2021,'https://www.undp.org/latin-america/publications/regional-human-development-report-2021-trapped-high-inequality-and-low-growth-latin-america-and-caribbean','普遍的で再分配的かつ財政的に持続可能な社会保護を設計するには、個人最適を超えた集団協調性が不可欠になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2021: Trapped: High Inequality and Low Growth in Latin America and the Caribbean' AND finding_ja='普遍的で再分配的かつ財政的に持続可能な社会保護を設計するには、個人最適を超えた集団協調性が不可欠になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2030','cog_critical','multipolar','Regional Human Development Report 2021: Trapped: High Inequality and Low Growth in Latin America and the Caribbean','UNDP-RBLAC',2021,'https://www.undp.org/latin-america/publications/regional-human-development-report-2021-trapped-high-inequality-and-low-growth-latin-america-and-caribbean','格差は所得だけでなく多次元に表れるため、平均値や成長率だけで政策成果を判断しない批判的思考が求められる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2021: Trapped: High Inequality and Low Growth in Latin America and the Caribbean' AND finding_ja='格差は所得だけでなく多次元に表れるため、平均値や成長率だけで政策成果を判断しない批判的思考が求められる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','age_resilience','global_south','Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean','UNDP-RBLAC',2025,'https://www.undp.org/latin-america/publications/overview-under-pressure-recalibrating-future-development-latin-america-and-caribbean','2050年代に人間開発を維持するには、リスク管理手段、柔軟な制度、格差を埋めるインフラを組み合わせるレジリエンス能力が必要になる。',9,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean' AND finding_ja='2050年代に人間開発を維持するには、リスク管理手段、柔軟な制度、格差を埋めるインフラを組み合わせるレジリエンス能力が必要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','cog_ai_collab','multipolar','Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean','UNDP-RBLAC',2025,'https://www.undp.org/latin-america/publications/overview-under-pressure-recalibrating-future-development-latin-america-and-caribbean','急速に進化する技術を開発戦略に取り込むには、AIを包摂・リスク管理・公共サービス改善に使う協働能力が高まる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean' AND finding_ja='急速に進化する技術を開発戦略に取り込むには、AIを包摂・リスク管理・公共サービス改善に使う協働能力が高まる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','val_eco','global_south','Nature x The Human Development Report','UNDP-RBLAC',2026,'https://www.undp.org/latin-america/publications/nature-x-human-development-report','自然資本がレジリエントな人間開発の基盤として位置づけられるため、生態系と福祉・経済を一体で読むエコロジカルリテラシーが必要になる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Nature x The Human Development Report' AND finding_ja='自然資本がレジリエントな人間開発の基盤として位置づけられるため、生態系と福祉・経済を一体で読むエコロジカルリテラシーが必要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','cog_math','global_south','Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean','UNDP-RBLAC',2025,'https://www.undp.org/latin-america/publications/overview-under-pressure-recalibrating-future-development-latin-america-and-caribbean','複合危機下で保険、社会保護、インフラ投資を設計するには、確率・分布・費用対効果を扱う数学的リテラシーが高まる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean' AND finding_ja='複合危機下で保険、社会保護、インフラ投資を設計するには、確率・分布・費用対効果を扱う数学的リテラシーが高まる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','age_oecd_transformative','multipolar','Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean','UNDP-RBLAC',2025,'https://www.undp.org/latin-america/publications/overview-under-pressure-recalibrating-future-development-latin-america-and-caribbean','危機対応型の開発から、尊厳・持続可能性・包摂を同時に達成する開発へ移す変革コンピテンシーが求められる。',8,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean' AND finding_ja='危機対応型の開発から、尊厳・持続可能性・包摂を同時に達成する開発へ移す変革コンピテンシーが求められる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2100','age_resilience','global_south','Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean','UNDP-RBLAC',2025,'https://www.undp.org/latin-america/publications/overview-under-pressure-recalibrating-future-development-latin-america-and-caribbean','2100年代を見据えると、危機を単発イベントではなく常態的条件として扱い、人間開発を守る長期レジリエンスが重要になる。',7,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2025: Under Pressure: Recalibrating the Future of Development in Latin America and the Caribbean' AND finding_ja='2100年代を見据えると、危機を単発イベントではなく常態的条件として扱い、人間開発を守る長期レジリエンスが重要になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2100','val_eco','global_south','Nature x The Human Development Report','UNDP-RBLAC',2026,'https://www.undp.org/latin-america/publications/nature-x-human-development-report','自然を開発の外部条件ではなく基盤として扱う視点は、2100年代のラテンアメリカ・カリブで生態系と人間開発を統合する能力になる。',7,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Nature x The Human Development Report' AND finding_ja='自然を開発の外部条件ではなく基盤として扱う視点は、2100年代のラテンアメリカ・カリブで生態系と人間開発を統合する能力になる。');
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2100','val_collective','multipolar','Regional Human Development Report 2021: Trapped: High Inequality and Low Growth in Latin America and the Caribbean','UNDP-RBLAC',2021,'https://www.undp.org/latin-america/publications/regional-human-development-report-2021-trapped-high-inequality-and-low-growth-latin-america-and-caribbean','高格差の長期固定化を避けるには、世代間・地域間で再分配と信頼形成を支える集団協調性が必要になる。',7,1,'source_team=codex_correction_l4_latam; phase=6.E; L4 institutional forecast'
+WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_title='Regional Human Development Report 2021: Trapped: High Inequality and Low Growth in Latin America and the Caribbean' AND finding_ja='高格差の長期固定化を避けるには、世代間・地域間で再分配と信頼形成を支える集団協調性が必要になる。');
+COMMIT;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+投入はエラーなく完了しました。次に件数、機関別内訳、能力IDの参照不整合がないかを確認します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_latam%'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+42
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT era_id, scenario, COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_latam%' GROUP BY era_id, scenario ORDER BY era_id, scenario\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT source_org, COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_latam%' GROUP BY source_org ORDER BY source_org\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+future_2030|global_south|12
+future_2030|multipolar|8
+future_2050|global_south|8
+future_2050|multipolar|6
+future_2100|global_south|5
+future_2100|multipolar|3
+
+ succeeded in 0ms:
+CEPAL|14
+IADB|14
+UNDP-RBLAC|14
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands fd LEFT JOIN capability_dimensions cd ON fd.capability_id=cd.id WHERE fd.notes LIKE '%source_team=codex_correction_l4_latam%' AND cd.id IS NULL\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+codex
+確認で42件入っていることが分かりました。追加目標は40件なので、こちらで入れた長期2100年代の重複度が高い2件だけを正確に削除し、40件に合わせます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+BEGIN;
+DELETE FROM future_demands
+WHERE notes LIKE '%source_team=codex_correction_l4_latam%'
+  AND source_org='IADB'
+  AND era_id='future_2100'
+  AND capability_id='cog_creativity'
+  AND finding_ja='自動化されにくい創造性とケア・共感を組み合わせる職務は、2100年代まで続く人間中心労働の価値源泉になる。';
+DELETE FROM future_demands
+WHERE notes LIKE '%source_team=codex_correction_l4_latam%'
+  AND source_org='UNDP-RBLAC'
+  AND era_id='future_2100'
+  AND capability_id='val_collective'
+  AND finding_ja='高格差の長期固定化を避けるには、世代間・地域間で再分配と信頼形成を支える集団協調性が必要になる。';
+COMMIT;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:

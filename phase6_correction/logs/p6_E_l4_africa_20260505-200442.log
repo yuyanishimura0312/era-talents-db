@@ -1,0 +1,374 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-c632-7f21-9e7a-0e61aa189de1
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.E
+theme: l4_africa
+追加目標: 40 件
+説明: L4: アフリカ機関（AU/AfDB/Africa Foresight Academy/UNECA）の予測
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.E' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_l4_africa' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【E==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まずDBのスキーマと既存データの分布を確認します。投入対象がL4機関の予測なので、今回は主に `future_demands` への追加になるはずですが、既存の列定義と重複条件を先に固めます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+ succeeded in 0ms:
+CREATE TABLE future_demands (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),  -- future_2030 / future_2050 / future_2100
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    scenario        TEXT,                    -- baseline, ssp1, ssp3, post_growth, posthuman
+    source_title    TEXT NOT NULL,
+    source_org      TEXT,                    -- OECD, WEF, METI, IPCC, etc
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT COUNT(*), source_org, scenario FROM future_demands GROUP BY source_org, scenario ORDER BY COUNT(*) DESC LIMIT 20"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+18|OECD|baseline
+9|OECD|ssp1
+9|World Economic Forum|ssp3
+7|McKinsey|baseline
+6|IPCC|ssp1
+6|World Economic Forum|ai_acceleration
+6|World Economic Forum|baseline
+4|International Energy Agency|ssp1
+4|McKinsey|ai_acceleration
+4|McKinsey Global Institute|ai_acceleration
+4|United Nations|post_growth
+4|United Nations|ssp3
+4|World Health Organization|posthuman
+3|IPCC|baseline_climate
+3|International Space Exploration Coordination Group|space_civilization
+3|JAXA|space_civilization
+3|McKinsey Global Institute|ssp1
+3|NASA|space_civilization
+3|OECD|post_growth
+3|OECD|ssp2
+
+codex
+`future_demands` は `correction_phase/source_team` 列がないため、指定されたチーム情報は `notes` に明記して投入します。次に既存の `future_demands` の粒度と、同一タイトル・機関の重複を確認します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, era_id, capability_id, scenario, source_title, source_org, source_year, finding_ja, confidence, is_unique_to_era, notes FROM future_demands ORDER BY id DESC LIMIT 12"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT era_id, COUNT(*) FROM future_demands GROUP BY era_id ORDER BY era_id"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+future_2030|148
+future_2050|135
+future_2100|114
+
+ succeeded in 0ms:
+408|future_2100|cog_logical|ai_singularity|Model Evaluation for Extreme Risks|Apollo Research / ARC Evals|2023|極端リスク評価では、モデルが欺瞞、自己複製、サイバー攻撃、説得を行う可能性を仮説検証する。2100年には安全主張を形式化し、反証可能なテストへ落とす論理的思考が重要になる。|7|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=extreme_risk_eval
+407|future_2100|val_collective|ai_singularity|Bletchley Declaration by Countries Attending the AI Safety Summit|UK Government|2023|高度AIリスクは一国や一社で管理できない。2100年には安全性評価、インシデント共有、計算資源管理を国際公共財として扱う集団協調性が求められる。|8|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=ai_multilateralism
+406|future_2100|cog_critical|ai_singularity|NIST AI Risk Management Framework 1.0|National Institute of Standards and Technology|2023|AIリスク管理は妥当性、信頼性、安全性、公平性、透明性、説明可能性を継続的に確認する営みになる。2100年にはAI出力を鵜呑みにせず、リスクを構造化して問い直す批判的思考が必須になる。|9|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=ai_risk_management
+405|future_2100|cog_ai_collab|ai_singularity|International Scientific Report on the Safety of Advanced AI 2024|AI Seoul Summit / UK DSIT|2024|先端AIの能力とリスクは急速に変化し、評価方法自体も更新される。2100年にはAIを使うだけでなく、能力評価、事故報告、封じ込め、監査に参加する協働リテラシーが必要になる。|9|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=advanced_ai_evaluation
+404|future_2100|age_oecd_transformative|ai_singularity|Frontier AI Safety Commitments 2024|UK Department for Science, Innovation and Technology|2024|フロンティアAIの安全性は企業自主コミットメント、政府評価、国際標準の組み合わせで進む。2100年には未知の技術に対して価値を創造し、ジレンマを調整し、責任ある行動を取る変革コンピテンシーが必要になる。|8|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=frontier_ai_safety
+402|future_2100|cog_systems|post_growth|Governing the Commons|Elinor Ostrom|1990|共有資源は国家か市場かの二分法だけでは管理できない。2100年には水、データ、遺伝資源、軌道空間などを自己統治するため、ルール、監視、制裁、信頼を一体で設計する能力が必要になる。|7|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=commons_governance
+401|future_2100|age_social_autonomy|post_growth|Our Common Agenda|United Nations|2021|将来世代の利益を現在の意思決定に組み込むには、市民が短期利害を超えて制度監視へ参加する必要がある。2100年には将来世代を代表する社会的自立性が重視される。|8|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=future_generations_governance
+400|future_2100|cre_cross_domain|post_growth|Human Development Report 2023/2024|UNDP|2024|分断と不確実性の時代には、開発、人権、気候、デジタル公共財をつなぐ制度創造が必要になる。2100年には領域別専門性を越えた統合的な公共設計力が求められる。|8|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=human_development_under_uncertainty
+398|future_2100|val_tolerance|post_growth|Global Compact for Safe, Orderly and Regular Migration|United Nations|2018|気候・人口・経済格差による移動は長期的に続く。2100年の社会には移民を例外状態ではなく恒常的な共同体形成として扱い、多言語・多文化の寛容性を制度化する能力が必要になる。|8|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=migration_coexistence
+397|future_2100|age_resilience|post_growth|The Future of Food and Agriculture: Drivers and Triggers for Transformation|FAO|2022|人口、気候、資源制約、紛争が食料システムを揺さぶる。2100年には効率だけでなく、地域分散、備蓄、多様な作物、社会的包摂を組み合わせる食料レジリエンスが必要になる。|8|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=food_resilience
+396|future_2100|val_collective|post_growth|Care at Work: Investing in Care Leave and Services|International Labour Organization|2022|高齢化と長寿化が進む2100年には、ケアを家族内負担ではなく社会インフラとして設計する必要がある。集団協調性とケア労働の価値を制度化する能力が重要になる。|8|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=care_society
+395|future_2100|cog_critical|post_growth|Beyond Growth: Towards a New Economic Approach|OECD|2020|成長中心の政策思考は不平等、環境限界、幸福を捉えきれない。2100年には経済指標の前提を批判的に読み、福祉と持続可能性を同時に評価する能力が必要になる。|8|1|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=wellbeing_economy
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands WHERE notes LIKE '%codex_correction_l4_africa%' OR source_org IN ('African Union','AU','African Development Bank','AfDB','UNECA','United Nations Economic Commission for Africa','Africa Foresight Academy')\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+web search: 
+web search: African Union Agenda 2063 The Africa We Want PDF skills education science technology innovation
+web search: 
+web search: site:undp.org Africa Foresight Academy report future skills Africa
+web search: 
+web search: AfDB African Economic Outlook 2024 Driving Africa's Transformation Reform Global Financial Architecture PDF
+web search: 
+web search: https://au.int/en/agenda2063/aspirations
+codex
+参照元は公式・準公式ページで固めました。AU Agenda 2063、AfDB の African Economic Outlook / Jobs for Youth、UNECA の Just Sustainable Transition、Africa Foresight Academy/FARA の食料システム・フォーサイトを使い、40件を4機関に分散して入れます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+BEGIN;
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes) VALUES
+('future_2050','cog_info','multipolar','Agenda 2063: The Africa We Want','African Union',2015,'https://au.int/en/agenda2063/aspirations','AUはAgenda 2063で、科学技術とイノベーションに支えられた教育・技能革命を大陸変革の中核に置く。2050年には、地域課題をデータと技術で読み替え、知識を社会実装へつなげる情報リテラシーが重要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AU'),
+('future_2050','age_oecd_transformative','multipolar','Agenda 2063: The Africa We Want','African Union',2015,'https://au.int/en/agenda2063/aspirations','Agenda 2063は包摂的成長、貧困削減、構造転換を同時に掲げる。2050年のアフリカ主導シナリオでは、複数目標の衝突を調整しながら制度と市場を変える変革コンピテンシーが必要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AU'),
+('future_2050','val_collective','multipolar','Agenda 2063: The Africa We Want','African Union',2015,'https://au.int/en/agenda2063/aspirations','AUは統合大陸、自由な移動、貿易とインフラ連結を重視する。2050年には国家単位の利害を越え、越境サプライチェーンと公共財を共同運営する集団協調性が求められる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AU'),
+('future_2050','cog_systems','multipolar','Agenda 2063: The Africa We Want','African Union',2015,'https://au.int/en/agenda2063/aspirations','Agenda 2063はICT、電力プール、交通網など大陸横断インフラを掲げる。2050年にはエネルギー、物流、通信、都市を相互依存システムとして設計する思考が重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AU'),
+('future_2050','age_social_change','multipolar','Agenda 2063: The Africa We Want','African Union',2015,'https://au.int/en/agenda2063/aspirations','Agenda 2063は女性と若者の潜在力を大陸発展の駆動力と位置づける。2050年には人口動態を包摂的な雇用、政治参加、社会起業へ転換する社会変革志向が必要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AU'),
+('future_2050','val_eco','global_south','Agenda 2063: The Africa We Want','African Union',2015,'https://au.int/en/agenda2063/aspirations','AUは生物多様性、森林、土地、水の持続的管理と気候適応を目標化している。2050年には発展と保全を二項対立にせず、地域生態系を経済設計に組み込むリテラシーが要る。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AU'),
+('future_2050','age_entrepreneur','global_south','Agenda 2063: The Africa We Want','African Union',2015,'https://au.int/en/agenda2063/aspirations','Agenda 2063は天然資源の高付加価値化、製造業、産業化を通じた雇用創出を掲げる。2050年には資源輸出依存から地域内加工・製造へ移る起業家精神が重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AU'),
+('future_2050','age_resilience','global_south','Agenda 2063: The Africa We Want','African Union',2015,'https://au.int/en/agenda2063/aspirations','AUは近代的農業と食料輸出力、気候に強いコミュニティを同時に掲げる。2050年には干ばつ、価格変動、紛争に耐える食料・水・地域市場のレジリエンスが重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AU'),
+('future_2100','val_traditional','multipolar','Agenda 2063: The Africa We Want','African Union',2015,'https://au.int/en/agenda2063/aspirations','AUは文化ルネサンス、共通遺産、アフリカ諸語と創造産業を成長資源として扱う。2100年には伝統文化を保存対象に閉じず、教育、観光、デジタル創作へ接続する力が求められる。',7,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AU'),
+('future_2100','soc_interpersonal','multipolar','Agenda 2063: The Africa We Want','African Union',2015,'https://au.int/en/agenda2063/aspirations','Agenda 2063は紛争予防、対話、平和文化の育成を重視する。2100年には多民族・多宗教・越境社会で緊張を早期に調停する対人関係スキルが不可欠になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AU'),
+('future_2030','age_entrepreneur','global_south','Bank Group Strategy for Jobs for Youth in Africa, 2016-2025','African Development Bank',2016,'https://www.afdb.org/en/documents/document/bank-group-strategy-for-jobs-for-youth-in-africa-2016-2025-89238','AfDBのJobs for Youth in Africaは、若者雇用、教育訓練、起業環境を結びつける。2030年には雇用待機ではなく、自ら市場機会を作る起業家精神が重要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AfDB'),
+('future_2030','age_meta_learning','global_south','Bank Group Strategy for Jobs for Youth in Africa, 2016-2025','African Development Bank',2016,'https://www.afdb.org/en/topics-and-sectors/initiatives-partnerships/jobs-for-youth-in-africa/what-is-the-jobs-for-youth-in-africa-strategy','同戦略は若者にハードスキルとソフトスキルを組み合わせて身につけさせることを目標にする。2030年には職業訓練、実務学習、再学習を往復する適応的な学習戦略が必要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AfDB'),
+('future_2030','soc_interpersonal','global_south','Bank Group Strategy for Jobs for Youth in Africa, 2016-2025','African Development Bank',2016,'https://www.afdb.org/en/topics-and-sectors/initiatives-partnerships/jobs-for-youth-in-africa/what-is-the-jobs-for-youth-in-africa-strategy','AfDBは雇用可能性と起業成功率を高めるため、技能だけでなく実践的機会とパートナーシップを重視する。2030年には顧客、投資家、自治体、訓練機関をつなぐ対人関係スキルが必要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AfDB'),
+('future_2030','cog_math','multipolar','African Economic Outlook 2024: Driving Africa’s Transformation','African Development Bank',2024,'https://www.afdb.org/en/documents/african-economic-outlook-2024','AEO 2024は成長率、債務、資金ギャップ、金融条件を用いて構造転換を評価する。2030年には開発金融の条件を数量で比較し、政策選択を検証する数学的リテラシーが求められる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AfDB'),
+('future_2030','cog_critical','multipolar','African Economic Outlook 2024: Driving Africa’s Transformation','African Development Bank',2024,'https://www.afdb.org/en/documents/african-economic-outlook-2024','AEO 2024は、成長回復だけでは一人当たり所得や構造転換の遅れを解消できないと示す。2030年にはGDP見通しを楽観視せず、分配、雇用、債務を問い直す批判的思考が重要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AfDB'),
+('future_2050','cog_systems','multipolar','African Economic Outlook 2024: Driving Africa’s Transformation','African Development Bank',2024,'https://www.afdb.org/en/documents/african-economic-outlook-2024','AfDBは構造転換を産業、貿易、金融、債務、気候資金の連動として扱う。2050年には個別プロジェクトではなく、金融アーキテクチャーと産業政策を一体で見るシステム思考が必要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AfDB'),
+('future_2050','cre_cross_domain','multipolar','African Economic Outlook 2024: Driving Africa’s Transformation','African Development Bank',2024,'https://www.afdb.org/en/documents/african-economic-outlook-2024','AEO 2024はグローバル金融改革、民間投資、MDB、国内資源動員を組み合わせる必要を示す。2050年には公共財政、資本市場、気候、産業を横断して設計する統合志向が重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AfDB'),
+('future_2050','age_resilience','global_south','African Economic Outlook 2024: Driving Africa’s Transformation','African Development Bank',2024,'https://www.afdb.org/en/documents/african-economic-outlook-2024','AfDBは食料・エネルギー価格、気候、政治不安、金利上昇を重複ショックとして扱う。2050年には外部ショック下でも投資と社会保護を維持する経済レジリエンスが要る。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AfDB'),
+('future_2050','val_collective','multipolar','African Economic Outlook 2024: Driving Africa’s Transformation','African Development Bank',2024,'https://www.afdb.org/en/news-and-events/events/african-development-bank-group-launch-2024-african-economic-outlook-70800','AfDBは国際金融アーキテクチャー改革とMDBの役割を構造転換の前提に置く。2050年には債務、SDR、緊急融資、気候資金を多国間で調整する集団協調性が必要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AfDB'),
+('future_2050','age_social_autonomy','multipolar','African Economic Outlook 2024: Driving Africa’s Transformation','African Development Bank',2024,'https://www.afdb.org/en/documents/african-economic-outlook-2024','AEO 2024はアフリカの国際金融制度での発言力拡大を論じる。2050年には外部条件を受け入れるだけでなく、自地域の開発条件を交渉する社会的自立性が重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=AfDB'),
+('future_2030','val_eco','global_south','Economic Report on Africa 2024: Investing in a Just and Sustainable Transition in Africa','United Nations Economic Commission for Africa',2024,'https://www.uneca.org/economic-report-on-africa-2024','UNECAはアフリカ型の公正で持続可能な移行を、環境、社会、経済の三本柱で定義する。2030年には脱炭素を生活改善と産業化に結びつけるエコロジカルリテラシーが必要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=UNECA'),
+('future_2030','age_oecd_transformative','global_south','Economic Report on Africa 2024: Investing in a Just and Sustainable Transition in Africa','United Nations Economic Commission for Africa',2024,'https://www.uneca.org/stories/economic-report-on-africa-2024-investing-in-a-just-and-sustainable-transition-in-africa','UNECAはbusiness as usualでは不十分で、生産、消費、統治、技術、人的資本、金融の根本的転換が必要だとする。2030年には制度横断の変革コンピテンシーが重要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=UNECA'),
+('future_2030','cog_systems','global_south','Economic Report on Africa 2024: Investing in a Just and Sustainable Transition in Africa','United Nations Economic Commission for Africa',2024,'https://digitallibrary.un.org/record/4045339','ERA 2024は公正な移行をエネルギーアクセス、産業化、社会緩和、気候適応の結合問題として扱う。2030年には単一部門の最適化を越えるシステム思考が必要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=UNECA'),
+('future_2030','age_resilience','global_south','Economic Report on Africa 2024: Investing in a Just and Sustainable Transition in Africa','United Nations Economic Commission for Africa',2024,'https://www.uneca.org/economic-report-on-africa-2024','UNECAは気候変動、不平等、貧困を同時に扱うJSTを提案する。2030年には低炭素化で負担を受ける世帯や地域を支える社会保護と地域レジリエンスが必要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=UNECA'),
+('future_2050','age_entrepreneur','multipolar','Economic Report on Africa 2024: Investing in a Just and Sustainable Transition in Africa','United Nations Economic Commission for Africa',2024,'https://www.uneca.org/stories/economic-report-on-africa-2024-investing-in-a-just-and-sustainable-transition-in-africa','UNECAは戦略鉱物、再エネ、後発者利益、若年人口をアフリカの機会として示す。2050年には原材料輸出から中間・最終加工へ移るグリーン起業家精神が重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=UNECA'),
+('future_2050','cog_info','multipolar','Economic Report on Africa 2024: Investing in a Just and Sustainable Transition in Africa','United Nations Economic Commission for Africa',2024,'https://www.uneca.org/stories/economic-report-on-africa-2024-investing-in-a-just-and-sustainable-transition-in-africa','UNECAは自然資本会計、違法資金流出の抑制、戦略鉱物の活用を政策提言に含める。2050年には資源、税、金融、環境データを統合して読む情報リテラシーが要る。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=UNECA'),
+('future_2050','val_collective','multipolar','African perspectives of a just transition to Low-Carbon economies - Technical report','United Nations Economic Commission for Africa',2024,'https://www.uneca.org/african-perspectives-of-a-just-transition-to-low-carbon-economies-technical-report','UNECAの低炭素移行報告は、貿易政策と金融フローが構造的不平等を縮小する方向で設計されるべきだとする。2050年には国際制度を公正に組み替える集団協調性が重要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=UNECA'),
+('future_2050','cog_critical','global_south','African perspectives of a just transition to Low-Carbon economies - Technical report','United Nations Economic Commission for Africa',2024,'https://www.uneca.org/african-perspectives-of-a-just-transition-to-low-carbon-economies-technical-report','UNECAは低炭素移行が借金を深める形で進む危険を指摘する。2050年には気候資金の名目だけでなく、条件、債務、移行負担を批判的に評価する力が必要になる。',9,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=UNECA'),
+('future_2050','cre_cross_domain','global_south','Economic Report on Africa 2024: Investing in a Just and Sustainable Transition in Africa','United Nations Economic Commission for Africa',2024,'https://www.uneca.org/economic-report-on-africa-2024','UNECAは技術、人材、金融、統治を横断する総合的な開発計画を求める。2050年には官民、研究、地域社会をつなぎ、移行投資を社会実装に変える異分野統合志向が重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=UNECA'),
+('future_2100','val_eco','global_south','African perspectives of a just transition to Low-Carbon economies - Technical report','United Nations Economic Commission for Africa',2024,'https://www.uneca.org/african-perspectives-of-a-just-transition-to-low-carbon-economies-technical-report','アフリカ視点の公正な低炭素移行は、気候レジリエンスと排出削減を開発権と結びつける。2100年には地球規模の脱炭素を地域の生存基盤から再定義するエコロジカルリテラシーが必要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=UNECA'),
+('future_2030','cog_systems','global_south','Africa and Foresight: Better Futures in Development','UNDP Africa',2017,'https://www.undp.org/publications/africa-and-foresight-better-futures-development','UNDPのアフリカ・フォーサイト論文は、急速で同時多発的な変化に対して従来型計画だけでは不十分だとする。2030年には複数の未来を構造化して扱うシステム思考が必要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=Africa Foresight Academy related'),
+('future_2030','cog_creativity','global_south','Africa and Foresight: Better Futures in Development','UNDP Africa',2017,'https://www.undp.org/publications/africa-and-foresight-better-futures-development','同論文はフォーサイトを、未来について考え、対話し、実行する新しい方法として位置づける。2030年には制約条件から単線的予測を作るのでなく、選択可能な未来像を創る創造性が重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=Africa Foresight Academy related'),
+('future_2030','cog_critical','global_south','Reframing Food Futures: Making Foresight Transformative','Africa Foresight Academy / FARA',2024,'https://africaforesightacademy.com/wp-content/uploads/2024/10/FARA-F4F-Action-Research-Impact-of-food-systems-foresight-v4.pdf','Africa Foresight Academy/FARAの食料システム・フォーサイト資料は、フォーサイトの確実性、影響、帰属、費用対効果を評価課題に挙げる。2030年には未来手法の効果を検証する批判的思考が要る。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=Africa Foresight Academy'),
+('future_2030','age_meta_learning','global_south','Reframing Food Futures: Making Foresight Transformative','Africa Foresight Academy / FARA',2024,'https://africaforesightacademy.com/wp-content/uploads/2024/10/FARA-F4F-Action-Research-Impact-of-food-systems-foresight-v4.pdf','AFA/FARA資料は、Global SouthではフォーサイトのMEL実務経験がまだ十分に確立していないとする。2030年には実践しながら評価基準を更新する学習戦略・適応性が重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=Africa Foresight Academy'),
+('future_2030','soc_interpersonal','global_south','Reframing Food Futures: Making Foresight Transformative','Africa Foresight Academy / FARA',2024,'https://africaforesightacademy.com/wp-content/uploads/2024/10/FARA-F4F-Action-Research-Impact-of-food-systems-foresight-v4.pdf','AFA/FARAはオンライン対話、ハイブリッドな参加型write-shop、政策担当者・研究者・食料システム関係者の連携を重視する。2030年には異なる利害を対話に乗せる対人関係スキルが必要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=Africa Foresight Academy'),
+('future_2030','val_collective','global_south','Reframing Food Futures: Making Foresight Transformative','Africa Foresight Academy / FARA',2024,'https://africaforesightacademy.com/wp-content/uploads/2024/10/FARA-F4F-Action-Research-Impact-of-food-systems-foresight-v4.pdf','AFA/FARAのプロジェクトはForesight4Food、IDRC、Oxford、CAADP-XP4関係機関との協働で進む。2030年には大陸・地域・研究機関の知識を共同生産する集団協調性が必要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=Africa Foresight Academy'),
+('future_2050','val_eco','global_south','Reframing Food Futures: Making Foresight Transformative','Africa Foresight Academy / FARA',2024,'https://africaforesightacademy.com/wp-content/uploads/2024/10/FARA-F4F-Action-Research-Impact-of-food-systems-foresight-v4.pdf','AFA/FARAは食料システム変革にフォーサイトを適用する。2050年には栄養、土地、水、気候、農村雇用を一体で見て、食料の未来を生態系から設計するリテラシーが必要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=Africa Foresight Academy'),
+('future_2050','age_social_change','global_south','African Union Launches Continental Foresight Consultations to Shape the Future of Agrifood Systems','Africa Foresight Academy / FARA',2025,'https://faraafrica.org/2025/12/08/african-union-launches-continental-foresight-consultations-to-shape-the-future-of-agrifood-systems/','AU/FARAの大陸フォーサイト協議は、食料増産、レジリエンス、ジェンダー平等、包摂的市場統合に向けた予見的アプローチを掲げる。2050年には未来洞察を制度変化へ移す社会変革志向が重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=Africa Foresight Academy'),
+('future_2050','cre_cross_domain','global_south','African Union Launches Continental Foresight Consultations to Shape the Future of Agrifood Systems','Africa Foresight Academy / FARA',2025,'https://www.ccardesa.org/african-union-launches-continental-foresight-consultations-shape-future-agrifood-systems','同協議はAUC、FARA、CGIAR/ILRI、AUDA-NEPAD、Oxford等の専門性を束ねる。2050年には農業、栄養、気候、技術、制度設計を横断する異分野統合志向が必要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=Africa Foresight Academy'),
+('future_2050','age_resilience','global_south','African Union Launches Continental Foresight Consultations to Shape the Future of Agrifood Systems','Africa Foresight Academy / FARA',2025,'https://faraafrica.org/2025/12/08/african-union-launches-continental-foresight-consultations-to-shape-the-future-of-agrifood-systems/','AFA/FARA関係者が参加する協議は、ショックを予測し、シナリオをモデル化し、長期戦略を作る能力を重視する。2050年には不確実性を前提にした食料システムのレジリエンスが重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=Africa Foresight Academy'),
+('future_2100','age_social_autonomy','multipolar','Africa and Foresight: Better Futures in Development','UNDP Africa',2017,'https://www.undp.org/publications/africa-and-foresight-better-futures-development','UNDPはAgenda 2063とSDGsを不確実な21世紀に実現するため、政府と社会がフォーサイトを使う必要を示す。2100年には外部予測に従うのでなく、自ら未来選択を作る社会的自立性が重要になる。',8,1,'phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa; institution=Africa Foresight Academy related');
+COMMIT;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+投入は1トランザクションで完了しました。最後に件数、機関別内訳、シナリオ・時代の分布をDBから直接確認します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT source_org, COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_africa%' GROUP BY source_org ORDER BY source_org\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands WHERE notes LIKE '%phase=6.E%' AND notes LIKE '%source_team=codex_correction_l4_africa%' AND notes LIKE '%theme=l4_africa%'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+Africa Foresight Academy / FARA|8
+African Development Bank|10
+African Union|10
+UNDP Africa|3
+United Nations Economic Commission for Africa|10
+
+ succeeded in 0ms:
+41
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT era_id, COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_africa%' GROUP BY era_id ORDER BY era_id\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT scenario, COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_africa%' GROUP BY scenario ORDER BY scenario\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+global_south|24
+multipolar|17
+
+ succeeded in 0ms:
+future_2030|15
+future_2050|22
+future_2100|4
+
+codex
+確認したところ41件入っていました。追加目標に合わせるため、AFA関連のうちUNDP補助ソースで重複気味だった創造性の1件だけを削除して、最終40件に揃えます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"DELETE FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_africa%' AND source_org='UNDP Africa' AND source_title='Africa and Foresight: Better Futures in Development' AND capability_id='cog_creativity' AND finding_ja LIKE '%選択可能な未来像%';\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands WHERE notes LIKE '%phase=6.E%' AND notes LIKE '%source_team=codex_correction_l4_africa%' AND notes LIKE '%theme=l4_africa%'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+40
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT source_org, COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_africa%' GROUP BY source_org ORDER BY source_org\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+Africa Foresight Academy / FARA|8
+African Development Bank|10
+African Union|10
+UNDP Africa|2
+United Nations Economic Commission for Africa|10
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT era_id, scenario, COUNT(*) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_africa%' GROUP BY era_id, scenario ORDER BY era_id, scenario\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT MIN(id), MAX(id) FROM future_demands WHERE notes LIKE '%source_team=codex_correction_l4_africa%'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+469|509
+
+ succeeded in 0ms:
+future_2030|global_south|12
+future_2030|multipolar|2
+future_2050|global_south|10
+future_2050|multipolar|12
+future_2100|global_south|1
+future_2100|multipolar|3
+
+exec
+/bin/bash -lc 'git status --short data/era_talents.db' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+完了しました。`future_demands` に Phase 6.E / `l4_africa` として 40件追加し、sqlite3で確認済みです。
+
+確認結果:
+- 追加件数: `40`
+- ID範囲: `469`〜`509`（1件調整削除済みのため連番ではありません）
+- 機関別:
+  - African Union: `10`
+  - African Development Bank: `10`
+  - United Nations Economic Commission for Africa: `10`
+  - Africa Foresight Academy / FARA: `8`
+  - UNDP Africa: `2`
+
+`future_demands` には `correction_phase` / `source_team` 列がないため、各行の `notes` に `phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa` を入れています。今回は人物追加ではないため、`achievers` の重複チェック・能力スコア投入は対象外です。
+
+主な参照元:
+- African Union Agenda 2063: https://au.int/en/agenda2063/aspirations
+- AfDB Jobs for Youth in Africa: https://www.afdb.org/en/documents/document/bank-group-strategy-for-jobs-for-youth-in-africa-2016-2025-89238
+- AfDB African Economic Outlook 2024: https://www.afdb.org/en/documents/african-economic-outlook-2024
+- UNECA Economic Report on Africa 2024: https://www.uneca.org/economic-report-on-africa-2024
+- UNECA Just Transition technical report: https://www.uneca.org/african-perspectives-of-a-just-transition-to-low-carbon-economies-technical-report
+- Africa Foresight Academy / FARA food systems foresight: https://africaforesightacademy.com/wp-content/uploads/2024/10/FARA-F4F-Action-Research-Impact-of-food-systems-foresight-v4.pdf
+tokens used
+78,765
+完了しました。`future_demands` に Phase 6.E / `l4_africa` として 40件追加し、sqlite3で確認済みです。
+
+確認結果:
+- 追加件数: `40`
+- ID範囲: `469`〜`509`（1件調整削除済みのため連番ではありません）
+- 機関別:
+  - African Union: `10`
+  - African Development Bank: `10`
+  - United Nations Economic Commission for Africa: `10`
+  - Africa Foresight Academy / FARA: `8`
+  - UNDP Africa: `2`
+
+`future_demands` には `correction_phase` / `source_team` 列がないため、各行の `notes` に `phase=6.E; source_team=codex_correction_l4_africa; theme=l4_africa` を入れています。今回は人物追加ではないため、`achievers` の重複チェック・能力スコア投入は対象外です。
+
+主な参照元:
+- African Union Agenda 2063: https://au.int/en/agenda2063/aspirations
+- AfDB Jobs for Youth in Africa: https://www.afdb.org/en/documents/document/bank-group-strategy-for-jobs-for-youth-in-africa-2016-2025-89238
+- AfDB African Economic Outlook 2024: https://www.afdb.org/en/documents/african-economic-outlook-2024
+- UNECA Economic Report on Africa 2024: https://www.uneca.org/economic-report-on-africa-2024
+- UNECA Just Transition technical report: https://www.uneca.org/african-perspectives-of-a-just-transition-to-low-carbon-economies-technical-report
+- Africa Foresight Academy / FARA food systems foresight: https://africaforesightacademy.com/wp-content/uploads/2024/10/FARA-F4F-Action-Research-Impact-of-food-systems-foresight-v4.pdf

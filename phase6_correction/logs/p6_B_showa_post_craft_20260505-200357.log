@@ -1,0 +1,404 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-168e-7ef0-a0c5-4868d7062860
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.B
+theme: showa_post_craft
+追加目標: 200 件
+説明: 昭和後期の職人・人間国宝・伝統工芸
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_showa_post_craft' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【B==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まずスキーマ、既存データ、能力次元を確認してから、50件単位で投入します。対象が実名DBなので、既存レコードとの重複と出典に使う確認可能性を優先して進めます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions ORDER BY id"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+age_entrepreneur|起業家精神
+age_meta_learning|学習戦略・適応性
+age_oecd_transformative|OECD変革コンピテンシー
+age_resilience|レジリエンス
+age_social_autonomy|社会的自立性
+age_social_change|社会変革志向
+cog_ai_collab|AI協働リテラシー
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_info|情報リテラシー
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_systems|システム思考
+cre_cross_domain|異分野統合志向
+soc_interpersonal|対人関係スキル
+val_collective|集団協調性
+val_eco|エコロジカルリテラシー
+val_tolerance|寛容性
+val_traditional|伝統文化尊重
+
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.B'; SELECT domain, COUNT(*) FROM achievers WHERE correction_phase='6.B' GROUP BY domain ORDER BY COUNT(*) DESC;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+codex
+`achievers` と能力テーブルは素直な構造で、Phase 6.B はまだ0件でした。次に時代IDと既存の昭和後期周辺データの表記ゆれを見て、投入SQLを作ります。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "PRAGMA table_info(achievers); PRAGMA table_info(achiever_capabilities);"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras ORDER BY start_year"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,domain,sub_domain,source_team FROM achievers WHERE domain IN ('craft','culture_arts','women_pioneers') ORDER BY id DESC LIMIT 30\"" in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: start_year
+  SELECT * FROM eras ORDER BY start_year
+                error here ---^
+
+ succeeded in 0ms:
+0|id|INTEGER|0||1
+1|name_ja|TEXT|1||0
+2|name_en|TEXT|0||0
+3|name_kana|TEXT|0||0
+4|birth_year|INTEGER|0||0
+5|death_year|INTEGER|0||0
+6|birth_place|TEXT|0||0
+7|primary_era_id|TEXT|1||0
+8|secondary_era_id|TEXT|0||0
+9|domain|TEXT|1||0
+10|sub_domain|TEXT|0||0
+11|achievement_summary|TEXT|1||0
+12|notable_works|TEXT|0||0
+13|family_class|TEXT|0||0
+14|family_education|TEXT|0||0
+15|education_path|TEXT|0||0
+16|mentors|TEXT|0||0
+17|fame_source|TEXT|0||0
+18|fame_score|REAL|0||0
+19|is_traditional_great|INTEGER|0|0|0
+20|is_local_excellent|INTEGER|0|0|0
+21|data_completeness|INTEGER|0|0|0
+22|source_team|TEXT|0||0
+23|source_url|TEXT|0||0
+24|notes|TEXT|0||0
+25|created_at|TEXT|0|datetime('now')|0
+26|correction_phase|TEXT|0||0
+0|id|INTEGER|0||1
+1|achiever_id|INTEGER|1||0
+2|capability_id|TEXT|1||0
+3|score|INTEGER|0||0
+4|evidence_quote|TEXT|0||0
+5|evidence_source|TEXT|0||0
+6|notes|TEXT|0||0
+7|created_at|TEXT|0|datetime('now')|0
+8|is_uniform_bulk|INTEGER|0|0|0
+
+ succeeded in 0ms:
+10381|前川知大|1974|culture_arts|theater|codex_heisei_culture_arts
+10380|紀里谷和明|1968|culture_arts|film|codex_heisei_culture_arts
+10379|SABU|1964|culture_arts|film|codex_heisei_culture_arts
+10378|豊田利晃|1969|culture_arts|film|codex_heisei_culture_arts
+10377|篠崎誠|1963|culture_arts|film|codex_heisei_culture_arts
+10374|春風亭昇太|1959|culture_arts|traditional_performing_arts|codex_heisei_culture_arts
+10373|観世銕之丞|1956|culture_arts|traditional_performing_arts|codex_heisei_culture_arts
+10372|桂枝雀|1939|culture_arts|traditional_performing_arts|codex_heisei_culture_arts
+10371|田中功起|1975|culture_arts|contemporary_art|codex_heisei_culture_arts
+10370|日比野克彦|1958|culture_arts|design_art|codex_heisei_culture_arts
+10369|椿昇|1953|culture_arts|contemporary_art|codex_heisei_culture_arts
+10368|中村政人|1963|culture_arts|contemporary_art|codex_heisei_culture_arts
+10367|舟越桂|1951|culture_arts|sculpture|codex_heisei_culture_arts
+10366|大竹伸朗|1955|culture_arts|contemporary_art|codex_heisei_culture_arts
+10365|森万里子|1967|culture_arts|contemporary_art|codex_heisei_culture_arts
+10364|須田悦弘|1969|culture_arts|contemporary_art|codex_heisei_culture_arts
+10363|小沢剛|1965|culture_arts|contemporary_art|codex_heisei_culture_arts
+10362|ヤノベケンジ|1965|culture_arts|contemporary_art|codex_heisei_culture_arts
+10361|手塚貴晴|1964|culture_arts|architecture_design|codex_heisei_culture_arts
+10360|青木淳|1956|culture_arts|architecture_design|codex_heisei_culture_arts
+10359|宮本隆司|1947|culture_arts|photography|codex_heisei_culture_arts
+10358|石内都|1947|culture_arts|photography|codex_heisei_culture_arts
+10357|ホンマタカシ|1962|culture_arts|photography|codex_heisei_culture_arts
+10356|川内倫子|1972|culture_arts|photography|codex_heisei_culture_arts
+10355|畠山直哉|1958|culture_arts|photography|codex_heisei_culture_arts
+10354|荒木経惟|1940|culture_arts|photography|codex_heisei_culture_arts
+10353|ケラリーノ・サンドロヴィッチ|1963|culture_arts|theater|codex_heisei_culture_arts
+10352|岡田利規|1973|culture_arts|theater|codex_heisei_culture_arts
+10351|串田和美|1942|culture_arts|theater|codex_heisei_culture_arts
+10350|宮城聰|1959|culture_arts|theater|codex_heisei_culture_arts
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id,name_ja,year_start,year_end FROM eras ORDER BY sort_order"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+all|全時代|1868|2030
+meiji|明治|1868|1912
+taisho|大正|1912|1926
+showa_pre|昭和前期|1926|1945
+showa_post|昭和後期|1946|1989
+heisei|平成|1989|2019
+reiwa|令和|2019|2030
+future_2030|2030年代|2030|2040
+future_2050|2050年代|2050|2060
+future_2100|2100年代|2100|2110
+
+codex
+昭和後期の `primary_era_id` は `showa_post` で入れます。いまは既存DBから同名・同年の衝突がどれくらいあるかを確認しながら、投入候補をバッチ化しています。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE primary_era_id='showa_post' AND domain='craft'; SELECT id,name_ja,birth_year,death_year,sub_domain FROM achievers WHERE domain='craft' ORDER BY birth_year LIMIT 100;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+404|樂吉左衛門|||陶芸
+405|十四代今泉今右衛門|||色絵磁器
+406|十五代酒井田柿右衛門|||有田焼
+407|室瀬和美|||漆芸
+408|北村武資|||羅・経錦
+409|福田喜重|||刺繍
+410|志村ふくみ|||染織
+411|志村洋子|||染織
+412|森口邦彦|||友禅
+413|前田昭博|||白磁
+414|伊勢崎淳|||備前焼
+415|鈴木藏|||志野焼
+416|新里明士|||蛍手磁器
+417|中島宏|||青磁
+418|大樋年雄|||大樋焼
+419|隈研吾|||建築・木材活用
+420|藤森照信|||建築・素材文化
+421|田根剛|||建築
+422|永山祐子|||建築
+423|妹島和世|||建築
+424|西沢立衛|||建築
+425|坂茂|||建築・災害支援
+426|皆川明|||テキスタイルデザイン
+427|石上純也|||建築
+428|長坂常|||空間デザイン
+429|小泉誠|||プロダクトデザイン
+430|深澤直人|||プロダクトデザイン
+431|柴田文江|||プロダクトデザイン
+432|原研哉|||デザイン
+433|永井一史|||デザイン
+434|田川欣哉|||デザインエンジニアリング
+435|太刀川英輔|||デザイン・社会実装
+436|辻口博啓|||菓子職人
+437|鎧塚俊彦|||菓子職人
+438|小山進|||菓子職人
+439|奥田政行|||料理人・地域食材
+440|成澤由浩|||料理人
+441|浜田統之|||料理人
+1878|五代清水六兵衛|||工芸・職人
+1880|初代諏訪蘇山|||工芸・職人
+1881|二代諏訪蘇山|||工芸・職人
+1890|十二代酒井田柿右衛門|||工芸・職人
+1891|十一代今泉今右衛門|||工芸・職人
+1892|初代宮之原謙|||工芸・職人
+1893|津田信夫|||工芸・職人
+1894|平田郷陽|||工芸・職人
+1895|堀柳女|||工芸・職人
+1896|野口園生|||工芸・職人
+1897|飯塚琅玕斎|||工芸・職人
+1898|高野松山|||工芸・職人
+1900|磯井如真|||工芸・職人
+2337|田畑喜八|||craft
+2338|上野為二|||craft
+2349|清水南山|||craft
+2352|前大峰|||craft
+2353|米光光正|||craft
+3028|十四代酒井田柿右衛門|||伝統工芸・芸能
+3029|三代徳田八十吉|||伝統工芸・芸能
+3030|吉田美統|||伝統工芸・芸能
+3031|中川衛|||伝統工芸・芸能
+3032|大西勲|||伝統工芸・芸能
+3033|小川善三郎|||伝統工芸・芸能
+3034|三浦小平二|||伝統工芸・芸能
+3035|加藤孝造|||伝統工芸・芸能
+3036|伊藤赤水|||伝統工芸・芸能
+3037|原清|||伝統工芸・芸能
+3038|田島比呂子|||伝統工芸・芸能
+3039|羽田登喜男|||伝統工芸・芸能
+3040|喜多川俵二|||伝統工芸・芸能
+3041|小宮康孝|||伝統工芸・芸能
+3042|小宮康正|||伝統工芸・芸能
+3043|柳家小三治|||伝統工芸・芸能
+3044|春風亭小朝|||伝統工芸・芸能
+3045|立川志の輔|||伝統工芸・芸能
+3046|柳家喬太郎|||伝統工芸・芸能
+3047|桂文枝|||伝統工芸・芸能
+3048|桂文珍|||伝統工芸・芸能
+3049|笑福亭鶴瓶|||伝統工芸・芸能
+3050|野村萬斎|||伝統工芸・芸能
+3051|野村万作|||伝統工芸・芸能
+3052|坂東玉三郎|||伝統工芸・芸能
+3053|中村勘三郎|||伝統工芸・芸能
+3054|市川團十郎|||伝統工芸・芸能
+3055|市川海老蔵|||伝統工芸・芸能
+3056|片岡仁左衛門|||伝統工芸・芸能
+3057|坂田藤十郎|||伝統工芸・芸能
+3058|尾上菊五郎|||伝統工芸・芸能
+3059|中村吉右衛門|||伝統工芸・芸能
+3060|梅若六郎|||伝統工芸・芸能
+3061|観世清和|||伝統工芸・芸能
+3062|大倉源次郎|||伝統工芸・芸能
+3063|亀井忠雄|||伝統工芸・芸能
+3064|鶴澤清治|||伝統工芸・芸能
+3065|竹本住大夫|||伝統工芸・芸能
+3258|鈴木表朔|||craft
+3259|近藤悠三|||craft
+3260|初代徳田八十吉|||craft
+3261|清水六兵衛|||craft
+3262|十代三輪休雪|||craft
+3263|中里無庵|||craft
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE name_ja IN ('濱田庄司','河井寛次郎','芹沢銈介','富本憲吉','荒川豊蔵','金重陶陽','三輪休和','松田権六','黒田辰秋','鹿児島寿蔵');\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+10
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT source_team, COUNT(*) FROM achievers GROUP BY source_team ORDER BY COUNT(*) DESC LIMIT 20;"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+import_experts|3977
+codex_showa_post|671
+codex_heisei|623
+codex_meiji|452
+codex_reiwa|450
+codex_showa_pre|352
+codex_taisho|310
+codex_heisei_business|200
+codex_all_women_pioneers|200
+codex_showa_post_business|150
+codex_heisei_culture_arts|150
+codex_all_local_excellent|145
+codex_taisho_culture_arts|100
+codex_showa_pre_business|100
+codex_reiwa_business|100
+codex_meiji_business|100
+codex_all_education_practice|100
+codex_meiji_culture_arts|99
+codex_heisei_sports|99
+codex_heisei_science_tech|93
+
+web search: 
+web search: 文化庁 重要無形文化財 保持者 工芸技術 一覧 陶芸 染織 漆芸 金工
+web search: 
+web search: https://jmedia.wiki/%E4%BA%BA%E9%96%93%E5%9B%BD%E5%AE%9D%E4%B8%80%E8%A6%A7%EF%BC%88%E5%B7%A5%E8%8A%B8%E5%93%81%EF%BC%89/List_of_Living_National_Treasures_of_Japan_%28crafts%29
+codex
+投入は `achievers` に人物を入れ、その直後に同じ `lastrowid` へ3件ずつ能力根拠を入れる形にします。バッチは50件ごとに `commit` し、重複判定は指定どおり `name_ja` と `birth_year IS ?` で実行します。

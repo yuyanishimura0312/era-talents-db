@@ -1,0 +1,382 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-e5aa-7b53-a89b-33d6c3fdc707
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.G
+theme: refs_africa
+追加目標: 10 件
+説明: 学術文献: アフリカ研究者（Achille Mbembe/Sabelo Ndlovu-Gatsheni/Mahmood Mamdani）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.G' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_refs_africa' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【G==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+DBスキーマと既存データを確認して、Phase 6.G の投入先が `academic_references` だけでよいか、制約と重複状況を見てから追加します。今回は学術文献テーマなので、人物追加ルールは該当がなければ触らず、`source_team` と `framework_tag` を中心に整えます。
+exec
+/bin/bash -lc 'sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE academic_references (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    citation        TEXT NOT NULL,
+    author          TEXT,
+    year            INTEGER,
+    title           TEXT,
+    framework_tag   TEXT,                    -- simonton, csikszentmihalyi, subotnik, bourdieu, granovetter, merton
+    relevance_to_layer TEXT,                 -- L1, L2, L3, L4, methodology
+    doi             TEXT,
+    notes           TEXT
+);
+
+exec
+/bin/bash -lc 'sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+exec
+/bin/bash -lc "sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db \"SELECT COUNT(*) FROM academic_references WHERE source_team='codex_correction_refs_africa' OR correction_phase='6.G';\"" in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: source_team
+  SELECT COUNT(*) FROM academic_references WHERE source_team='codex_correction_r
+                                   error here ---^
+
+codex
+`academic_references` には現状 `source_team` と `correction_phase` 列がありません。Phase別の投入管理に必要なので、既存パターンを確認したうえで列追加してから、10件を一括投入する方針にします。文献の DOI/出典は誤登録を避けるため一次的に確認します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema era_retrospectives"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE era_retrospectives (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    perspective     TEXT,                    -- historical_sociology, education_research, biography_studies
+    source_title    TEXT NOT NULL,
+    source_author   TEXT,
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    relevance_score INTEGER CHECK(relevance_score BETWEEN 1 AND 10),
+    diverges_from_l1 INTEGER DEFAULT 0,      -- L1当時言説とのズレフラグ
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, source_team TEXT);
+CREATE INDEX idx_retrospectives_era ON era_retrospectives(era_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, author, year, title, framework_tag, doi, notes FROM academic_references ORDER BY id DESC LIMIT 20;"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "PRAGMA table_info(academic_references);"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+40|Mihaly Csikszentmihalyi et al.|1993|Talented Teenagers|csikszentmihalyi||Flow and domain-specific talent in adolescence
+39|Hans J. Eysenck|1995|Genius: The Natural History of Creativity|eysenck||Psychometric approach to genius and individual differences
+38|Dean K. Simonton|1990|Psychology, Science, and History|simonton||Historiometric methods and quantitative history
+37|Lewis M. Terman|1954|The Discovery and Encouragement of Exceptional Talent|terman||Identification and nurturing of gifted talent
+36|Dean K. Simonton|1978|Thematic Variation in Shakespeare|simonton||Historical data analysis of creative output patterns
+35|Lewis M. Terman & Melita H. Oden|1959|The Gifted Child at Mid-Life|terman||Terman Study mid-life follow-up, adult trajectories
+34|Amy Zhao Yu et al.|2016|Pantheon 1.0: A Manually Verified Dataset of Globally Famous Biographies|pantheon||11,341 historical figures, multilingual Wikipedia analysis
+33|MEXT|2018|Talent Development for Society 5.0|mext||Deep learning, student agency, sustainable society builders
+32|METI|2022|Vision for Future Talents (Mirai Jinzai Vision)|meti||2050 labor structure: problem discovery, innovation, prediction
+31|Patrick Griffin et al.|2012|Assessment and Teaching of 21st Century Skills|atc21s||Collaborative problem solving and digital networks
+30|World Economic Forum|2025|Future of Jobs Report 2025|wef||2030 labor skills: curiosity, resilience, adaptability
+29|UNESCO|2021|Futures of Education: Reimagining Our Futures Together|unesco||Transformative learning and ecological interdisciplinary approach
+28|Partnership for 21st Century Learning|2009|Framework for 21st Century Learning|p21||4Cs: Critical thinking, Communication, Collaboration, Creativity
+27|OECD|2019|OECD Learning Compass 2030|oecd||Future competencies framework: well-being, agency
+26|Joseph Alois Schumpeter|1934|The Theory of Economic Development|schumpeter||Entrepreneurship and innovation in development
+25|Atsushi Naoi & Junsuke Hara|1990|Social Stratification: Structure and Process|naoi||Japanese stratification and mobility patterns
+24|Takehiko Kariya|2001|Stratified Japan and Education Crisis|kariya||Incentive divide and educational inequality
+23|Yasushi Takeuchi|1996|Japanese Meritocracy: Structure and Mentality|takeuchi||Japanese meritocracy mechanism and mentality
+22|Harriet Zuckerman|1977|Scientific Elite|zuckerman||Nobel laureate career analysis and stratification
+21|Robert K. Merton|1968|The Matthew Effect in Science|merton||Cumulative advantage in scientific careers
+
+ succeeded in 0ms:
+0|id|INTEGER|0||1
+1|citation|TEXT|1||0
+2|author|TEXT|0||0
+3|year|INTEGER|0||0
+4|title|TEXT|0||0
+5|framework_tag|TEXT|0||0
+6|relevance_to_layer|TEXT|0||0
+7|doi|TEXT|0||0
+8|notes|TEXT|0||0
+
+ succeeded in 0ms:
+CREATE TABLE future_demands (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),  -- future_2030 / future_2050 / future_2100
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    scenario        TEXT,                    -- baseline, ssp1, ssp3, post_growth, posthuman
+    source_title    TEXT NOT NULL,
+    source_org      TEXT,                    -- OECD, WEF, METI, IPCC, etc
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+web search: 
+web search: Achille Mbembe On the Postcolony DOI
+web search: 
+web search: site:doi.org 10.1215/08992363-15-1-11 Necropolitics Mbembe
+web search: 
+web search: Achille Mbembe Necropolitics Public Culture 2003 DOI 10.1215
+web search: 
+web search: Sabelo Ndlovu-Gatsheni Epistemic Freedom in Africa DOI
+web search: 
+web search: Mahmood Mamdani Good Muslim Bad Muslim DOI
+web search: 
+web search: https://www.cambridge.org/core/journals/africa/article/provisional-notes-on-the-postcolony/BE5FFE3AC0DB10125B69E0D63E36DD89
+web search: 
+web search: 'DOI' in https://www.cambridge.org/core/journals/africa/article/provisional-notes-on-the-postcolony/BE5FFE3AC0DB10125B69E0D63E36DD89
+codex
+候補文献は、Mbembe 4件、Ndlovu-Gatsheni 4件、Mamdani 2件で 10件にします。DOI が確認できる論文・電子書籍版を優先し、書籍で DOI 形式の永続IDがあるものは `doi` 列に入れ、出典URLは `notes` に残します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT title, doi FROM academic_references WHERE title IN ('Provisional notes on the postcolony','On the Postcolony','African Modes of Self-Writing','Necropolitics','Coloniality of Power in Postcolonial Africa: Myths of Decolonization','Beyond the Equator There Are No Sins: Coloniality and Violence in Africa','The Entrapment of Africa within the Global Colonial Matrices of Power: Eurocentrism, Coloniality, and Deimperialization in the Twenty-first Century','The Emergence and Trajectories of Struggles for an African University: The Case of Unfinished Business of African Epistemic Decolonisation','Beyond Settler and Native as Political Identities: Overcoming the Political Legacy of Colonialism','Define and Rule: Native as Political Identity');\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+これから DB を更新します。`academic_references` に投入管理用の `source_team` と `correction_phase` を追加し、重複なしを確認済みの10件を1バッチで挿入します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+BEGIN;
+ALTER TABLE academic_references ADD COLUMN source_team TEXT;
+ALTER TABLE academic_references ADD COLUMN correction_phase TEXT;
+INSERT INTO academic_references
+(citation, author, year, title, framework_tag, relevance_to_layer, doi, notes, source_team, correction_phase)
+VALUES
+('Mbembe, Achille. 1992. \"Provisional Notes on the Postcolony.\" Africa 62(1): 3-37. https://doi.org/10.2307/1160062', 'Achille Mbembe', 1992, 'Provisional notes on the postcolony', 'postcolonial; banality_of_power', 'L2; methodology', '10.2307/1160062', 'African postcolony analysis; source: Cambridge Core/JSTOR record for Africa 62(1).', 'codex_correction_refs_africa', '6.G'),
+('Mbembe, Achille. 2001. On the Postcolony. Berkeley: University of California Press. http://www.jstor.org/stable/10.1525/j.ctt1ppkxs', 'Achille Mbembe', 2001, 'On the Postcolony', 'postcolonial; african_subjectivity', 'L2; methodology', '10.1525/j.ctt1ppkxs', 'Book source: University of California Press page and JSTOR stable DOI-style identifier.', 'codex_correction_refs_africa', '6.G'),
+('Mbembe, Achille. 2002. \"African Modes of Self-Writing.\" Public Culture 14(1): 239-273. https://doi.org/10.1215/08992363-14-1-239', 'Achille Mbembe', 2002, 'African Modes of Self-Writing', 'postcolonial; self_writing', 'L2; methodology', '10.1215/08992363-14-1-239', 'Public Culture article on African identity narratives and subject formation.', 'codex_correction_refs_africa', '6.G'),
+('Mbembe, Achille. 2003. \"Necropolitics.\" Public Culture 15(1): 11-40. https://doi.org/10.1215/08992363-15-1-11', 'Achille Mbembe', 2003, 'Necropolitics', 'necropolitics; postcolonial', 'L2; L4; methodology', '10.1215/08992363-15-1-11', 'Duke University Press/Public Culture DOI verified via CiNii and DOI metadata.', 'codex_correction_refs_africa', '6.G'),
+('Ndlovu-Gatsheni, Sabelo J. 2013. Coloniality of Power in Postcolonial Africa: Myths of Decolonization. Dakar: CODESRIA. https://doi.org/10.57054/codesria.pub.72', 'Sabelo J. Ndlovu-Gatsheni', 2013, 'Coloniality of Power in Postcolonial Africa: Myths of Decolonization', 'decolonial; coloniality_of_power', 'L2; methodology', '10.57054/codesria.pub.72', 'CODESRIA Books source; focuses on liberation predicament and coloniality of power/being/knowledge.', 'codex_correction_refs_africa', '6.G'),
+('Ndlovu-Gatsheni, Sabelo J. 2012. \"Beyond the Equator There Are No Sins: Coloniality and Violence in Africa.\" Journal of Developing Societies 28(4). https://doi.org/10.1177/0169796X12463143', 'Sabelo J. Ndlovu-Gatsheni', 2012, 'Beyond the Equator There Are No Sins: Coloniality and Violence in Africa', 'decolonial; coloniality_of_being', 'L2; methodology', '10.1177/0169796X12463143', 'SAGE source; deploys coloniality of being with Fanon and violence analysis.', 'codex_correction_refs_africa', '6.G'),
+('Ndlovu-Gatsheni, Sabelo J. 2013. \"The Entrapment of Africa within the Global Colonial Matrices of Power: Eurocentrism, Coloniality, and Deimperialization in the Twenty-first Century.\" Journal of Developing Societies 29(4): 331-353. https://doi.org/10.1177/0169796X13503195', 'Sabelo J. Ndlovu-Gatsheni', 2013, 'The Entrapment of Africa within the Global Colonial Matrices of Power: Eurocentrism, Coloniality, and Deimperialization in the Twenty-first Century', 'decolonial; world_systems; deimperialization', 'L2; L4; methodology', '10.1177/0169796X13503195', 'SAGE source; connects coloniality, world-systems analysis, Eurocentrism, and deimperialization.', 'codex_correction_refs_africa', '6.G'),
+('Ndlovu-Gatsheni, Sabelo J. 2017. \"The Emergence and Trajectories of Struggles for an African University: The Case of Unfinished Business of African Epistemic Decolonisation.\" Kronos 43(1). https://doi.org/10.17159/2309-9585/2017/v43a4', 'Sabelo J. Ndlovu-Gatsheni', 2017, 'The Emergence and Trajectories of Struggles for an African University: The Case of Unfinished Business of African Epistemic Decolonisation', 'decolonial; epistemic_decolonisation', 'L2; L4; methodology', '10.17159/2309-9585/2017/v43a4', 'SciELO/Kronos source; addresses African university and epistemic decolonisation.', 'codex_correction_refs_africa', '6.G'),
+('Mamdani, Mahmood. 2001. \"Beyond Settler and Native as Political Identities: Overcoming the Political Legacy of Colonialism.\" Comparative Studies in Society and History 43(4): 651-664. https://doi.org/10.1017/S0010417501004285', 'Mahmood Mamdani', 2001, 'Beyond Settler and Native as Political Identities: Overcoming the Political Legacy of Colonialism', 'postcolonial; settler_native; political_identity', 'L2; methodology', '10.1017/S0010417501004285', 'Cambridge Core source; theorizes settler/native as political identities and colonial political legacy.', 'codex_correction_refs_africa', '6.G'),
+('Mamdani, Mahmood. 2012. Define and Rule: Native as Political Identity. Cambridge, MA: Harvard University Press. https://doi.org/10.4159/harvard.9780674067356', 'Mahmood Mamdani', 2012, 'Define and Rule: Native as Political Identity', 'indirect_rule; political_identity; decolonial', 'L2; methodology', '10.4159/harvard.9780674067356', 'Harvard University Press/De Gruyter source; colonial governance through definition and management of difference.', 'codex_correction_refs_africa', '6.G');
+COMMIT;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Parse error near line 2: duplicate column name: source_team
+Parse error near line 3: duplicate column name: correction_phase
+
+codex
+列追加は既に反映されていたため、同じ `ALTER TABLE` が重複エラーになりました。挿入はまだ走っていない可能性が高いので、列と件数を再確認してから INSERT のみ実行します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "PRAGMA table_info(academic_references);"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0|id|INTEGER|0||1
+1|citation|TEXT|1||0
+2|author|TEXT|0||0
+3|year|INTEGER|0||0
+4|title|TEXT|0||0
+5|framework_tag|TEXT|0||0
+6|relevance_to_layer|TEXT|0||0
+7|doi|TEXT|0||0
+8|notes|TEXT|0||0
+9|source_team|TEXT|0||0
+10|correction_phase|TEXT|0||0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), MIN(id), MAX(id) FROM academic_references WHERE source_team='codex_correction_refs_africa' AND correction_phase='6.G';\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+10|41|50
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT title, source_team, correction_phase FROM academic_references WHERE source_team='codex_correction_refs_africa' OR correction_phase='6.G';\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+Provisional notes on the postcolony|codex_correction_refs_africa|6.G
+On the Postcolony|codex_correction_refs_africa|6.G
+African Modes of Self-Writing|codex_correction_refs_africa|6.G
+Necropolitics|codex_correction_refs_africa|6.G
+Coloniality of Power in Postcolonial Africa: Myths of Decolonization|codex_correction_refs_africa|6.G
+Beyond the Equator There Are No Sins: Coloniality and Violence in Africa|codex_correction_refs_africa|6.G
+The Entrapment of Africa within the Global Colonial Matrices of Power: Eurocentrism, Coloniality, and Deimperialization in the Twenty-first Century|codex_correction_refs_africa|6.G
+The Emergence and Trajectories of Struggles for an African University: The Case of Unfinished Business of African Epistemic Decolonisation|codex_correction_refs_africa|6.G
+Beyond Settler and Native as Political Identities: Overcoming the Political Legacy of Colonialism|codex_correction_refs_africa|6.G
+Define and Rule: Native as Political Identity|codex_correction_refs_africa|6.G
+
+codex
+投入済みを確認できました。最後に、Phase 6.G の件数、DOI 欠損、同一タイトル重複、DB 整合性を確認します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM academic_references WHERE source_team='codex_correction_refs_africa' AND correction_phase='6.G';\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+10
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT title, COUNT(*) FROM academic_references GROUP BY title HAVING COUNT(*) > 1;"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM academic_references WHERE source_team='codex_correction_refs_africa' AND correction_phase='6.G' AND (doi IS NULL OR doi='');\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "PRAGMA integrity_check;"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+ok
+
+codex
+完了しました。`academic_references` に Phase 6.G / `refs_africa` として 10件追加しました。
+
+実施内容:
+- `academic_references` に管理列 `source_team`, `correction_phase` を追加
+- `source_team='codex_correction_refs_africa'`
+- `correction_phase='6.G'`
+- Mbembe 4件、Ndlovu-Gatsheni 4件、Mamdani 2件を追加
+- 全件 DOI または DOI形式の永続IDを記載
+
+確認結果:
+- 追加件数: `10`
+- DOI欠損: `0`
+- 同一タイトル重複: `0`
+- `PRAGMA integrity_check`: `ok`
+
+参照確認に使った主な出典:
+- Mbembe “Necropolitics”: https://doi.org/10.1215/08992363-15-1-11
+- Mbembe “On the Postcolony”: https://www.ucpress.edu/books/on-the-postcolony/paper
+- Ndlovu-Gatsheni CODESRIA: https://doi.org/10.57054/codesria.pub.72
+- Ndlovu-Gatsheni SAGE article: https://doi.org/10.1177/0169796X13503195
+- Ndlovu-Gatsheni Kronos/SciELO: https://doi.org/10.17159/2309-9585/2017/v43a4
+- Mamdani Cambridge Core: https://doi.org/10.1017/S0010417501004285
+- Mamdani Harvard/De Gruyter: https://doi.org/10.4159/harvard.9780674067356
+tokens used
+102,418
+完了しました。`academic_references` に Phase 6.G / `refs_africa` として 10件追加しました。
+
+実施内容:
+- `academic_references` に管理列 `source_team`, `correction_phase` を追加
+- `source_team='codex_correction_refs_africa'`
+- `correction_phase='6.G'`
+- Mbembe 4件、Ndlovu-Gatsheni 4件、Mamdani 2件を追加
+- 全件 DOI または DOI形式の永続IDを記載
+
+確認結果:
+- 追加件数: `10`
+- DOI欠損: `0`
+- 同一タイトル重複: `0`
+- `PRAGMA integrity_check`: `ok`
+
+参照確認に使った主な出典:
+- Mbembe “Necropolitics”: https://doi.org/10.1215/08992363-15-1-11
+- Mbembe “On the Postcolony”: https://www.ucpress.edu/books/on-the-postcolony/paper
+- Ndlovu-Gatsheni CODESRIA: https://doi.org/10.57054/codesria.pub.72
+- Ndlovu-Gatsheni SAGE article: https://doi.org/10.1177/0169796X13503195
+- Ndlovu-Gatsheni Kronos/SciELO: https://doi.org/10.17159/2309-9585/2017/v43a4
+- Mamdani Cambridge Core: https://doi.org/10.1017/S0010417501004285
+- Mamdani Harvard/De Gruyter: https://doi.org/10.4159/harvard.9780674067356

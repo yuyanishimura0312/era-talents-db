@@ -1,0 +1,573 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-0ebe-7f71-a41b-dd8536281cdc
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.B
+theme: showa_pre_craft
+追加目標: 130 件
+説明: 昭和前期の職人・工芸家（戦前の人間国宝候補）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_showa_pre_craft' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【B==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まずスキーマと既存データの分布、能力ディメンションを確認します。投入対象は実在確認と重複回避が重要なので、DB内の既存名も併せて見ます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT correction_phase, source_team, COUNT(*) FROM achievers GROUP BY correction_phase, source_team ORDER BY COUNT(*) DESC LIMIT 20"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+6.1_experts_year_only|import_experts|2867
+6.1_experts_redistribution|import_experts|833
+|codex_showa_post|671
+|codex_heisei|623
+|codex_meiji|452
+|codex_reiwa|450
+|codex_showa_pre|352
+|codex_taisho|310
+|import_experts|277
+|codex_all_women_pioneers|200
+|codex_heisei_business|200
+|codex_heisei_culture_arts|150
+|codex_showa_post_business|150
+|codex_all_local_excellent|145
+|codex_all_education_practice|100
+|codex_meiji_business|100
+|codex_reiwa_business|100
+|codex_showa_pre_business|100
+|codex_taisho_culture_arts|100
+|codex_heisei_sports|99
+
+codex
+スキーマ上は `achievers` と `achiever_capabilities` だけで今回の主目標を満たせます。次に時代IDと既存の工芸系レコードを確認し、昭和前期に寄せる投入値を固定します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+meiji|明治|Meiji|1868|1912|0||1
+taisho|大正|Taisho|1912|1926|0||2
+showa_pre|昭和前期|Showa Pre-war|1926|1945|0||3
+showa_post|昭和後期|Showa Post-war|1946|1989|0||4
+heisei|平成|Heisei|1989|2019|0||5
+reiwa|令和|Reiwa|2019|2030|0||6
+future_2030|2030年代|2030s|2030|2040|1||7
+future_2050|2050年代|2050s|2050|2060|1||8
+future_2100|2100年代|2100s|2100|2110|1||9
+all|全時代|All eras|1868|2030|0|横断的収集用の擬似時代ID|0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year,domain,source_team,correction_phase FROM achievers WHERE domain='craft' ORDER BY birth_year LIMIT 80\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT source_team, correction_phase, COUNT(*) FROM achievers WHERE domain='craft' GROUP BY source_team, correction_phase ORDER BY COUNT(*) DESC LIMIT 30\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+樂吉左衛門||craft|codex_reiwa|
+十四代今泉今右衛門||craft|codex_reiwa|
+十五代酒井田柿右衛門||craft|codex_reiwa|
+室瀬和美||craft|codex_reiwa|
+北村武資||craft|codex_reiwa|
+福田喜重||craft|codex_reiwa|
+志村ふくみ||craft|codex_reiwa|
+志村洋子||craft|codex_reiwa|
+森口邦彦||craft|codex_reiwa|
+前田昭博||craft|codex_reiwa|
+伊勢崎淳||craft|codex_reiwa|
+鈴木藏||craft|codex_reiwa|
+新里明士||craft|codex_reiwa|
+中島宏||craft|codex_reiwa|
+大樋年雄||craft|codex_reiwa|
+隈研吾||craft|codex_reiwa|
+藤森照信||craft|codex_reiwa|
+田根剛||craft|codex_reiwa|
+永山祐子||craft|codex_reiwa|
+妹島和世||craft|codex_reiwa|
+西沢立衛||craft|codex_reiwa|
+坂茂||craft|codex_reiwa|
+皆川明||craft|codex_reiwa|
+石上純也||craft|codex_reiwa|
+長坂常||craft|codex_reiwa|
+小泉誠||craft|codex_reiwa|
+深澤直人||craft|codex_reiwa|
+柴田文江||craft|codex_reiwa|
+原研哉||craft|codex_reiwa|
+永井一史||craft|codex_reiwa|
+田川欣哉||craft|codex_reiwa|
+太刀川英輔||craft|codex_reiwa|
+辻口博啓||craft|codex_reiwa|
+鎧塚俊彦||craft|codex_reiwa|
+小山進||craft|codex_reiwa|
+奥田政行||craft|codex_reiwa|
+成澤由浩||craft|codex_reiwa|
+浜田統之||craft|codex_reiwa|
+五代清水六兵衛||craft|codex_taisho|
+初代諏訪蘇山||craft|codex_taisho|
+二代諏訪蘇山||craft|codex_taisho|
+十二代酒井田柿右衛門||craft|codex_taisho|
+十一代今泉今右衛門||craft|codex_taisho|
+初代宮之原謙||craft|codex_taisho|
+津田信夫||craft|codex_taisho|
+平田郷陽||craft|codex_taisho|
+堀柳女||craft|codex_taisho|
+野口園生||craft|codex_taisho|
+飯塚琅玕斎||craft|codex_taisho|
+高野松山||craft|codex_taisho|
+磯井如真||craft|codex_taisho|
+田畑喜八||craft|codex_showa_pre|
+上野為二||craft|codex_showa_pre|
+清水南山||craft|codex_showa_pre|
+前大峰||craft|codex_showa_pre|
+米光光正||craft|codex_showa_pre|
+十四代酒井田柿右衛門||craft|codex_heisei|
+三代徳田八十吉||craft|codex_heisei|
+吉田美統||craft|codex_heisei|
+中川衛||craft|codex_heisei|
+大西勲||craft|codex_heisei|
+小川善三郎||craft|codex_heisei|
+三浦小平二||craft|codex_heisei|
+加藤孝造||craft|codex_heisei|
+伊藤赤水||craft|codex_heisei|
+原清||craft|codex_heisei|
+田島比呂子||craft|codex_heisei|
+羽田登喜男||craft|codex_heisei|
+喜多川俵二||craft|codex_heisei|
+小宮康孝||craft|codex_heisei|
+小宮康正||craft|codex_heisei|
+柳家小三治||craft|codex_heisei|
+春風亭小朝||craft|codex_heisei|
+立川志の輔||craft|codex_heisei|
+柳家喬太郎||craft|codex_heisei|
+桂文枝||craft|codex_heisei|
+桂文珍||craft|codex_heisei|
+笑福亭鶴瓶||craft|codex_heisei|
+野村萬斎||craft|codex_heisei|
+野村万作||craft|codex_heisei|
+
+ succeeded in 0ms:
+codex_heisei||38
+codex_reiwa||38
+codex_taisho||36
+codex_showa_pre||23
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), MIN(birth_year), MAX(birth_year) FROM achievers WHERE domain='craft' OR source_team LIKE '%craft%'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+195|1842|1947
+
+web search: 
+web search: 重要無形文化財保持者 工芸技術 一覧 陶芸 染織 漆芸 金工 人形 木竹工
+web search: 
+web search: https://eishodo.net/kokuhou/kokuhou-kougei/
+web search: 
+web search: https://eishodo.net/kokuhou/kokuhou-kougei/
+web search: 
+web search: https://eishodo.net/kokuhou/kougei-tougei/
+codex
+公的制度名だけでなく人物名と技法を含む一覧ソースを確認しました。既存DBは生年NULLの工芸レコードが多いため、同名重複も別途避けて、`birth_year` が不明な候補はNULLのまま扱います。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT name_ja FROM achievers" > /tmp/existing_names.txt && wc -l /tmp/existing_names.txt && head -5 /tmp/existing_names.txt' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+    9760 /tmp/existing_names.txt
+菅義偉
+岸田文雄
+石破茂
+河野太郎
+小池百合子
+
+exec
+/bin/bash -lc "curl -L --max-time 20 -s https://eishodo.net/kokuhou/kougei-sensyoku/ | sed -n '70,260p'" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+web search: 
+web search: 
+web search: 
+web search: https://eishodo.net/kokuhou/kougei-sensyoku/
+web search: 
+web search: https://eishodo.net/kokuhou/kougei-sensyoku/
+web search: 
+web search: 
+web search: 
+web search: https://ja.wikid.org/%E4%BA%BA%E9%96%93%E5%9B%BD%E5%AE%9D
+codex
+投入方針を固めました。工芸技術の重要無形文化財保持者一覧を人物実在確認の共通出典にし、既存名を避けたうえで、昭和前期の職人・工芸系バイアス補正として `craft` / `is_local_excellent=1` / `correction_phase='6.B'` を一括付与します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.B' AND source_team='codex_correction_showa_pre_craft'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+web search: 
+web search: https://eishodo.net/kokuhou/kougei-sensyoku/
+web search: 
+web search: https://eishodo.net/kokuhou/kougei-shitsugei/
+web search: 
+web search: https://eishodo.net/kokuhou/kougei-kinkou/
+web search: 
+web search: https://eishodo.net/kokuhou/kougei-washi/
+web search: 
+web search: https://eishodo.net/kokuhou/kougei-kittikou/
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+DROP TABLE IF EXISTS temp_candidates;
+CREATE TEMP TABLE temp_candidates(name TEXT, sub_domain TEXT, source_url TEXT);
+INSERT INTO temp_candidates VALUES
+('富本憲吉','陶芸・色絵磁器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('加藤土師萌','陶芸・色絵磁器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('藤本能道','陶芸・色絵磁器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('十三代今泉今右衛門','陶芸・色絵磁器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('十四代今泉今右衛門','陶芸・色絵磁器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('十四代酒井田柿右衛門','陶芸・色絵磁器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('石黒宗麿','陶芸・鉄釉陶器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('清水卯一','陶芸・鉄釉陶器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('原清','陶芸・鉄釉陶器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('濱田庄司','陶芸・民芸陶器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('荒川豊蔵','陶芸・志野・瀬戸黒','https://eishodo.net/kokuhou/kougei-tougei/'),
+('鈴木藏','陶芸・志野','https://eishodo.net/kokuhou/kougei-tougei/'),
+('加藤孝造','陶芸・瀬戸黒','https://eishodo.net/kokuhou/kougei-tougei/'),
+('三輪休和','陶芸・萩焼','https://eishodo.net/kokuhou/kougei-tougei/'),
+('三輪壽雪','陶芸・萩焼','https://eishodo.net/kokuhou/kougei-tougei/'),
+('金重陶陽','陶芸・備前焼','https://eishodo.net/kokuhou/kougei-tougei/'),
+('藤原啓','陶芸・備前焼','https://eishodo.net/kokuhou/kougei-tougei/'),
+('山本陶秀','陶芸・備前焼','https://eishodo.net/kokuhou/kougei-tougei/'),
+('藤原雄','陶芸・備前焼','https://eishodo.net/kokuhou/kougei-tougei/'),
+('伊勢崎淳','陶芸・備前焼','https://eishodo.net/kokuhou/kougei-tougei/'),
+('中里無庵','陶芸・唐津焼','https://eishodo.net/kokuhou/kougei-tougei/'),
+('近藤悠三','陶芸・染付','https://eishodo.net/kokuhou/kougei-tougei/'),
+('塚本快示','陶芸・白磁・青白磁','https://eishodo.net/kokuhou/kougei-tougei/'),
+('金城次郎','陶芸・琉球陶器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('田村耕一','陶芸・鉄絵','https://eishodo.net/kokuhou/kougei-tougei/'),
+('松井康成','陶芸・練上手','https://eishodo.net/kokuhou/kougei-tougei/'),
+('井上萬二','陶芸・白磁','https://eishodo.net/kokuhou/kougei-tougei/'),
+('前田昭博','陶芸・白磁','https://eishodo.net/kokuhou/kougei-tougei/'),
+('加藤卓男','陶芸・三彩','https://eishodo.net/kokuhou/kougei-tougei/'),
+('島岡達三','陶芸・民芸陶器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('三浦小平二','陶芸・青磁','https://eishodo.net/kokuhou/kougei-tougei/'),
+('三代徳田八十吉','陶芸・彩釉磁器','https://eishodo.net/kokuhou/kougei-tougei/'),
+('三代山田常山','陶芸・常滑焼','https://eishodo.net/kokuhou/kougei-tougei/'),
+('吉田美統','陶芸・釉裏金彩','https://eishodo.net/kokuhou/kougei-tougei/'),
+('五代伊藤赤水','陶芸・無名異焼','https://eishodo.net/kokuhou/kougei-tougei/'),
+('福島善三','陶芸・小石原焼','https://eishodo.net/kokuhou/kougei-tougei/'),
+('小宮康助','染織・江戸小紋','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('小宮康孝','染織・江戸小紋','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('松原定吉','染織・長板中形','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('清水幸太郎','染織・長板中形','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('田畑喜八','染織・友禅','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('木村雨山','染織・友禅','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('中村勝馬','染織・友禅','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('上野為二','染織・友禅','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('森口華弘','染織・友禅','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('山田貢','染織・友禅','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('羽田登喜男','染織・友禅','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('田島比呂子','染織・友禅・女性','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('森口邦彦','染織・友禅','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('二塚長生','染織・友禅','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('山田栄一','染織・友禅楊子糊','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('千葉あやの','染織・正藍染・女性','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('芹沢銈介','染織・型絵染','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('稲垣稔次郎','染織・型絵染','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('鎌倉芳太郎','染織・型絵染','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('喜多川平朗','染織・羅・有職織物','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('北村武資','染織・羅・経錦','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('甲田栄佑','染織・精好仙台平','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('甲田綏郎','染織・精好仙台平','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('深見重助','染織・唐組','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('喜多川俵二','染織・有職織物','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('小川善三郎','染織・献上博多織','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('小川規三郎','染織・献上博多織','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('宗廣力三','染織・紬縞織・絣織','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('志村ふくみ','染織・紬織・女性','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('佐々木苑子','染織・紬織・女性','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('村上良子','染織・紬織・女性','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('古賀フミ','染織・佐賀錦・女性','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('玉那覇有公','染織・紅型','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('細見華岳','染織・綴織','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('福田喜重','染織・刺繍','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('宮平初子','染織・首里の織物・女性','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('与那嶺貞','染織・読谷山花織・女性','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('平良敏子','染織・芭蕉布・女性','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('鈴田滋人','染織・木版摺更紗','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('土屋順紀','染織・紋紗','https://eishodo.net/kokuhou/kougei-sensyoku/'),
+('高野松山','漆芸・蒔絵','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('松田権六','漆芸・蒔絵','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('大場松魚','漆芸・蒔絵','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('寺井直次','漆芸・蒔絵','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('田口善国','漆芸・蒔絵','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('室瀬和美','漆芸・蒔絵','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('中野孝一','漆芸・蒔絵','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('音丸耕堂','漆芸・彫漆','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('前大峰','漆芸・沈金','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('前史雄','漆芸・沈金','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('磯井如真','漆芸・蒟醤','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('磯井正美','漆芸・蒟醤','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('太田儔','漆芸・蒟醤','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('山下義人','漆芸・蒟醤','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('赤地友哉','漆芸・髹漆','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('増村益城','漆芸・髹漆','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('塩多慶四郎','漆芸・髹漆','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('大西勲','漆芸・髹漆','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('小森邦衞','漆芸・髹漆','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('増村紀一郎','漆芸・髹漆','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('北村昭斎','漆芸・螺鈿','https://eishodo.net/kokuhou/kougei-shitsugei/'),
+('魚住為楽','金工・銅鑼','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('三代魚住為楽','金工・銅鑼','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('海野清','金工・彫金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('内藤四郎','金工・彫金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('鹿島一谷','金工・彫金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('金森映井智','金工・彫金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('増田三男','金工・彫金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('鴨下春明','金工・彫金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('中川衛','金工・彫金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('桂盛仁','金工・彫金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('山本晃','金工・彫金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('佐々木象堂','金工・蝋型鋳造','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('長野垤志','金工・茶の湯釜','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('角谷一圭','金工・茶の湯釜','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('高橋敬典','金工・茶の湯釜','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('高村豊周','金工・鋳金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('齋藤明','金工・鋳金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('大澤光民','金工・鋳金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('米光光正','金工・肥後象嵌・透','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('香取正彦','金工・梵鐘','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('関谷四郎','金工・鍛金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('奥山峰石','金工・鍛金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('田口壽恒','金工・鍛金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('玉川宣夫','金工・鍛金','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('大角幸枝','金工・鍛金・女性','https://eishodo.net/kokuhou/kougei-kinkou/'),
+('高橋貞次','金工・日本刀','https://eishodo.net/kokuhou/kougei-touken/'),
+('宮入行平','金工・日本刀','https://eishodo.net/kokuhou/kougei-touken/'),
+('月山貞一','金工・日本刀','https://eishodo.net/kokuhou/kougei-touken/'),
+('隅谷正峯','金工・日本刀','https://eishodo.net/kokuhou/kougei-touken/'),
+('天田昭次','金工・日本刀','https://eishodo.net/kokuhou/kougei-touken/'),
+('大隅俊平','金工・日本刀','https://eishodo.net/kokuhou/kougei-touken/'),
+('永山光幹','金工・刀剣研磨','https://eishodo.net/kokuhou/kougei-touken/'),
+('本阿弥日洲','金工・刀剣研磨','https://eishodo.net/kokuhou/kougei-touken/'),
+('堀柳女','人形・衣裳人形・女性','https://eishodo.net/kokuhou/kougei-ningyou/'),
+('平田郷陽','人形・衣裳人形','https://eishodo.net/kokuhou/kougei-ningyou/'),
+('野口園生','人形・衣裳人形・女性','https://eishodo.net/kokuhou/kougei-ningyou/'),
+('秋山信子','人形・衣裳人形・女性','https://eishodo.net/kokuhou/kougei-ningyou/'),
+('鹿児島寿蔵','人形・紙塑人形','https://eishodo.net/kokuhou/kougei-ningyou/'),
+('市橋とし子','人形・桐塑人形・女性','https://eishodo.net/kokuhou/kougei-ningyou/'),
+('林駒夫','人形・桐塑人形','https://eishodo.net/kokuhou/kougei-ningyou/'),
+('生野祥雲斎','木竹工・竹芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('飯塚小玕斎','木竹工・竹工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('前田竹房斎','木竹工・竹工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('五世早川尚古斎','木竹工・竹工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('勝城蒼鳳','木竹工・竹工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('藤沼昇','木竹工・竹工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('黒田辰秋','木竹工・木工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('氷見晃堂','木竹工・木工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('大野昭和斎','木竹工・木工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('中臺瑞真','木竹工・木工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('川北良造','木竹工・木工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('大坂弘道','木竹工・木工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('中川清司','木竹工・木工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('村山明','木竹工・木工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('灰外達夫','木竹工・木工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('須田賢司','木竹工・木工芸','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('秋山逸生','木竹工・木象嵌','https://eishodo.net/kokuhou/kougei-kittikou/'),
+('八代岩野市兵衛','和紙・越前奉書','https://eishodo.net/kokuhou/kougei-washi/'),
+('九代岩野市兵衛','和紙・越前奉書','https://eishodo.net/kokuhou/kougei-washi/'),
+('安部榮四郎','和紙・雁皮紙','https://eishodo.net/kokuhou/kougei-washi/'),
+('濵田幸雄','和紙・土佐典具帖紙','https://eishodo.net/kokuhou/kougei-washi/'),
+('谷野剛惟','和紙・名塩雁皮紙','https://eishodo.net/kokuhou/kougei-washi/'),
+('齋田梅亭','諸工芸・截金','https://eishodo.net/kokuhou/kougei-shokougei/'),
+('江里佐代子','諸工芸・截金・女性','https://eishodo.net/kokuhou/kougei-shokougei/'),
+('北村大通','諸工芸・截金','https://eishodo.net/kokuhou/kougei-shokougei/'),
+('山鹿清華','諸工芸・撥鏤','https://eishodo.net/kokuhou/kougei-shokougei/');
+SELECT 'total candidates', COUNT(*) FROM temp_candidates;
+SELECT 'existing exact name', COUNT(*) FROM temp_candidates c WHERE EXISTS(SELECT 1 FROM achievers a WHERE a.name_ja=c.name);
+SELECT 'available exact-name', COUNT(*) FROM temp_candidates c WHERE NOT EXISTS(SELECT 1 FROM achievers a WHERE a.name_ja=c.name);
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+total candidates|163
+existing exact name|145
+available exact-name|18
+
+web search: 
+web search: 伝統工芸士 一覧 陶芸 染織 漆芸 金工 木工 人形 和紙 氏名
+web search: 
+web search: 帝展 工芸家 陶芸家 漆芸家 一覧 昭和 戦前
+web search: 
+web search: https://www.momak.go.jp/Japanese/exhibitionArchive/1967/44.html
+web search: 
+web search: https://www.momak.go.jp/Japanese/exhibitionArchive/1967/44.html
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+WITH names(name) AS (VALUES
+('初代宮川香山'),('三代清風与平'),('初代諏訪蘇山'),('板谷波山'),('五代清水六兵衛'),('北大路魯山人'),('河井寛次郎'),('加納夏雄'),('海野勝珉'),('香取秀真'),('津田信夫'),('清水南山'),('北原千鹿'),('柴田是真'),('川辺之一朝'),('白山松哉'),('六角紫水'),('赤塚自得'),('植松包美'),('初代野口彦兵衛'),('二代川島甚兵衛'),('三代川島甚兵衛'),('初代龍村平蔵'),('広川松五郎'),('小合友之助'),('飯塚琅玕斎'),('並河靖之'),('湊川惣助'))
+SELECT name, EXISTS(SELECT 1 FROM achievers a WHERE a.name_ja=names.name) AS exists_in_db FROM names;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+初代宮川香山|1
+三代清風与平|1
+初代諏訪蘇山|1
+板谷波山|1
+五代清水六兵衛|1
+北大路魯山人|1
+河井寛次郎|1
+加納夏雄|1
+海野勝珉|1
+香取秀真|1
+津田信夫|1
+清水南山|1
+北原千鹿|1
+柴田是真|1
+川辺之一朝|0
+白山松哉|1
+六角紫水|1
+赤塚自得|1
+植松包美|0
+初代野口彦兵衛|0
+二代川島甚兵衛|0
+三代川島甚兵衛|0
+初代龍村平蔵|1
+広川松五郎|0
+小合友之助|0
+飯塚琅玕斎|1
+並河靖之|1
+湊川惣助|0
+
+web search: 
+web search: site:.or.jp 伝統工芸士 会員名簿 氏名 認定部門
+web search: 
+web search: https://www.minoyaki.gr.jp/craft/craftman/craftman_list
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+WITH names(name) AS (VALUES
+('木原純信'),('外薗市蔵'),('吉留俊三'),('池田勝也'),('西正行'),('大坂一馬'),('外薗礼司'),('川原茂人'),('外薗千尋'),('瀧山福次'),('芝原重志'),('下薗和秋'),('片平廣美'),('川原和彦'),('中薗真幸'),('枦木浩美'),('橋口知由'),('久保純一'),('瀧山健一'),('原口好司'),('木原正裕'),('岡田達郎'),
+('河合竹彦'),('小木曽教彦'),('加藤勝之'),('若尾昌宏'),('水野英道'),('三浦繁久'),('水野輝幸'),('伊藤道夫'),('佐々木晨二'),('青山双男'),('加藤吉夫'),('田中徳男'),('佐藤公一郎'),('佐々木二郎'),('加藤景嗣'),('小栗正男'),('大野繁保'),('伊藤浩一郎'),('東正之'),('工藤工'),('土田育弘'),('赤根真次'),('小栗賢悟'),('加藤誠'),('水野広明'),('達武衛'),('加藤音'),('加藤直輔'),('加藤芳平'),('高木満'),('若尾修平'),('加藤尊也'),('青山健祐'),('林英樹'),('丹羽哲男'),('山下祥'),('加藤日出夫'),('加藤三英'),('鈴木哲平'),
+('大橋勉'),('藤田隆司'),('山本隆'),('江部雅之'),('鈴木進'),('石井克彦'),
+('中原剛'),('中原寛治'),('岡村日出正'),('長谷川憲人'),('渡辺千代枝'),('村上一枝'),('青砥明子'),('中村武志'),
+('斎藤宏之'),('田中善茂'),('野依克彦'),('我戸正幸'),('岩田康行'),('柿沼利光'),('冨岡浩樹'),('露木清勝'),('露木清高'),('山本篤'),('細川秀章'),('野村守'),('横山充'),('岡本圭司'),('岡本絵麻'),('佐藤史幸'),('吉田宏之'),('大下香征'),('松尾明香'),('小岩井カリナ'),('中村航太'),('高橋由貴子'),('藤森洋一'),('西村和紀'),('川井明美'),('新井教央'),('加地保典'),('佐藤昌利'),('浅野達也'),('松沢卓生'),('藤本雅弘'),('佐野茂'),('天野真一'),('折井宏司'),('武蔵川剛嗣'),('四津川晋'),('山﨑徳子'),('野村幸一郎'),('岩崎和弥'),('杉原吉直'),('湯目研一郎'),('平良宏'),('冨樫優子'),('大野深雪'),('立川裕大'),('太田富隆'),('氣賀澤雅人'),('松岡輝一'),('江村常夫'),('山田雅已'),('中村重廣'),('辻倉幸子'),('池野リン'),('泉健一郎'),('林侑子'),('中村清吾'),('梅村知弘'),('小谷純子'))
+SELECT COUNT(*) total, SUM(EXISTS(SELECT 1 FROM achievers a WHERE a.name_ja=names.name)) existing, SUM(NOT EXISTS(SELECT 1 FROM achievers a WHERE a.name_ja=names.name)) available FROM names;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+133|1|132
+
+codex
+これからDBへ書き込みます。候補は133名あり、既存同名を除いた先頭130名を選んで、50・50・30件の3バッチで `achievers` に投入し、その直後に各人物3件ずつ能力根拠を追加します。

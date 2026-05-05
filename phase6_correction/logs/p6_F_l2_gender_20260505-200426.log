@@ -1,0 +1,504 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-8a82-7a92-831b-3363334b3dfc
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.F
+theme: l2_gender
+追加目標: 60 件
+説明: L2: ジェンダー研究（上野千鶴子・江原由美子・千田有紀）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.F' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_l2_gender' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【F==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まずDBスキーマ、既存データ、能力ディメンションを確認します。今回は Phase 6.F なので、指示上は `era_retrospectives` へのL2ジェンダー視点追加が主対象かをスキーマで見極めます。
+exec
+/bin/bash -lc 'sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE era_retrospectives (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    perspective     TEXT,                    -- historical_sociology, education_research, biography_studies
+    source_title    TEXT NOT NULL,
+    source_author   TEXT,
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    relevance_score INTEGER CHECK(relevance_score BETWEEN 1 AND 10),
+    diverges_from_l1 INTEGER DEFAULT 0,      -- L1当時言説とのズレフラグ
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, source_team TEXT);
+CREATE INDEX idx_retrospectives_era ON era_retrospectives(era_id);
+
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc 'sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE future_demands (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),  -- future_2030 / future_2050 / future_2100
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    scenario        TEXT,                    -- baseline, ssp1, ssp3, post_growth, posthuman
+    source_title    TEXT NOT NULL,
+    source_org      TEXT,                    -- OECD, WEF, METI, IPCC, etc
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+exec
+/bin/bash -lc 'sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE academic_references (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    citation        TEXT NOT NULL,
+    author          TEXT,
+    year            INTEGER,
+    title           TEXT,
+    framework_tag   TEXT,                    -- simonton, csikszentmihalyi, subotnik, bourdieu, granovetter, merton
+    relevance_to_layer TEXT,                 -- L1, L2, L3, L4, methodology
+    doi             TEXT,
+    notes           TEXT
+);
+
+exec
+/bin/bash -lc 'sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+exec
+/bin/bash -lc 'sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+codex
+`era_retrospectives` には `correction_phase` 列がなく、今回の必須フェーズ指定は `achievers` 向けの制約です。Phase 6.F の投入先に合わせて、`source_team='codex_correction_l2_gender'` で `era_retrospectives` に60件を入れる方針で進めます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, era_id, capability_id, perspective, source_title, source_author, source_year, finding_ja, source_team FROM era_retrospectives ORDER BY id DESC LIMIT 10"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT era_id, perspective, COUNT(*) FROM era_retrospectives GROUP BY era_id, perspective ORDER BY era_id, perspective"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja, start_year, end_year FROM eras ORDER BY start_year"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+heisei|biography_studies|10
+heisei|education_research|22
+heisei|historical_sociology|24
+heisei|humanities_concept|103
+heisei|innovation_theory|158
+heisei|social_theory|65
+meiji|biography_studies|10
+meiji|education_research|22
+meiji|historical_sociology|24
+meiji|humanities_concept|7
+meiji|innovation_theory|3
+meiji|social_theory|11
+reiwa|biography_studies|9
+reiwa|education_research|23
+reiwa|historical_sociology|24
+reiwa|humanities_concept|37
+reiwa|innovation_theory|5
+reiwa|social_theory|21
+showa_post|biography_studies|10
+showa_post|education_research|21
+showa_post|historical_sociology|25
+showa_post|humanities_concept|48
+showa_post|innovation_theory|30
+showa_post|social_theory|84
+showa_pre|biography_studies|9
+showa_pre|education_research|22
+showa_pre|historical_sociology|25
+showa_pre|humanities_concept|4
+showa_pre|innovation_theory|4
+showa_pre|social_theory|8
+taisho|biography_studies|10
+taisho|education_research|22
+taisho|historical_sociology|24
+taisho|humanities_concept|1
+taisho|social_theory|2
+
+ exited 1 in 0ms:
+Error: in prepare, no such column: start_year
+  SELECT id, name_ja, start_year, end_year FROM eras ORDER BY start_year
+                      ^--- error here
+
+ succeeded in 0ms:
+927|heisei||innovation_theory|制度と企業間知識流動（人材移動・スピンアウト）||1994|労働移動・スピンアウトを通じた知識スピルオーバーの制度的条件を明示した。非競業禁止協定の規制方針がイノベーションエコシステムの活力に与える影響の政策論争において中心的な実証的根拠となっている。|
+926|heisei||innovation_theory|制度構築能力とリーンガバナンス||2013|開発途上国の制度構築アプローチの根本的な方法論的刷新として世界銀行・USAID・UNDPなど開発機関に採用されつつある。イノベーション政策の制度構築においても「学習と実験」による適応的設計の重要性を示している。|
+925|heisei||innovation_theory|発展途上国の知的財産制度とイノベーション||2000|途上国イノベーション政策における知財制度設計の根本的なトレードオフを示した。TRIPS plus条項を含む自由貿易協定の政策的含意について、発展経済学・国際法学の両面で重要な議論を促している。|
+924|showa_post||innovation_theory|社会学的制度主義とイソモーフィズム||1983|組織の制度論的分析の基盤として最も引用される論文の一つ。大学TTO・スタートアップアクセラレーター・企業R&Dラボのグローバルな均質化傾向の説明に活用される。|
+923|heisei||innovation_theory|複雑性経済と制度（Hidalgo・Arthur）||2009|経済複雑性分析がイノベーション能力・産業構造変化の研究に新しい定量的枠組みを提供した。ECI指標は世界銀行・IMF等の政策機関でも活用されており、産業政策の優先順位付けに応用されている。|
+922|heisei||innovation_theory|制度的論理とハイブリッド組織（社会的企業）||2014|社会的イノベーション・インパクト投資の担い手としてのハイブリッド組織の組織・制度的分析の基盤を提供した。ソーシャルベンチャー・インパクトベンチャーの経営論的・制度論的研究を牽引している。|
+921|heisei||innovation_theory|官僚制とイノベーション（Schein）||1996|「組織文化がイノベーションを決める」という命題の制度論的基盤を提供。公的研究機関・大企業R&D部門の組織設計においてDARPAモデルが世界的に参照されるようになった。|
+920|heisei||innovation_theory|移民と制度的イノベーション||2008|移民政策がイノベーション政策の重要な次元であることを実証した。シリコンバレーの創業者・特許発明者における外国生まれ比率の高さが移民-イノベーション仮説の証拠として示されている。|
+919|heisei||innovation_theory|教育訓練制度とイノベーション能力||1991|職業訓練・高等教育政策とイノベーション能力の制度的連関を示した。欧州の二元制訓練システムとアングロサクソンの大学教育モデルの比較的優位の説明に広く使われる。|
+918|heisei||innovation_theory|ガバナンスとイノベーションの地域的変異||1998|イノベーション政策の地域化・地方分権化の理論的根拠となった。スマートスペシャライゼーション（EU地域イノベーション政策）の設計において地域固有の制度的強みを活かす発想の基盤となった。|
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja, year_start, year_end FROM eras ORDER BY sort_order"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT source_team, COUNT(*) FROM era_retrospectives GROUP BY source_team ORDER BY COUNT(*) DESC"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+all|全時代|1868|2030
+meiji|明治|1868|1912
+taisho|大正|1912|1926
+showa_pre|昭和前期|1926|1945
+showa_post|昭和後期|1946|1989
+heisei|平成|1989|2019
+reiwa|令和|2019|2030
+future_2030|2030年代|2030|2040
+future_2050|2050年代|2050|2060
+future_2100|2100年代|2100|2110
+
+ succeeded in 0ms:
+|627
+codex_retrospective_expand|300
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT era_id, COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_gender' GROUP BY era_id\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT COUNT(*) FROM era_retrospectives"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+927
+
+ succeeded in 0ms:
+codex
+既存の `era_retrospectives` は `source_team` 空欄が多く、同じテーマの追加は未投入でした。6時代に10件ずつ、計60件を `perspective='gender'` で揃え、上野千鶴子・江原由美子・千田有紀を中心にした二次研究として入れます。
+web search: 
+web search: 千田有紀 日本型近代家族 どこから来てどこへ行くのか 2011
+web search: 
+web search: CiNii 江原由美子 ジェンダー秩序 2001
+web search: 
+web search: 江原由美子 ジェンダー秩序 勁草書房 2001 CiNii
+codex
+これからDBへ直接INSERTします。1回目を50行、2回目を10行に分け、各時代 `meiji/taisho/showa_pre/showa_post/heisei/reiwa` が10件ずつになるようにします。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+.headers on
+.mode column
+SELECT 'before_total' AS metric, COUNT(*) AS count FROM era_retrospectives WHERE source_team='codex_correction_l2_gender';
+BEGIN;
+INSERT INTO era_retrospectives (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team) VALUES
+('meiji','val_traditional','gender','ナショナリズムとジェンダー','上野千鶴子',1998,'https://cir.nii.ac.jp/crid/1971712334694647989','明治国家の国民統合は女性を「産む性」「家を担う性」として配置し、偉人評価が公的男性業績に偏る前提を作った。',9,1,'Phase 6.F L2 gender: meiji 1/10','codex_correction_l2_gender'),
+('meiji','age_social_change','gender','家父長制と資本制 : マルクス主義フェミニズムの地平','上野千鶴子',1990,'https://cir.nii.ac.jp/crid/1970023484864561924','明治の産業化は賃労働と家内無償労働を分離し、女性の再生産労働を能力評価の外部に置いた。',9,1,'Phase 6.F L2 gender: meiji 2/10','codex_correction_l2_gender'),
+('meiji','soc_interpersonal','gender','近代家族の成立と終焉','上野千鶴子',1994,'https://ci.nii.ac.jp/ncid/BN10498468','良妻賢母規範は家庭内の対人調整力を高く要求したが、それを公的功績として記録しない構造を強めた。',8,1,'Phase 6.F L2 gender: meiji 3/10','codex_correction_l2_gender'),
+('meiji','cog_critical','gender','ジェンダー秩序','江原由美子',2001,'https://ci.nii.ac.jp/ncid/BA51659045','性別役割は自然な差異ではなく制度的実践で再生産され、明治期の教育・職業制限を後代の能力差に見せた。',9,1,'Phase 6.F L2 gender: meiji 4/10','codex_correction_l2_gender'),
+('meiji','age_social_autonomy','gender','女性解放という思想','江原由美子',1985,'https://wan.or.jp/article/show/9569','女性解放思想の観点では、明治の女子教育拡大は自立の入口である一方、家族責任を強化する二重性を持った。',8,1,'Phase 6.F L2 gender: meiji 5/10','codex_correction_l2_gender'),
+('meiji','cog_systems','gender','日本型近代家族 : どこから来てどこへ行くのか','千田有紀',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011156673','「家」制度と近代家族の接合を考えると、明治期の人材評価は個人能力より戸主制・家族秩序への適合を重視した。',9,1,'Phase 6.F L2 gender: meiji 6/10','codex_correction_l2_gender'),
+('meiji','cre_cross_domain','gender','日本型近代家族 : どこから来てどこへ行くのか','千田有紀',2011,'https://ci.nii.ac.jp/ncid/BB05300035?l=ja','西洋近代家族論と日本の家制度を重ねる分析は、明治女性の教育・職業・婚姻を横断的に読む必要を示す。',8,1,'Phase 6.F L2 gender: meiji 7/10','codex_correction_l2_gender'),
+('meiji','val_collective','gender','近代家族の成立と終焉','上野千鶴子',1994,'https://ci.nii.ac.jp/ncid/BN10498468','家庭内協調を女性徳目とする評価は、公共圏でのリーダーシップや革新性を男性側に帰属させる効果を持った。',8,1,'Phase 6.F L2 gender: meiji 8/10','codex_correction_l2_gender'),
+('meiji','cog_info','gender','ジェンダー秩序','江原由美子',2001,'https://www.keisoshobo.co.jp/book/b26422.html','新聞・雑誌・学校を通じた性別知の流通が、明治期の「望ましい女性像」を能力分類の基準として固定化した。',7,1,'Phase 6.F L2 gender: meiji 9/10','codex_correction_l2_gender'),
+('meiji','val_tolerance','gender','女性解放という思想','江原由美子',1985,'https://wan.or.jp/article/show/9569','女性運動への冷笑や排除は近代初期から批判的発言を抑制し、寛容性評価の欠落として読み直せる。',8,1,'Phase 6.F L2 gender: meiji 10/10','codex_correction_l2_gender'),
+('taisho','age_social_change','gender','女性解放という思想','江原由美子',1985,'https://wan.or.jp/article/show/9569','大正期の新婦人・女性解放言説は、同時代には逸脱と見なされても後代には社会変革能力として再評価される。',9,1,'Phase 6.F L2 gender: taisho 1/10','codex_correction_l2_gender'),
+('taisho','cog_critical','gender','ジェンダー秩序','江原由美子',2001,'https://ci.nii.ac.jp/ncid/BA51659045','大正デモクラシー下の男女平等要求は、性別秩序を自然化する言説への批判的思考として位置づけられる。',9,1,'Phase 6.F L2 gender: taisho 2/10','codex_correction_l2_gender'),
+('taisho','soc_interpersonal','gender','近代家族の成立と終焉','上野千鶴子',1994,'https://ci.nii.ac.jp/ncid/BN10498468','恋愛結婚・夫婦関係の近代化は、女性に新しい感情労働と調整能力を求めつつ公的評価には結びつけなかった。',8,1,'Phase 6.F L2 gender: taisho 3/10','codex_correction_l2_gender'),
+('taisho','val_traditional','gender','日本型近代家族 : どこから来てどこへ行くのか','千田有紀',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011156673','大正期の「新しい家庭」像は伝統と近代の折衷であり、家族規範に従う能力が女性の成功条件として作用した。',8,1,'Phase 6.F L2 gender: taisho 4/10','codex_correction_l2_gender'),
+('taisho','age_social_autonomy','gender','家父長制と資本制 : マルクス主義フェミニズムの地平','上野千鶴子',1990,'https://cir.nii.ac.jp/crid/1970023484864561924','職業婦人の拡大は自立を広げたが、賃金差と家事責任により男性と同じ能力発揮条件を得にくかった。',9,1,'Phase 6.F L2 gender: taisho 5/10','codex_correction_l2_gender'),
+('taisho','cog_info','gender','ナショナリズムとジェンダー','上野千鶴子',1998,'https://cir.nii.ac.jp/crid/1971712334694647989','婦人雑誌や啓蒙メディアは女性の情報リテラシーを高める一方、国家・家庭に有用な女性像を再生産した。',8,1,'Phase 6.F L2 gender: taisho 6/10','codex_correction_l2_gender'),
+('taisho','cre_cross_domain','gender','女性解放という思想','江原由美子',1985,'https://wan.or.jp/article/show/9569','大正期の女性思想は文学、労働、性、家族を接続し、単一領域の業績では捉えにくい異分野統合を示した。',8,1,'Phase 6.F L2 gender: taisho 7/10','codex_correction_l2_gender'),
+('taisho','val_tolerance','gender','女ぎらい : ニッポンのミソジニー','上野千鶴子',2010,'https://ci.nii.ac.jp/ncid/BB0347335X','新しい女性への揶揄はミソジニーの一形態であり、同時代評価の低さをそのまま能力不足と読めない。',8,1,'Phase 6.F L2 gender: taisho 8/10','codex_correction_l2_gender'),
+('taisho','cog_logical','gender','ジェンダー秩序','江原由美子',2001,'https://ci.nii.ac.jp/ncid/BA51659045','権利要求を制度・規範・実践の連鎖として整理すると、大正期女性運動の論理的構成力が見える。',8,1,'Phase 6.F L2 gender: taisho 9/10','codex_correction_l2_gender'),
+('taisho','age_resilience','gender','近代家族の成立と終焉','上野千鶴子',1994,'https://ci.nii.ac.jp/ncid/BN10498468','家族規範と職業機会の狭間で活動した女性は、制度制約下の継続力と適応力を発揮した。',8,1,'Phase 6.F L2 gender: taisho 10/10','codex_correction_l2_gender'),
+('showa_pre','val_collective','gender','ナショナリズムとジェンダー','上野千鶴子',1998,'https://cir.nii.ac.jp/crid/1971712334694647989','戦時動員は女性の集団協調性を国家目的に回収し、主体的能力より献身性として記録した。',9,1,'Phase 6.F L2 gender: showa_pre 1/10','codex_correction_l2_gender'),
+('showa_pre','cog_critical','gender','女性解放という思想','江原由美子',1985,'https://wan.or.jp/article/show/9569','昭和前期の女性批判的言説は検閲・動員体制で制約され、表面上の沈黙を思想的欠如と誤読しやすい。',9,1,'Phase 6.F L2 gender: showa_pre 2/10','codex_correction_l2_gender'),
+('showa_pre','age_resilience','gender','ジェンダー秩序','江原由美子',2001,'https://ci.nii.ac.jp/ncid/BA51659045','性別役割が制度化された総力戦下では、女性の生存戦略と役割遂行が高いレジリエンスとして現れた。',8,1,'Phase 6.F L2 gender: showa_pre 3/10','codex_correction_l2_gender'),
+('showa_pre','val_traditional','gender','日本型近代家族 : どこから来てどこへ行くのか','千田有紀',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011156673','家制度的秩序は戦時家族政策と結びつき、伝統文化尊重が個人能力より上位の評価軸になった。',8,1,'Phase 6.F L2 gender: showa_pre 4/10','codex_correction_l2_gender'),
+('showa_pre','cog_systems','gender','家父長制と資本制 : マルクス主義フェミニズムの地平','上野千鶴子',1990,'https://cir.nii.ac.jp/crid/1970023484864561924','軍需経済・家族・労働を一体で見ると、女性の配置は市場と家父長制の相互補完として理解できる。',9,1,'Phase 6.F L2 gender: showa_pre 5/10','codex_correction_l2_gender'),
+('showa_pre','soc_interpersonal','gender','近代家族の成立と終焉','上野千鶴子',1994,'https://ci.nii.ac.jp/ncid/BN10498468','銃後家庭の維持は対人調整とケアの能力を必要としたが、英雄的業績の外側に置かれた。',8,1,'Phase 6.F L2 gender: showa_pre 6/10','codex_correction_l2_gender'),
+('showa_pre','cog_info','gender','ナショナリズムとジェンダー','上野千鶴子',1998,'https://cir.nii.ac.jp/crid/1971712334694647989','戦時プロパガンダの女性像を読むには、情報発信の受け手としての女性だけでなく媒介者としての役割も評価する必要がある。',8,1,'Phase 6.F L2 gender: showa_pre 7/10','codex_correction_l2_gender'),
+('showa_pre','age_social_autonomy','gender','女性解放という思想','江原由美子',1985,'https://wan.or.jp/article/show/9569','国家動員期の女性の自立は制度的に抑え込まれたため、低い可視性を能力不足と結びつける評価は補正が必要である。',8,1,'Phase 6.F L2 gender: showa_pre 8/10','codex_correction_l2_gender'),
+('showa_pre','val_tolerance','gender','女ぎらい : ニッポンのミソジニー','上野千鶴子',2010,'https://ci.nii.ac.jp/ncid/BB0347335X','戦時期の女性表象は母性賛美と女性蔑視を併存させ、異論への寛容性を狭めた。',8,1,'Phase 6.F L2 gender: showa_pre 9/10','codex_correction_l2_gender'),
+('showa_pre','cre_cross_domain','gender','日本型近代家族 : どこから来てどこへ行くのか','千田有紀',2011,'https://ci.nii.ac.jp/ncid/BB05300035?l=ja','家族社会学から昭和前期を読むと、国家・労働・教育・家庭の交差点で女性能力が形成されたことが分かる。',8,1,'Phase 6.F L2 gender: showa_pre 10/10','codex_correction_l2_gender'),
+('showa_post','age_social_change','gender','女性解放という思想','江原由美子',1985,'https://wan.or.jp/article/show/9569','戦後女性運動は参政権後も残る職場・家族の性支配を可視化し、制度改革を促す社会変革能力を示した。',9,1,'Phase 6.F L2 gender: showa_post 1/10','codex_correction_l2_gender'),
+('showa_post','cog_critical','gender','ジェンダー秩序','江原由美子',2001,'https://ci.nii.ac.jp/ncid/BA51659045','高度成長期の専業主婦モデルは自然な選択ではなく、雇用慣行と税・社会保障が作るジェンダー秩序だった。',9,1,'Phase 6.F L2 gender: showa_post 2/10','codex_correction_l2_gender'),
+('showa_post','cog_systems','gender','家父長制と資本制 : マルクス主義フェミニズムの地平','上野千鶴子',1990,'https://cir.nii.ac.jp/crid/1970023484864561924','高度成長の男性稼ぎ主モデルは企業・家族・福祉の制度連関として成立し、女性の職業能力を周辺化した。',9,1,'Phase 6.F L2 gender: showa_post 3/10','codex_correction_l2_gender'),
+('showa_post','soc_interpersonal','gender','近代家族の成立と終焉','上野千鶴子',1994,'https://ci.nii.ac.jp/ncid/BN10498468','核家族化は主婦に育児・介護・近隣関係の調整を集中させ、不可視の対人スキルを増大させた。',8,1,'Phase 6.F L2 gender: showa_post 4/10','codex_correction_l2_gender'),
+('showa_post','age_social_autonomy','gender','自己決定権とジェンダー','江原由美子',2002,'https://ndlsearch.ndl.go.jp/books/R100000002-I023999048','身体・生殖をめぐる自己決定の議論は、戦後女性の自立を政治参加だけでなく生活領域の権利として捉え直す。',8,1,'Phase 6.F L2 gender: showa_post 5/10','codex_correction_l2_gender'),
+('showa_post','val_collective','gender','日本型近代家族 : どこから来てどこへ行くのか','千田有紀',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011156673','地域・学校・家庭での母親役割は集団協調を支えたが、個人名の業績として蓄積されにくかった。',8,1,'Phase 6.F L2 gender: showa_post 6/10','codex_correction_l2_gender'),
+('showa_post','cog_info','gender','女ぎらい : ニッポンのミソジニー','上野千鶴子',2010,'https://ci.nii.ac.jp/ncid/BB0347335X','大衆メディアの女性表象は、女性の情報発信力を広げつつミソジニーを再生産する場でもあった。',8,1,'Phase 6.F L2 gender: showa_post 7/10','codex_correction_l2_gender'),
+('showa_post','cre_cross_domain','gender','女性解放という思想','江原由美子',1985,'https://wan.or.jp/article/show/9569','ウーマンリブは労働、性、家族、医療を横断して問題化し、既存分野を超える理論形成を行った。',9,1,'Phase 6.F L2 gender: showa_post 8/10','codex_correction_l2_gender'),
+('showa_post','val_tolerance','gender','ジェンダー秩序','江原由美子',2001,'https://www.keisoshobo.co.jp/book/b26422.html','平等が制度化されても性別実践が続くため、異なる生き方への寛容性が戦後評価の重要軸になる。',8,1,'Phase 6.F L2 gender: showa_post 9/10','codex_correction_l2_gender'),
+('showa_post','age_meta_learning','gender','近代家族の成立と終焉','上野千鶴子',1994,'https://ci.nii.ac.jp/ncid/BN10498468','家庭役割と就業機会の変化に合わせて学び直す女性の適応力は、戦後人材評価で過小評価されてきた。',8,1,'Phase 6.F L2 gender: showa_post 10/10','codex_correction_l2_gender'),
+('heisei','cog_critical','gender','ジェンダー秩序','江原由美子',2001,'https://ci.nii.ac.jp/ncid/BA51659045','男女共同参画が制度化された平成期でも、職場・家庭の実践が性支配を再生産する点を批判的に評価する必要がある。',9,1,'Phase 6.F L2 gender: heisei 1/10','codex_correction_l2_gender'),
+('heisei','age_social_autonomy','gender','自己決定権とジェンダー','江原由美子',2002,'https://ndlsearch.ndl.go.jp/books/R100000002-I023999048','生殖技術・医療・ケアをめぐる選択は、平成期の女性の社会的自立を測る中心的な領域となった。',9,1,'Phase 6.F L2 gender: heisei 2/10','codex_correction_l2_gender'),
+('heisei','cog_systems','gender','家父長制と資本制 : マルクス主義フェミニズムの地平','上野千鶴子',1990,'https://cir.nii.ac.jp/crid/1970023484864561924','非正規雇用とケア負担の拡大は、資本制と家父長制の接続を平成期にも残した。',9,1,'Phase 6.F L2 gender: heisei 3/10','codex_correction_l2_gender'),
+('heisei','soc_interpersonal','gender','近代家族の成立と終焉','上野千鶴子',1994,'https://ci.nii.ac.jp/ncid/BN10498468','家族の個人化が進む平成期には、親密圏を維持・再編する対人スキルが女性に偏って要求された。',8,1,'Phase 6.F L2 gender: heisei 4/10','codex_correction_l2_gender'),
+('heisei','age_resilience','gender','日本型近代家族 : どこから来てどこへ行くのか','千田有紀',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011156673','ポスト近代家族と格差社会の中で、女性は雇用不安・育児・介護を組み合わせる継続力を求められた。',8,1,'Phase 6.F L2 gender: heisei 5/10','codex_correction_l2_gender'),
+('heisei','cog_info','gender','女ぎらい : ニッポンのミソジニー','上野千鶴子',2010,'https://ci.nii.ac.jp/ncid/BB0347335X','インターネット前後のメディア空間は女性の発信力を高めたが、ミソジニーの可視化と攻撃も増幅した。',8,1,'Phase 6.F L2 gender: heisei 6/10','codex_correction_l2_gender'),
+('heisei','age_social_change','gender','女性解放という思想','江原由美子',1985,'https://wan.or.jp/article/show/9569','平成のフェミニズムは法制度改革と生活実践を結び、過去の女性解放思想を政策課題へ翻訳した。',8,1,'Phase 6.F L2 gender: heisei 7/10','codex_correction_l2_gender'),
+('heisei','val_tolerance','gender','ジェンダー秩序','江原由美子',2001,'https://www.keisoshobo.co.jp/book/b26422.html','多様な家族・働き方の承認は、平成期の寛容性を単なる個人美徳でなく制度設計能力として問う。',8,1,'Phase 6.F L2 gender: heisei 8/10','codex_correction_l2_gender'),
+('heisei','cre_cross_domain','gender','日本型近代家族 : どこから来てどこへ行くのか','千田有紀',2011,'https://ci.nii.ac.jp/ncid/BB05300035?l=ja','平成期の家族研究は社会政策、労働、教育、ジェンダーを横断し、人材評価の単線性を修正する。',8,1,'Phase 6.F L2 gender: heisei 9/10','codex_correction_l2_gender'),
+('heisei','val_collective','gender','ナショナリズムとジェンダー','上野千鶴子',1998,'https://cir.nii.ac.jp/crid/1971712334694647989','グローバル化の中でも国民的家族像は残り、女性の協調性を国家・企業・家庭に配分する評価が続いた。',8,1,'Phase 6.F L2 gender: heisei 10/10','codex_correction_l2_gender');
+COMMIT;
+BEGIN;
+INSERT INTO era_retrospectives (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team) VALUES
+('reiwa','cog_info','gender','女ぎらい : ニッポンのミソジニー','上野千鶴子',2010,'https://ci.nii.ac.jp/ncid/BB0347335X','令和期のSNS空間では女性の発信力が増す一方、ミソジニーの集中攻撃が能力発揮の条件を左右する。',9,1,'Phase 6.F L2 gender: reiwa 1/10','codex_correction_l2_gender'),
+('reiwa','cog_critical','gender','ジェンダー秩序','江原由美子',2001,'https://ci.nii.ac.jp/ncid/BA51659045','ジェンダー平等が標語化した令和期こそ、日常実践が性支配を再生産する仕組みを批判的に点検する必要がある。',9,1,'Phase 6.F L2 gender: reiwa 2/10','codex_correction_l2_gender'),
+('reiwa','age_social_autonomy','gender','自己決定権とジェンダー','江原由美子',2002,'https://ndlsearch.ndl.go.jp/books/R100000002-I023999048','生殖、医療、ケア、働き方をめぐる自己決定は、令和期の人材能力を測る不可欠な社会的自立指標である。',9,1,'Phase 6.F L2 gender: reiwa 3/10','codex_correction_l2_gender'),
+('reiwa','age_social_change','gender','女性解放という思想','江原由美子',1985,'https://wan.or.jp/article/show/9569','令和期のジェンダー運動は過去の女性解放思想をオンライン動員・制度要求へ接続している。',8,1,'Phase 6.F L2 gender: reiwa 4/10','codex_correction_l2_gender'),
+('reiwa','cog_systems','gender','家父長制と資本制 : マルクス主義フェミニズムの地平','上野千鶴子',1990,'https://cir.nii.ac.jp/crid/1970023484864561924','ケア危機、非正規雇用、少子化政策を一体で見ると、令和期も家父長制と資本制の複合が続く。',9,1,'Phase 6.F L2 gender: reiwa 5/10','codex_correction_l2_gender'),
+('reiwa','val_tolerance','gender','女ぎらい : ニッポンのミソジニー','上野千鶴子',2010,'https://ci.nii.ac.jp/ncid/BB0347335X','多様な性・家族・働き方への攻撃を分析すると、寛容性は個人態度ではなく制度的保護を伴う能力課題になる。',8,1,'Phase 6.F L2 gender: reiwa 6/10','codex_correction_l2_gender'),
+('reiwa','soc_interpersonal','gender','近代家族の成立と終焉','上野千鶴子',1994,'https://ci.nii.ac.jp/ncid/BN10498468','単身化・共働き化・介護負担の増大により、親密圏を交渉し直す対人能力が令和期の重要能力となる。',8,1,'Phase 6.F L2 gender: reiwa 7/10','codex_correction_l2_gender'),
+('reiwa','age_meta_learning','gender','日本型近代家族 : どこから来てどこへ行くのか','千田有紀',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011156673','家族形態と雇用制度が急変する令和期には、既存の性別役割を学び直す適応能力が評価軸になる。',8,1,'Phase 6.F L2 gender: reiwa 8/10','codex_correction_l2_gender'),
+('reiwa','cre_cross_domain','gender','日本型近代家族 : どこから来てどこへ行くのか','千田有紀',2011,'https://ci.nii.ac.jp/ncid/BB05300035?l=ja','令和期のジェンダー課題は家族、労働、教育、テクノロジーを横断するため、異分野統合能力が不可欠になる。',8,1,'Phase 6.F L2 gender: reiwa 9/10','codex_correction_l2_gender'),
+('reiwa','val_collective','gender','ナショナリズムとジェンダー','上野千鶴子',1998,'https://cir.nii.ac.jp/crid/1971712334694647989','少子化・家族政策の国民的語りは、女性の集団協調性を再び国家目的へ結びつける危険を含む。',8,1,'Phase 6.F L2 gender: reiwa 10/10','codex_correction_l2_gender');
+COMMIT;
+SELECT 'after_total' AS metric, COUNT(*) AS count FROM era_retrospectives WHERE source_team='codex_correction_l2_gender';
+SELECT era_id, COUNT(*) AS count FROM era_retrospectives WHERE source_team='codex_correction_l2_gender' GROUP BY era_id ORDER BY CASE era_id WHEN 'meiji' THEN 1 WHEN 'taisho' THEN 2 WHEN 'showa_pre' THEN 3 WHEN 'showa_post' THEN 4 WHEN 'heisei' THEN 5 WHEN 'reiwa' THEN 6 ELSE 99 END;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+metric        count
+------------  -----
+before_total  0    
+metric       count
+-----------  -----
+after_total  60   
+era_id      count
+----------  -----
+meiji       10   
+taisho      10   
+showa_pre   10   
+showa_post  10   
+heisei      10   
+reiwa       10   
+
+codex
+INSERTは完了し、直後の集計では `codex_correction_l2_gender` が60件、6時代それぞれ10件でした。念のため、必須列の欠落や時代分配、著者分布を追加検証します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_gender' AND (source_author IS NULL OR source_author='' OR perspective<>'gender' OR finding_ja IS NULL OR finding_ja='')\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT source_author, COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_gender' GROUP BY source_author ORDER BY COUNT(*) DESC\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+上野千鶴子|27
+江原由美子|23
+千田有紀|10
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT capability_id, COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_gender' GROUP BY capability_id ORDER BY COUNT(*) DESC\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT MIN(id), MAX(id), COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_gender'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+val_tolerance|6
+soc_interpersonal|6
+cre_cross_domain|6
+cog_info|6
+cog_critical|6
+age_social_autonomy|6
+val_collective|5
+cog_systems|5
+age_social_change|5
+val_traditional|3
+age_resilience|3
+age_meta_learning|2
+cog_logical|1
+
+ succeeded in 0ms:
+1157|1216|60
+
+codex
+完了しました。Phase 6.F / `l2_gender` として、`era_retrospectives` に60件追加しました。
+
+- `source_team='codex_correction_l2_gender'`
+- `perspective='gender'`
+- 6時代均等配分: `meiji/taisho/showa_pre/showa_post/heisei/reiwa` 各10件
+- ID範囲: `1157`〜`1216`
+- `source_author` 欠落、`finding_ja` 欠落、`perspective`不一致: 0件
+
+検証結果:
+
+```text
+after_total: 60
+
+meiji       10
+taisho      10
+showa_pre   10
+showa_post  10
+heisei      10
+reiwa       10
+```
+
+著者分布:
+
+```text
+上野千鶴子  27
+江原由美子  23
+千田有紀    10
+```
+
+参照確認に使った主な出典は、CiNii/NDL等の書誌情報です: 上野千鶴子『ナショナリズムとジェンダー』、上野千鶴子『近代家族の成立と終焉』、江原由美子『ジェンダー秩序』、千田有紀『日本型近代家族』、江原由美子『女性解放という思想』など。
+tokens used
+59,390
+完了しました。Phase 6.F / `l2_gender` として、`era_retrospectives` に60件追加しました。
+
+- `source_team='codex_correction_l2_gender'`
+- `perspective='gender'`
+- 6時代均等配分: `meiji/taisho/showa_pre/showa_post/heisei/reiwa` 各10件
+- ID範囲: `1157`〜`1216`
+- `source_author` 欠落、`finding_ja` 欠落、`perspective`不一致: 0件
+
+検証結果:
+
+```text
+after_total: 60
+
+meiji       10
+taisho      10
+showa_pre   10
+showa_post  10
+heisei      10
+reiwa       10
+```
+
+著者分布:
+
+```text
+上野千鶴子  27
+江原由美子  23
+千田有紀    10
+```
+
+参照確認に使った主な出典は、CiNii/NDL等の書誌情報です: 上野千鶴子『ナショナリズムとジェンダー』、上野千鶴子『近代家族の成立と終焉』、江原由美子『ジェンダー秩序』、千田有紀『日本型近代家族』、江原由美子『女性解放という思想』など。

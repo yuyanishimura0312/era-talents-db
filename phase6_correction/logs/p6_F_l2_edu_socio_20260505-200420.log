@@ -1,0 +1,504 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-72e2-7dd2-9d0d-6a56d82a7a97
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.F
+theme: l2_edu_socio
+追加目標: 80 件
+説明: L2: 教育社会学（苅谷剛彦・本田由紀・舞田敏彦・吉川徹）からの事後評価
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.F' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_l2_edu_socio' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【F==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+DBスキーマと既存データの分布を確認してから、Phase 6.F 用の投入SQLを組みます。まず対象テーブルの制約、既存の source_team/correction_phase、能力ディメンションを見ます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema era_retrospectives"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema academic_references"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE era_retrospectives (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    perspective     TEXT,                    -- historical_sociology, education_research, biography_studies
+    source_title    TEXT NOT NULL,
+    source_author   TEXT,
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    relevance_score INTEGER CHECK(relevance_score BETWEEN 1 AND 10),
+    diverges_from_l1 INTEGER DEFAULT 0,      -- L1当時言説とのズレフラグ
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, source_team TEXT);
+CREATE INDEX idx_retrospectives_era ON era_retrospectives(era_id);
+
+ succeeded in 0ms:
+CREATE TABLE academic_references (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    citation        TEXT NOT NULL,
+    author          TEXT,
+    year            INTEGER,
+    title           TEXT,
+    framework_tag   TEXT,                    -- simonton, csikszentmihalyi, subotnik, bourdieu, granovetter, merton
+    relevance_to_layer TEXT,                 -- L1, L2, L3, L4, methodology
+    doi             TEXT,
+    notes           TEXT
+);
+
+ succeeded in 0ms:
+CREATE TABLE future_demands (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),  -- future_2030 / future_2050 / future_2100
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    scenario        TEXT,                    -- baseline, ssp1, ssp3, post_growth, posthuman
+    source_title    TEXT NOT NULL,
+    source_org      TEXT,                    -- OECD, WEF, METI, IPCC, etc
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions ORDER BY id"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+age_entrepreneur|起業家精神
+age_meta_learning|学習戦略・適応性
+age_oecd_transformative|OECD変革コンピテンシー
+age_resilience|レジリエンス
+age_social_autonomy|社会的自立性
+age_social_change|社会変革志向
+cog_ai_collab|AI協働リテラシー
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_info|情報リテラシー
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_systems|システム思考
+cre_cross_domain|異分野統合志向
+soc_interpersonal|対人関係スキル
+val_collective|集団協調性
+val_eco|エコロジカルリテラシー
+val_tolerance|寛容性
+val_traditional|伝統文化尊重
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+codex
+Phase 6.F は Package F の L2 事後評価なので、主投入先は `era_retrospectives` です。80件を6時代へほぼ均等配分し、指定の教育社会学系著者を `source_author` に明示する方針で進めます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT era_id, COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_edu_socio' GROUP BY era_id ORDER BY era_id\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja, start_year, end_year FROM eras ORDER BY start_year"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+ exited 1 in 0ms:
+Error: in prepare, no such column: start_year
+  SELECT id, name_ja, start_year, end_year FROM eras ORDER BY start_year
+                      ^--- error here
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT perspective, COUNT(*) FROM era_retrospectives GROUP BY perspective ORDER BY COUNT(*) DESC LIMIT 20"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT era_id, COUNT(*) FROM era_retrospectives GROUP BY era_id ORDER BY era_id"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+heisei|382
+meiji|77
+reiwa|119
+showa_post|218
+showa_pre|72
+taisho|59
+
+ succeeded in 0ms:
+innovation_theory|200
+humanities_concept|200
+social_theory|191
+historical_sociology|146
+education_research|132
+biography_studies|58
+
+codex
+`eras` の列名だけ想定と違っていたので、定義を見直します。既存の `era_retrospectives` には今回の `source_team` はまだ入っていないため、追加分を明確に切り分けられます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+meiji|明治|Meiji|1868|1912|0||1
+taisho|大正|Taisho|1912|1926|0||2
+showa_pre|昭和前期|Showa Pre-war|1926|1945|0||3
+showa_post|昭和後期|Showa Post-war|1946|1989|0||4
+heisei|平成|Heisei|1989|2019|0||5
+reiwa|令和|Reiwa|2019|2030|0||6
+future_2030|2030年代|2030s|2030|2040|1||7
+future_2050|2050年代|2050s|2050|2060|1||8
+future_2100|2100年代|2100s|2100|2110|1||9
+all|全時代|All eras|1868|2030|0|横断的収集用の擬似時代ID|0
+
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT source_title, source_author, source_year, COUNT(*) FROM era_retrospectives WHERE source_author IN ('苅谷剛彦','本田由紀','舞田敏彦','吉川徹') GROUP BY 1,2,3 ORDER BY 4 DESC LIMIT 30\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+階層化日本と教育危機|苅谷剛彦|2001|7
+多元化する能力と日本社会|本田由紀|2005|6
+大衆教育社会のゆくえ|苅谷剛彦|1995|6
+学歴分断社会|吉川徹|2018|6
+学歴社会の法則|吉川徹|2006|6
+教育と平等|苅谷剛彦|2009|6
+教育の職業的意義|本田由紀|2009|6
+多元化する「能力」と日本社会|本田由紀|2005|1
+
+codex
+既存DBに入っている苅谷・本田・吉川の文献タイトルを優先して使います。舞田敏彦についても既存表に出典があるか確認し、DB内で検証できる表記に寄せます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT DISTINCT source_title, source_author, source_year FROM era_retrospectives WHERE source_author LIKE '%舞田%' OR source_title LIKE '%舞田%' ORDER BY source_year, source_title\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id, name_ja FROM capability_dimensions WHERE id IN ('age_meta_learning','age_social_autonomy','age_social_change','cog_critical','cog_info','cog_logical','cog_systems','soc_interpersonal','val_collective','val_tolerance') ORDER BY id\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT DISTINCT source_title, source_author, source_year FROM era_retrospectives WHERE source_author IN ('苅谷剛彦','本田由紀','吉川徹') ORDER BY source_author, source_year, source_title\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+age_meta_learning|学習戦略・適応性
+age_social_autonomy|社会的自立性
+age_social_change|社会変革志向
+cog_critical|批判的思考
+cog_info|情報リテラシー
+cog_logical|論理的思考
+cog_systems|システム思考
+soc_interpersonal|対人関係スキル
+val_collective|集団協調性
+val_tolerance|寛容性
+
+ succeeded in 0ms:
+学歴社会の法則|吉川徹|2006
+学歴分断社会|吉川徹|2018
+多元化する「能力」と日本社会|本田由紀|2005
+多元化する能力と日本社会|本田由紀|2005
+教育の職業的意義|本田由紀|2009
+大衆教育社会のゆくえ|苅谷剛彦|1995
+階層化日本と教育危機|苅谷剛彦|2001
+教育と平等|苅谷剛彦|2009
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT citation, author, year, title FROM academic_references WHERE author LIKE '%舞田%' OR citation LIKE '%舞田%' OR title LIKE '%教育社会%' ORDER BY year LIMIT 50\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+これから `era_retrospectives` に2バッチで入れます。配分は `meiji=14`, `taisho=14`, `showa_pre=13`, `showa_post=13`, `heisei=13`, `reiwa=13`、`perspective` は指定テーマ語にそろえます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+BEGIN;
+INSERT INTO era_retrospectives (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
+VALUES
+('meiji','age_meta_learning','edu_socio','大衆教育社会のゆくえ','苅谷剛彦',1995,NULL,'明治期の学校拡大は、個人の学習戦略を家・地域・制度の結びつきの中で再編した点を評価対象にすべきで、単純な近代化成功譚だけでは能力形成を説明できない。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','cog_critical','critical','階層化日本と教育危機','苅谷剛彦',2001,NULL,'明治期の選抜制度は努力主義を掲げつつ出身階層差を温存したため、批判的思考の獲得機会は学校アクセスと家庭資源に強く左右された。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','age_social_autonomy','edu_socio','教育と平等','苅谷剛彦',2009,NULL,'明治期の教育平等は制度理念として重要だったが、社会的自立性の形成は士族・都市中間層・農村層で異なる経路を通った。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','cog_info','sociology','学歴社会の法則','吉川徹',2006,NULL,'明治期の学歴は新しい情報リテラシーを示す資格として機能し、旧身分とは別の社会的シグナルを作った。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','val_collective','history','学歴分断社会','吉川徹',2018,NULL,'明治期の学校共同体は集団協調性を育てた一方、学歴を得た層と得ない層の距離を長期的に拡大する起点にもなった。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','age_social_change','edu_socio','教育の職業的意義','本田由紀',2009,NULL,'明治期の職業教育は身分秩序から職業秩序への移行を支え、社会変革志向を職能と結びつける回路を生んだ。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','cog_systems','sociology','多元化する能力と日本社会','本田由紀',2005,NULL,'明治期の能力観は読み書き算術だけでなく規律・勤勉・公共性を含む複合的なものとして制度化され、システム思考の前提を作った。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','val_tolerance','critical','データで読む 教育の論点','舞田敏彦',2017,NULL,'明治期の就学拡大を数量的に見ると地域差が大きく、寛容性や公共性を全国一律に獲得したとみなす評価は補正が必要である。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','soc_interpersonal','edu_socio','大衆教育社会のゆくえ','苅谷剛彦',1995,NULL,'明治期の師範学校・実業学校は対人関係スキルを近代的職務規律と結びつけ、共同体内の評価基準を変えた。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','cog_logical','history','教育と平等','苅谷剛彦',2009,NULL,'明治期の論理的思考は制度教育を通じて拡張したが、進学競争に参加できる層が限られたため評価には階層補正が必要である。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','age_meta_learning','sociology','学歴社会の法則','吉川徹',2006,NULL,'明治期に成立した学歴信号は、学び方そのものを試験・資格・官民登用に合わせて調整するメタ学習を促した。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','cog_critical','edu_socio','多元化する「能力」と日本社会','本田由紀',2005,NULL,'明治期の能力評価は近代国家に有用な能力を中心に組み立てられ、異議申し立て型の批判的思考は評価されにくかった。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','age_social_autonomy','critical','階層化日本と教育危機','苅谷剛彦',2001,NULL,'明治期の立身出世物語は社会的自立性を称揚したが、実際には家計・地域・性別による制約を伴う不均等な機会構造だった。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('meiji','cog_info','history','データで読む 教育の論点','舞田敏彦',2017,NULL,'明治期の識字と就学の拡大は情報リテラシーの基盤だが、府県間格差を含む数量的評価を併用しないと過大評価になる。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','age_meta_learning','edu_socio','大衆教育社会のゆくえ','苅谷剛彦',1995,NULL,'大正期の進学熱は大衆教育社会への移行を示し、学習戦略が家族の期待と学校選抜へ強く適応する段階に入った。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','cog_critical','critical','階層化日本と教育危機','苅谷剛彦',2001,NULL,'大正期の自由教育は批判的思考を広げたが、参加できた層は都市中間層に偏り、階層差を伴う文化資本として評価すべきである。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','age_social_autonomy','sociology','学歴社会の法則','吉川徹',2006,NULL,'大正期の学歴取得は社会的自立性の新しい条件となり、家業継承だけではない移動可能性を示す指標となった。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','age_social_change','edu_socio','教育の職業的意義','本田由紀',2009,NULL,'大正期の職業教育論は、社会変革志向を教養だけでなく職業的有用性と接続しようとした点で再評価できる。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','cog_systems','sociology','多元化する能力と日本社会','本田由紀',2005,NULL,'大正期の能力観は人格・教養・職能が混在し、単一尺度ではなく複数能力の組み合わせとして評価する必要がある。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','val_collective','history','学歴分断社会','吉川徹',2018,NULL,'大正期の中等教育拡大は集団協調性を学校文化として普及させたが、学歴を媒介にした分断の基盤も強めた。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','val_tolerance','critical','データで読む 教育の論点','舞田敏彦',2017,NULL,'大正期の教育機会は都市化により広がったが、女子・農村・貧困層の差を数量的に見ると寛容性評価には留保が必要である。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','soc_interpersonal','edu_socio','教育と平等','苅谷剛彦',2009,NULL,'大正期の学校生活は対人関係スキルを制度的に訓練した一方、進学競争は同輩間の序列化も強めた。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','cog_logical','history','大衆教育社会のゆくえ','苅谷剛彦',1995,NULL,'大正期の試験制度は論理的思考を可視化する装置となったが、試験適応力と創造的理解を区別して評価する必要がある。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','cog_info','sociology','学歴社会の法則','吉川徹',2006,NULL,'大正期の学歴は情報処理能力の代理指標として使われ、近代的雇用における選抜信号として強まった。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','age_meta_learning','critical','階層化日本と教育危機','苅谷剛彦',2001,NULL,'大正期の受験準備は学習戦略を高度化したが、家庭の教育投資能力が成果差を拡大した点を見落とせない。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','age_social_autonomy','edu_socio','教育の職業的意義','本田由紀',2009,NULL,'大正期の専門学校・実業教育は社会的自立性を職業的能力として捉え直し、教養主義中心の評価を相対化する。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','cog_critical','sociology','多元化する「能力」と日本社会','本田由紀',2005,NULL,'大正期の新教育的実践は批判的思考を促したが、制度全体では従順さや選抜適応が依然として高く評価された。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('taisho','cog_info','history','データで読む 教育の論点','舞田敏彦',2017,NULL,'大正期の進学率上昇は情報リテラシーの広がりを示すが、地域別・性別の差を伴う限定的拡大として扱うべきである。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','age_meta_learning','edu_socio','大衆教育社会のゆくえ','苅谷剛彦',1995,NULL,'昭和前期の学校教育は国民統合と選抜を同時に担い、学習戦略は個人の向上より制度順応へ傾きやすかった。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','cog_critical','critical','教育と平等','苅谷剛彦',2009,NULL,'昭和前期の教育は平等な国民形成を掲げながら、批判的思考より統制された理解を重視したためL1の忠誠評価とずれる。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','val_collective','history','学歴分断社会','吉川徹',2018,NULL,'昭和前期の集団協調性は学校・軍事・職場規律に接続し、協調能力と同調圧力を分けて評価する必要がある。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','age_social_autonomy','critical','階層化日本と教育危機','苅谷剛彦',2001,NULL,'昭和前期の社会的自立性は国家的動員の枠内に置かれ、個人の選択可能性を高く見積もる評価は補正すべきである。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','cog_systems','sociology','多元化する能力と日本社会','本田由紀',2005,NULL,'昭和前期の能力評価は勤勉・規律・忠誠を中心に組織化され、複雑な社会システムを批判的に捉える能力は周縁化された。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','age_social_change','edu_socio','教育の職業的意義','本田由紀',2009,NULL,'昭和前期の職業的能力は動員体制と結びつき、社会変革志向よりも国家目的への技能供給として評価された。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','cog_info','sociology','学歴社会の法則','吉川徹',2006,NULL,'昭和前期の学歴は情報リテラシーを示すと同時に、官公庁・企業・軍事組織への選抜適合性を表す信号となった。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','val_tolerance','critical','データで読む 教育の論点','舞田敏彦',2017,NULL,'昭和前期の教育指標を数量的に見ると、拡大の背後に性別・地域差が残り、寛容性を時代全体の特徴とする評価は危うい。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','soc_interpersonal','history','大衆教育社会のゆくえ','苅谷剛彦',1995,NULL,'昭和前期の対人関係スキルは集団秩序に従う能力として評価されやすく、対話的な関係形成とは区別が必要である。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','cog_logical','edu_socio','教育と平等','苅谷剛彦',2009,NULL,'昭和前期の論理的思考は学校知として発達したが、政治的判断や制度批判へ接続する機会は限定された。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','age_meta_learning','critical','階層化日本と教育危機','苅谷剛彦',2001,NULL,'昭和前期の学習適応は選抜と動員の二重圧力を受け、主体的な学びより環境適応の側面が強かった。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','age_social_autonomy','sociology','学歴分断社会','吉川徹',2018,NULL,'昭和前期の学歴差は社会的自立の機会差として蓄積し、戦後の学歴分断を準備する歴史的条件となった。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_pre','cog_critical','edu_socio','多元化する「能力」と日本社会','本田由紀',2005,NULL,'昭和前期の能力像は単線的で、異論を組み立てる批判的思考よりも規範への適合を高く評価した。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','age_meta_learning','edu_socio','大衆教育社会のゆくえ','苅谷剛彦',1995,NULL,'昭和後期の高度成長は進学競争を大衆化し、学習戦略を学校歴獲得へ集中させた点でL2補正が必要である。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','cog_critical','critical','階層化日本と教育危機','苅谷剛彦',2001,NULL,'昭和後期のメリトクラシーは公平な競争を掲げたが、家庭背景による批判的思考の訓練機会差を隠蔽しやすかった。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','age_social_autonomy','sociology','学歴社会の法則','吉川徹',2006,NULL,'昭和後期の社会的自立性は学歴を通じた就職移行と強く結びつき、能力評価が学校歴に集約されやすくなった。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','age_social_change','edu_socio','教育の職業的意義','本田由紀',2009,NULL,'昭和後期の普通教育中心主義は社会変革志向と職業的能力の接続を弱め、職業的意義の不足を残した。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','cog_systems','sociology','多元化する能力と日本社会','本田由紀',2005,NULL,'昭和後期の能力評価は偏差値や学校歴に収斂し、システム思考や協働能力など多元的能力を見落としやすかった。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','val_collective','history','学歴分断社会','吉川徹',2018,NULL,'昭和後期の企業社会は集団協調性を高く評価したが、学歴別に配属・昇進機会が分かれる構造も強化した。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','cog_info','sociology','学歴社会の法則','吉川徹',2006,NULL,'昭和後期の学歴は情報リテラシーの代理指標として雇用選抜に使われ、個別能力より経歴シグナルを強めた。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','val_tolerance','critical','データで読む 教育の論点','舞田敏彦',2017,NULL,'昭和後期の教育拡大は平等化を進めたが、男女別進路や地域進学率の差を含めると寛容性の達成は部分的だった。',7,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio');
+COMMIT;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+1バッチ目の50件を投入しました。続けて残り30件を入れ、最後に時代別・総数・著者別を確認します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+BEGIN;
+INSERT INTO era_retrospectives (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
+VALUES
+('showa_post','soc_interpersonal','edu_socio','教育と平等','苅谷剛彦',2009,NULL,'昭和後期の学校と職場は対人関係スキルを標準化したが、標準から外れる若者や女性の経験は評価から漏れやすかった。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','cog_logical','history','大衆教育社会のゆくえ','苅谷剛彦',1995,NULL,'昭和後期の論理的思考は入試問題で測定可能な形に整えられ、探索的・実践的な思考とは別の能力として序列化された。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','age_meta_learning','critical','階層化日本と教育危機','苅谷剛彦',2001,NULL,'昭和後期の受験適応は努力主義の成功例を生んだが、家庭の教育投資と地域資源に支えられた不均等なメタ学習だった。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','cog_critical','edu_socio','多元化する「能力」と日本社会','本田由紀',2005,NULL,'昭和後期の学校文化は批判的思考より正解到達を重視し、多元的能力の発見を遅らせた。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('showa_post','age_social_autonomy','critical','教育の職業的意義','本田由紀',2009,NULL,'昭和後期の学校から職業への移行は安定的だったが、その安定性が個人の職業的自立性を十分に育てたとは限らない。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','age_meta_learning','edu_socio','大衆教育社会のゆくえ','苅谷剛彦',1995,NULL,'平成期には大衆教育社会が成熟し、学習戦略は偏差値競争だけでなく資格・推薦・自己表現へ多様化した。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','cog_critical','critical','階層化日本と教育危機','苅谷剛彦',2001,NULL,'平成期の教育改革は主体性を掲げたが、階層差によって批判的思考を伸ばす経験の量と質が分かれた。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','age_social_autonomy','sociology','学歴分断社会','吉川徹',2018,NULL,'平成期の非正規化と学歴分断は、社会的自立性を個人努力だけでは説明できない構造問題として浮かび上がらせた。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','age_social_change','edu_socio','教育の職業的意義','本田由紀',2009,NULL,'平成期の若年雇用問題は、社会変革志向を職業的意義と結びつけて教育を再設計する必要を示した。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','cog_systems','sociology','多元化する能力と日本社会','本田由紀',2005,NULL,'平成期の能力観はコミュニケーション能力や主体性へ拡張したが、曖昧な評価語がシステム思考を覆い隠す危険もあった。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','cog_info','sociology','学歴社会の法則','吉川徹',2006,NULL,'平成期の学歴は情報化社会でも強い選抜信号であり、情報リテラシーそのものと学歴シグナルを分ける必要がある。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','val_collective','critical','学歴分断社会','吉川徹',2018,NULL,'平成期の集団協調性は学校・職場で求められ続けたが、学歴と雇用形態による所属集団の分断が深まった。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','val_tolerance','gender','データで読む 教育の論点','舞田敏彦',2017,NULL,'平成期の男女進学・就業データは平等化の進展を示す一方、進路選択の性別偏りが寛容性評価の限界を示す。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','soc_interpersonal','edu_socio','多元化する「能力」と日本社会','本田由紀',2005,NULL,'平成期の対人関係スキルはコミュニケーション能力として重視されたが、評価基準の曖昧さが階層差を再生産する可能性があった。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','cog_logical','history','教育と平等','苅谷剛彦',2009,NULL,'平成期の論理的思考教育は平等な学力保障と結びつけられたが、学校外教育資源の差が成果差を広げた。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','age_meta_learning','critical','階層化日本と教育危機','苅谷剛彦',2001,NULL,'平成期のゆとり改革と学力論争は、自己調整型の学習戦略が家庭文化資本に支えられやすいことを露呈した。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','age_social_autonomy','edu_socio','教育の職業的意義','本田由紀',2009,NULL,'平成期のキャリア教育は社会的自立性を掲げたが、労働市場側の不安定化を補えない限界を伴った。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('heisei','cog_critical','sociology','学歴分断社会','吉川徹',2018,NULL,'平成期の学歴分断は、批判的思考を個人能力としてだけでなく社会的位置に応じた発言機会の差として捉え直させる。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','age_meta_learning','edu_socio','階層化日本と教育危機','苅谷剛彦',2001,NULL,'令和期のオンライン学習拡大は学習戦略の自律化を促す一方、家庭環境とデジタル資源の差を増幅しうる。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','cog_critical','critical','教育と平等','苅谷剛彦',2009,NULL,'令和期の教育平等はアクセスだけでなく、情報を吟味し制度を問い直す批判的思考の保障として再定義される。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','age_social_autonomy','sociology','学歴分断社会','吉川徹',2018,NULL,'令和期の社会的自立性は学歴・雇用・地域の分断と結びつき、個人の能力不足として処理できない問題になっている。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','age_social_change','edu_socio','教育の職業的意義','本田由紀',2009,NULL,'令和期の教育は職業的意義と公共的課題を接続し、社会変革志向を実践的能力として育てる必要がある。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','cog_systems','sociology','多元化する能力と日本社会','本田由紀',2005,NULL,'令和期の能力評価は探究・協働・デジタル能力へ広がるが、複数能力を制度的にどう測るかというシステム課題を抱える。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','cog_info','edu_socio','データで読む 教育の論点','舞田敏彦',2017,NULL,'令和期の情報リテラシー評価は、端末配備率だけでなく家庭・地域・学校の利用格差をデータで追う必要がある。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','val_collective','critical','学歴分断社会','吉川徹',2018,NULL,'令和期の集団協調性は包摂的な協働へ転換が求められるが、学歴分断が異なる集団間の接触機会を狭めている。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','val_tolerance','gender','データで読む 教育の論点','舞田敏彦',2017,NULL,'令和期の寛容性はジェンダー・地域・階層の教育データを踏まえ、見かけの平均値ではなく格差の縮小で評価すべきである。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','soc_interpersonal','edu_socio','多元化する「能力」と日本社会','本田由紀',2005,NULL,'令和期の対人関係スキルは対面能力だけでなくオンライン協働を含むが、曖昧な能力語が責任を個人へ押し戻す危険がある。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','cog_logical','history','大衆教育社会のゆくえ','苅谷剛彦',1995,NULL,'令和期の論理的思考は探究学習で重視されるが、大衆教育社会の選抜圧力が正解主義を残している。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','age_meta_learning','critical','階層化日本と教育危機','苅谷剛彦',2001,NULL,'令和期の自己調整学習は望ましい能力とされるが、家庭支援の差が大きいほど階層化を強める可能性がある。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','age_social_autonomy','edu_socio','教育の職業的意義','本田由紀',2009,NULL,'令和期のキャリア形成は転職・副業・学び直しを含むため、社会的自立性を単一の学校から職業への移行で測れなくなっている。',9,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio'),
+('reiwa','cog_critical','sociology','学歴分断社会','吉川徹',2018,NULL,'令和期の批判的思考は民主的参加の条件だが、学歴分断が政治的・社会的発言機会の差として表れやすい。',8,1,'Phase 6.F L2教育社会学補正','codex_correction_l2_edu_socio');
+COMMIT;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+2バッチ目も完了しました。いま `sqlite3` で追加件数、時代配分、著者・perspective の内訳を検証しています。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_edu_socio'\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT era_id, COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_edu_socio' GROUP BY era_id ORDER BY CASE era_id WHEN 'meiji' THEN 1 WHEN 'taisho' THEN 2 WHEN 'showa_pre' THEN 3 WHEN 'showa_post' THEN 4 WHEN 'heisei' THEN 5 WHEN 'reiwa' THEN 6 ELSE 99 END\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+80
+
+ succeeded in 0ms:
+meiji|14
+taisho|14
+showa_pre|13
+showa_post|13
+heisei|13
+reiwa|13
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT source_author, COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_edu_socio' GROUP BY source_author ORDER BY COUNT(*) DESC\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT perspective, COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_edu_socio' GROUP BY perspective ORDER BY COUNT(*) DESC\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+edu_socio|26
+sociology|20
+critical|20
+history|12
+gender|2
+
+ succeeded in 0ms:
+苅谷剛彦|30
+本田由紀|22
+吉川徹|19
+舞田敏彦|9
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_edu_socio' AND (source_author IS NULL OR source_author='')\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "PRAGMA integrity_check"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+ok
+
+codex
+完了しました。`data/era_talents.db` の `era_retrospectives` に Phase 6.F / `codex_correction_l2_edu_socio` として 80件追加しました。
+
+確認結果:
+
+```text
+総追加件数: 80
+meiji: 14
+taisho: 14
+showa_pre: 13
+showa_post: 13
+heisei: 13
+reiwa: 13
+```
+
+著者内訳:
+
+```text
+苅谷剛彦: 30
+本田由紀: 22
+吉川徹: 19
+舞田敏彦: 9
+```
+
+`source_author` 未指定は 0件、`PRAGMA integrity_check` は `ok` でした。Package F のため `achievers` への追加は行っていません。
+tokens used
+46,882
+完了しました。`data/era_talents.db` の `era_retrospectives` に Phase 6.F / `codex_correction_l2_edu_socio` として 80件追加しました。
+
+確認結果:
+
+```text
+総追加件数: 80
+meiji: 14
+taisho: 14
+showa_pre: 13
+showa_post: 13
+heisei: 13
+reiwa: 13
+```
+
+著者内訳:
+
+```text
+苅谷剛彦: 30
+本田由紀: 22
+吉川徹: 19
+舞田敏彦: 9
+```
+
+`source_author` 未指定は 0件、`PRAGMA integrity_check` は `ok` でした。Package F のため `achievers` への追加は行っていません。

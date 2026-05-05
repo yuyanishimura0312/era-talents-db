@@ -1,0 +1,426 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-9272-7000-9624-32a631cebfd7
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.F
+theme: l2_anthro
+追加目標: 60 件
+説明: L2: 文化人類学（中沢新一・原研哉・松村圭一郎）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.F' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_l2_anthro' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【F==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まずDBスキーマと既存データの分布を確認します。Phase 6.F は L2 多様化が主目的なので、`era_retrospectives` の投入要件と重複状況を先に固めます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema era_retrospectives"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE era_retrospectives (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    perspective     TEXT,                    -- historical_sociology, education_research, biography_studies
+    source_title    TEXT NOT NULL,
+    source_author   TEXT,
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    relevance_score INTEGER CHECK(relevance_score BETWEEN 1 AND 10),
+    diverges_from_l1 INTEGER DEFAULT 0,      -- L1当時言説とのズレフラグ
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, source_team TEXT);
+CREATE INDEX idx_retrospectives_era ON era_retrospectives(era_id);
+
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT era, perspective, COUNT(*) FROM era_retrospectives GROUP BY era, perspective ORDER BY era, perspective"' in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: era
+  SELECT era, perspective, COUNT(*) FROM era_retrospectives GROUP BY era, perspe
+         ^--- error here
+
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+codex
+`era_retrospectives` は `era_id` 列なので、時代IDと既存の `source_team` 件数に切り替えて確認します。今回は Package F の指示に沿って、人物追加ではなく回顧研究レコードを 6 時代へ均等に 10 件ずつ入れる方針です。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja, start_year, end_year FROM eras ORDER BY start_year"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+ exited 1 in 0ms:
+Error: in prepare, no such column: start_year
+  SELECT id, name_ja, start_year, end_year FROM eras ORDER BY start_year
+                      ^--- error here
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_anthro'\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT era_id, perspective, source_team, COUNT(*) FROM era_retrospectives GROUP BY era_id, perspective, source_team ORDER BY era_id, perspective, source_team"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+heisei|biography_studies||1
+heisei|biography_studies|codex_retrospective_expand|9
+heisei|education_research||2
+heisei|education_research|codex_retrospective_expand|20
+heisei|historical_sociology||3
+heisei|historical_sociology|codex_retrospective_expand|21
+heisei|humanities_concept||103
+heisei|innovation_theory||158
+heisei|social_theory||65
+meiji|biography_studies||1
+meiji|biography_studies|codex_retrospective_expand|9
+meiji|education_research||2
+meiji|education_research|codex_retrospective_expand|20
+meiji|historical_sociology||3
+meiji|historical_sociology|codex_retrospective_expand|21
+meiji|humanities_concept||7
+meiji|innovation_theory||3
+meiji|social_theory||11
+reiwa|biography_studies|codex_retrospective_expand|9
+reiwa|education_research||3
+reiwa|education_research|codex_retrospective_expand|20
+reiwa|historical_sociology||3
+reiwa|historical_sociology|codex_retrospective_expand|21
+reiwa|humanities_concept||37
+reiwa|innovation_theory||5
+reiwa|social_theory||21
+showa_post|biography_studies||1
+showa_post|biography_studies|codex_retrospective_expand|9
+showa_post|education_research||1
+showa_post|education_research|codex_retrospective_expand|20
+showa_post|historical_sociology||4
+showa_post|historical_sociology|codex_retrospective_expand|21
+showa_post|humanities_concept||48
+showa_post|innovation_theory||30
+showa_post|social_theory||84
+showa_pre|biography_studies|codex_retrospective_expand|9
+showa_pre|education_research||2
+showa_pre|education_research|codex_retrospective_expand|20
+showa_pre|historical_sociology||4
+showa_pre|historical_sociology|codex_retrospective_expand|21
+showa_pre|humanities_concept||4
+showa_pre|innovation_theory||4
+showa_pre|social_theory||8
+taisho|biography_studies||1
+taisho|biography_studies|codex_retrospective_expand|9
+taisho|education_research||2
+taisho|education_research|codex_retrospective_expand|20
+taisho|historical_sociology||3
+taisho|historical_sociology|codex_retrospective_expand|21
+taisho|humanities_concept||1
+taisho|social_theory||2
+
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id, name_ja, year_start, year_end FROM eras WHERE id IN ('meiji','taisho','showa_pre','showa_post','heisei','reiwa') ORDER BY sort_order\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+meiji|明治|1868|1912
+taisho|大正|1912|1926
+showa_pre|昭和前期|1926|1945
+showa_post|昭和後期|1946|1989
+heisei|平成|1989|2019
+reiwa|令和|2019|2030
+
+exec
+/bin/bash -lc 'sqlite3 -header -column data/era_talents.db "SELECT era_id, capability_id, perspective, source_title, source_author, source_year, finding_ja, relevance_score, diverges_from_l1, notes, source_team FROM era_retrospectives LIMIT 5"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+era_id  capability_id      perspective           source_title          source_author  source_year  finding_ja                                                                                                relevance_score  diverges_from_l1  notes                                        source_team
+------  -----------------  --------------------  --------------------  -------------  -----------  --------------------------------------------------------------------------------------------------------  ---------------  ----------------  -------------------------------------------  -----------
+meiji   age_meta_learning  education_research    日本のメリトクラシー  竹内洋         1995         明治期の学歴・試験制度は、身分制から能力主義への転換を掲げつつ、学校歴を通じた新しい選抜秩序を形成した。  9                1                 codex_retrospective_l2 initial source layer             
+meiji   cog_logical        historical_sociology  学歴貴族の栄光と挫折  竹内洋         1999         帝国大学を頂点とする学歴秩序は、論理的知識と官僚的処理能力を近代エリートの資本として制度化した。          8                1                 codex_retrospective_l2 initial source layer             
+meiji   age_entrepreneur   biography_studies     日本経営史            宮本又郎       1995         明治の企業者は政商的人脈だけでなく、制度移植、資金調達、組織化を担う起業家的能力を発揮した。              8                0                 codex_retrospective_l2 initial source layer             
+meiji   val_collective     historical_sociology  タテ社会の人間関係    中根千枝       1967         近代組織は個人能力を掲げながら、所属集団への忠誠と上下関係の調整能力を強く要求した。                      7                1                 codex_retrospective_l2 initial source layer             
+meiji   val_traditional    historical_sociology  日本政治思想史研究    丸山眞男       1952         近代化は伝統を単純に廃棄せず、国体・道徳・家族規範を再編して能力評価の背景に組み込んだ。                  8                1                 codex_retrospective_l2 initial source layer             
+
+web search: 
+web search: 中沢新一 チベットのモーツァルト 1983
+web search: 
+web search: 原研哉 日本のデザイン 美意識がつくる未来 2011
+web search: 
+web search: 松村圭一郎 くらしのアナキズム 2021 ミシマ社
+codex
+投入内容を固めました。中沢新一・原研哉・松村圭一郎の確認可能な著作を軸に、各時代10件、能力軸は文化人類学の観点に寄せて分散させ、まず50件を1バッチで入れます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+BEGIN;
+INSERT INTO era_retrospectives (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team) VALUES
+('meiji','cre_cross_domain','anthro','森のバロック','中沢新一',1992,'https://cir.nii.ac.jp/crid/1970304959953871387','南方熊楠の知的実践を通じ、明治の卓越性は専門分化だけでなく博物学・民俗・宗教・生態を横断する編集能力として再評価できる。',9,1,'l2_anthro balanced retrospective: meiji 1/10','codex_correction_l2_anthro'),
+('meiji','cog_systems','anthro','森のバロック','中沢新一',1992,'https://cir.nii.ac.jp/crid/1970304959953871387','明治期の知は国家制度への適応だけでなく、自然・地域社会・信仰を相互依存の体系として捉えるシステム思考を含んでいた。',8,1,'l2_anthro balanced retrospective: meiji 2/10','codex_correction_l2_anthro'),
+('meiji','val_eco','anthro','森のバロック','中沢新一',1992,'https://cir.nii.ac.jp/crid/1970304959953871387','近代化の陰で継承された粘菌研究や民俗知は、人間中心の進歩観から外れたエコロジカルリテラシーを示す。',8,1,'l2_anthro balanced retrospective: meiji 3/10','codex_correction_l2_anthro'),
+('meiji','val_traditional','anthro','日本のデザイン : 美意識がつくる未来','原研哉',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011307216','明治の工芸・住・観光の近代化は、西欧化の受容だけでなく伝統的な美意識を資源化する能力を必要とした。',7,1,'l2_anthro balanced retrospective: meiji 4/10','codex_correction_l2_anthro'),
+('meiji','age_meta_learning','anthro','日本のデザイン : 美意識がつくる未来','原研哉',2011,'https://cir.nii.ac.jp/crid/1130000794525689472','外来制度を取り入れる明治の学習は、既存文化を捨てる単線的学習ではなく、感受性を再編するメタ学習として読める。',7,1,'l2_anthro balanced retrospective: meiji 5/10','codex_correction_l2_anthro'),
+('meiji','cog_critical','anthro','所有と分配の人類学 : エチオピア農村社会の土地と富をめぐる力学','松村圭一郎',2008,'https://sekaishisosha.jp/smp/book/b354095.html','土地所有を自然な制度とみなさず生成過程として問う視点は、明治の地租改正や私的所有の導入を批判的に読み直す補助線となる。',9,1,'l2_anthro balanced retrospective: meiji 6/10','codex_correction_l2_anthro'),
+('meiji','soc_interpersonal','anthro','所有と分配の人類学 : エチオピア農村社会の土地と富をめぐる力学','松村圭一郎',2008,'https://cir.nii.ac.jp/crid/1970586434921066666','所有と分配をめぐる地域の交渉は、明治の村落指導者や商工業者に制度知だけでなく対人調整能力を求めた。',8,1,'l2_anthro balanced retrospective: meiji 7/10','codex_correction_l2_anthro'),
+('meiji','val_tolerance','anthro','チベットのモーツァルト','中沢新一',1983,'https://shinichi-nakazawa.com/books/4796701362','チベット仏教への参与的理解は、明治以降の宗教・民俗を迷信として退ける見方を相対化し、異文化寛容性を能力として可視化する。',8,1,'l2_anthro balanced retrospective: meiji 8/10','codex_correction_l2_anthro'),
+('meiji','cog_creativity','anthro','デザインのデザイン','原研哉',2003,'https://hara.ndc.co.jp/books/design-no-design/','デザインを専門職だけでなく世界の見方として捉える枠組みは、明治の制度・器物・生活様式の創造的翻訳を評価する視点を与える。',8,1,'l2_anthro balanced retrospective: meiji 9/10','codex_correction_l2_anthro'),
+('meiji','age_social_change','anthro','うしろめたさの人類学','松村圭一郎',2017,'https://ci.nii.ac.jp/ncid/BB24488253','制度の隙間から社会を組み直す構築人類学の観点は、明治の地域社会が国家制度を受け流しながら変化した能力を捉える。',8,1,'l2_anthro balanced retrospective: meiji 10/10','codex_correction_l2_anthro'),
+('taisho','val_tolerance','anthro','チベットのモーツァルト','中沢新一',1983,'https://cir.nii.ac.jp/crid/1971712334719065611','大正期の宗教・民俗への関心は、合理主義だけでは説明しにくい多元的世界理解を許容する能力として見直せる。',8,1,'l2_anthro balanced retrospective: taisho 1/10','codex_correction_l2_anthro'),
+('taisho','cre_cross_domain','anthro','森のバロック','中沢新一',1992,'https://cir.nii.ac.jp/crid/1970304959953871387','大正の知識人文化は、自然科学・民俗学・文学を行き来する横断性を持ち、制度的専門性だけでは測れない創発を生んだ。',9,1,'l2_anthro balanced retrospective: taisho 2/10','codex_correction_l2_anthro'),
+('taisho','cog_critical','anthro','所有と分配の人類学 : エチオピア農村社会の土地と富をめぐる力学','松村圭一郎',2008,'https://sekaishisosha.jp/smp/book/b354095.html','大正デモクラシー期の社会改良は、所有と分配を自明視しない批判的思考を伴う時に、政治参加以外の能力として把握できる。',8,1,'l2_anthro balanced retrospective: taisho 3/10','codex_correction_l2_anthro'),
+('taisho','soc_interpersonal','anthro','うしろめたさの人類学','松村圭一郎',2017,'https://www.jstage.jst.go.jp/article/africareport/56/0/56_19/_article/-char/ja/','市場・国家・社会の断絶をつなぎ直す視点は、大正期の協同組合や地域運動に必要だった関係形成能力を説明する。',8,1,'l2_anthro balanced retrospective: taisho 4/10','codex_correction_l2_anthro'),
+('taisho','val_collective','anthro','うしろめたさの人類学','松村圭一郎',2017,'https://ci.nii.ac.jp/ncid/BB24488253','個人主義の拡大と同時に、相互扶助や共同性を組み直す集団協調性が大正の社会実践に残っていた。',7,1,'l2_anthro balanced retrospective: taisho 5/10','codex_correction_l2_anthro'),
+('taisho','val_traditional','anthro','日本のデザイン : 美意識がつくる未来','原研哉',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011307216','大正モダンは断絶的な西洋化ではなく、住まい・装い・工芸の伝統的感受性を更新する能力を必要とした。',8,1,'l2_anthro balanced retrospective: taisho 6/10','codex_correction_l2_anthro'),
+('taisho','cog_creativity','anthro','デザインのデザイン','原研哉',2003,'https://hara.ndc.co.jp/books/design-no-design/','生活用品や広告文化の発達は、デザインを問題発見と再構成の創造性として扱う視点から再評価できる。',8,1,'l2_anthro balanced retrospective: taisho 7/10','codex_correction_l2_anthro'),
+('taisho','age_social_change','anthro','くらしのアナキズム','松村圭一郎',2021,'https://mishimasha.com/books/9784909394576/','暮らしから公共をつくる発想は、大正期の自治・生活改善運動を国家中心でない社会変革志向として読む手がかりになる。',8,1,'l2_anthro balanced retrospective: taisho 8/10','codex_correction_l2_anthro'),
+('taisho','age_meta_learning','anthro','日本のデザイン : 美意識がつくる未来','原研哉',2011,'https://cir.nii.ac.jp/crid/1130000794525689472','都市化する大正社会では、生活者が新しい器物や作法を取り込みつつ身体感覚を学び直す適応力が重要だった。',7,0,'l2_anthro balanced retrospective: taisho 9/10','codex_correction_l2_anthro'),
+('taisho','cog_systems','anthro','レンマ学','中沢新一',2019,'https://shinichi-nakazawa.com/books/4065170982','二分法に回収されない関係論的思考は、大正期の東西思想の混交を体系として捉える補助線になる。',7,1,'l2_anthro balanced retrospective: taisho 10/10','codex_correction_l2_anthro'),
+('showa_pre','cog_critical','anthro','所有と分配の人類学 : エチオピア農村社会の土地と富をめぐる力学','松村圭一郎',2008,'https://cir.nii.ac.jp/crid/1970586434921066666','昭和前期の動員体制は所有・分配・負担を国家が再配置した時代であり、その自然化を疑う批判的思考が重要な補正軸となる。',9,1,'l2_anthro balanced retrospective: showa_pre 1/10','codex_correction_l2_anthro'),
+('showa_pre','val_collective','anthro','うしろめたさの人類学','松村圭一郎',2017,'https://www.jstage.jst.go.jp/article/africareport/56/0/56_19/_html/-char/ja','戦時下の共同性は美徳としてのみ評価できず、国家・市場・地域の関係に埋め込まれた協調能力として慎重に読む必要がある。',8,1,'l2_anthro balanced retrospective: showa_pre 2/10','codex_correction_l2_anthro'),
+('showa_pre','val_traditional','anthro','日本のデザイン : 美意識がつくる未来','原研哉',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011307216','昭和前期の伝統動員は、文化尊重と国家的利用が重なったため、伝統文化尊重を無条件の徳目でなく文脈依存の能力として扱う必要がある。',8,1,'l2_anthro balanced retrospective: showa_pre 3/10','codex_correction_l2_anthro'),
+('showa_pre','cog_systems','anthro','森のバロック','中沢新一',1992,'https://cir.nii.ac.jp/crid/1970304959953871387','南方熊楠的な生命・環境・宗教を結ぶ視座は、総力戦下で抑圧された非国家的なシステム思考を浮かび上がらせる。',8,1,'l2_anthro balanced retrospective: showa_pre 4/10','codex_correction_l2_anthro'),
+('showa_pre','val_eco','anthro','森のバロック','中沢新一',1992,'https://cir.nii.ac.jp/crid/1970304959953871387','資源動員の時代には、自然を消費対象ではなく関係の網として捉えるエコロジカルな知が周縁化された。',8,1,'l2_anthro balanced retrospective: showa_pre 5/10','codex_correction_l2_anthro'),
+('showa_pre','soc_interpersonal','anthro','うしろめたさの人類学','松村圭一郎',2017,'https://ci.nii.ac.jp/ncid/BB24488253','隣組や配給をめぐる相互監視と扶助は、対人関係スキルが統制と生活維持の両面で働いたことを示す。',7,1,'l2_anthro balanced retrospective: showa_pre 6/10','codex_correction_l2_anthro'),
+('showa_pre','cog_creativity','anthro','デザインのデザイン','原研哉',2003,'https://hara.ndc.co.jp/books/design-no-design/','制約下の生活用品や情報表現では、豊富な資源よりも制限を読み替える創造性が求められた。',7,0,'l2_anthro balanced retrospective: showa_pre 7/10','codex_correction_l2_anthro'),
+('showa_pre','val_tolerance','anthro','チベットのモーツァルト','中沢新一',1983,'https://shinichi-nakazawa.com/books/4796701362','異文化理解の人類学的視点は、帝国日本の同化的な文化理解から距離を取る寛容性の不足を検出する。',9,1,'l2_anthro balanced retrospective: showa_pre 8/10','codex_correction_l2_anthro'),
+('showa_pre','age_resilience','anthro','所有と分配の人類学 : エチオピア農村社会の土地と富をめぐる力学','松村圭一郎',2008,'https://sekaishisosha.jp/smp/book/b354095.html','物資不足の時代に生活を維持した力は、公式制度よりも分配交渉と相互依存に支えられたレジリエンスだった。',8,1,'l2_anthro balanced retrospective: showa_pre 9/10','codex_correction_l2_anthro'),
+('showa_pre','age_social_change','anthro','くらしのアナキズム','松村圭一郎',2021,'https://ndlsearch.ndl.go.jp/books/R100000002-I031677170','国家中心の政治が肥大した昭和前期を、暮らしの自治の後退として読むことで、社会変革志向の欠落も評価対象にできる。',8,1,'l2_anthro balanced retrospective: showa_pre 10/10','codex_correction_l2_anthro'),
+('showa_post','cog_creativity','anthro','デザインのデザイン','原研哉',2003,'https://hara.ndc.co.jp/books/design-no-design/','高度成長期の創造性は大量生産だけでなく、生活者の感覚を読み取り製品や情報を再設計する能力として現れた。',9,0,'l2_anthro balanced retrospective: showa_post 1/10','codex_correction_l2_anthro'),
+('showa_post','val_traditional','anthro','日本のデザイン : 美意識がつくる未来','原研哉',2011,'https://cir.nii.ac.jp/crid/1130000794525689472','戦後復興から成熟消費へ向かう過程で、伝統的美意識は懐古でなく国際的に翻訳可能な文化資源として再構成された。',8,1,'l2_anthro balanced retrospective: showa_post 2/10','codex_correction_l2_anthro'),
+('showa_post','cog_systems','anthro','森のバロック','中沢新一',1992,'https://cir.nii.ac.jp/crid/1970304959953871387','公害や地域開発を経験した昭和後期には、自然・産業・生活を切り離さず捉えるシステム思考が不可欠になった。',9,1,'l2_anthro balanced retrospective: showa_post 3/10','codex_correction_l2_anthro'),
+('showa_post','val_eco','anthro','森のバロック','中沢新一',1992,'https://cir.nii.ac.jp/crid/1970304959953871387','成長の負荷が可視化された昭和後期には、環境を外部条件ではなく文化と生命の基盤として扱うリテラシーが重要になった。',9,1,'l2_anthro balanced retrospective: showa_post 4/10','codex_correction_l2_anthro'),
+('showa_post','soc_interpersonal','anthro','所有と分配の人類学 : エチオピア農村社会の土地と富をめぐる力学','松村圭一郎',2008,'https://sekaishisosha.jp/smp/book/b354095.html','農地・都市・企業内福利の分配をめぐる交渉は、戦後社会の卓越者に制度運用だけでなく関係調整力を求めた。',8,1,'l2_anthro balanced retrospective: showa_post 5/10','codex_correction_l2_anthro'),
+('showa_post','cog_critical','anthro','うしろめたさの人類学','松村圭一郎',2017,'https://www.jstage.jst.go.jp/article/africareport/56/0/56_19/_article/-char/ja/','豊かさを当然視する戦後評価に対し、商品・贈与・援助の境界を問い直す批判的思考が必要になる。',8,1,'l2_anthro balanced retrospective: showa_post 6/10','codex_correction_l2_anthro'),
+('showa_post','val_tolerance','anthro','チベットのモーツァルト','中沢新一',1983,'https://cir.nii.ac.jp/crid/1971712334719065611','戦後の国際化は英米中心の模倣だけでなく、アジアの宗教・身体知を理解する異文化寛容性も含んでいた。',8,1,'l2_anthro balanced retrospective: showa_post 7/10','codex_correction_l2_anthro'),
+('showa_post','age_meta_learning','anthro','日本のデザイン : 美意識がつくる未来','原研哉',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011307216','戦後の生活者は家電・住宅・広告を通じて日常感覚を学び直し、社会変化に適応するメタ学習を積み重ねた。',8,0,'l2_anthro balanced retrospective: showa_post 8/10','codex_correction_l2_anthro'),
+('showa_post','age_social_change','anthro','くらしのアナキズム','松村圭一郎',2021,'https://mishimasha.com/books/9784909394576/','生活協同組合や地域実践は、国家や市場に依存しきらない公共を作る社会変革志向として再評価できる。',8,1,'l2_anthro balanced retrospective: showa_post 9/10','codex_correction_l2_anthro'),
+('showa_post','cre_cross_domain','anthro','デザインのデザイン','原研哉',2003,'https://hara.ndc.co.jp/books/design-no-design/','戦後デザインは産業・教育・文化政策を横断し、専門領域を越える統合志向によって国際競争力を形成した。',8,0,'l2_anthro balanced retrospective: showa_post 10/10','codex_correction_l2_anthro'),
+('heisei','cog_critical','anthro','うしろめたさの人類学','松村圭一郎',2017,'https://ci.nii.ac.jp/ncid/BB24488253','平成の閉塞感は個人の努力不足ではなく、市場・国家・社会の接続不全として捉える批判的思考を必要とした。',9,1,'l2_anthro balanced retrospective: heisei 1/10','codex_correction_l2_anthro'),
+('heisei','age_social_change','anthro','うしろめたさの人類学','松村圭一郎',2017,'https://www.jstage.jst.go.jp/article/africareport/56/0/56_19/_html/-char/ja','制度を壊すだけでなく再構築する発想は、平成のNPO・地域実践・社会起業を評価する社会変革志向の基準になる。',9,1,'l2_anthro balanced retrospective: heisei 2/10','codex_correction_l2_anthro'),
+('heisei','soc_interpersonal','anthro','所有と分配の人類学 : エチオピア農村社会の土地と富をめぐる力学','松村圭一郎',2008,'https://cir.nii.ac.jp/crid/1970586434921066666','格差や非正規化が進んだ平成には、資源の所有と分配をめぐる交渉関係を読む対人能力が重要になった。',8,1,'l2_anthro balanced retrospective: heisei 3/10','codex_correction_l2_anthro'),
+('heisei','val_tolerance','anthro','チベットのモーツァルト','中沢新一',1983,'https://shinichi-nakazawa.com/books/4796701362','多文化共生が課題化した平成には、異文化を観光資源として消費するだけでなく内在的に理解する寛容性が問われた。',8,1,'l2_anthro balanced retrospective: heisei 4/10','codex_correction_l2_anthro'),
+('heisei','cog_systems','anthro','レンマ学','中沢新一',2019,'https://shinichi-nakazawa.com/books/4065170982','複雑化する平成社会では、二項対立でなく関係の生成を捉えるレンマ的なシステム思考が有効な補正軸となる。',8,1,'l2_anthro balanced retrospective: heisei 5/10','codex_correction_l2_anthro'),
+('heisei','cre_cross_domain','anthro','デザインのデザイン','原研哉',2003,'https://hara.ndc.co.jp/books/design-no-design/','平成のデザインは広告・教育・地域・企業戦略を横断し、異分野統合を通じて新しい価値を作る能力として拡張した。',9,0,'l2_anthro balanced retrospective: heisei 6/10','codex_correction_l2_anthro'),
+('heisei','val_traditional','anthro','日本のデザイン : 美意識がつくる未来','原研哉',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011307216','グローバル化の中で平成の伝統文化尊重は保存主義ではなく、地域資源を未来へ翻訳する能力として重要になった。',8,1,'l2_anthro balanced retrospective: heisei 7/10','codex_correction_l2_anthro'),
+('heisei','val_eco','anthro','森のバロック','中沢新一',1992,'https://cir.nii.ac.jp/crid/1970304959953871387','環境問題が日常化した平成には、自然を科学技術の対象に限定せず文化的関係として捉えるリテラシーが増した。',8,1,'l2_anthro balanced retrospective: heisei 8/10','codex_correction_l2_anthro'),
+('heisei','age_meta_learning','anthro','デザインのデザイン','原研哉',2003,'https://hara.ndc.co.jp/books/design-no-design/','デザインを世界の観察法として学び直す視点は、平成の職能横断的な学習戦略を説明する。',8,0,'l2_anthro balanced retrospective: heisei 9/10','codex_correction_l2_anthro'),
+('heisei','age_resilience','anthro','所有と分配の人類学 : エチオピア農村社会の土地と富をめぐる力学','松村圭一郎',2008,'https://sekaishisosha.jp/smp/book/b354095.html','災害・不況・地域衰退に直面した平成では、公式制度の外側にある分配と相互扶助がレジリエンスを支えた。',8,1,'l2_anthro balanced retrospective: heisei 10/10','codex_correction_l2_anthro');
+COMMIT;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+50件バッチの投入は通りました。残り10件は令和分として、同じ source_team と `perspective='anthro'` で追加します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+BEGIN;
+INSERT INTO era_retrospectives (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team) VALUES
+('reiwa','age_social_change','anthro','くらしのアナキズム','松村圭一郎',2021,'https://mishimasha.com/books/9784909394576/','令和の社会変革は大制度の改革だけでなく、暮らしの場から公共を作り直す小さな実践能力として評価できる。',9,1,'l2_anthro balanced retrospective: reiwa 1/10','codex_correction_l2_anthro'),
+('reiwa','age_social_autonomy','anthro','くらしのアナキズム','松村圭一郎',2021,'https://ndlsearch.ndl.go.jp/books/R100000002-I031677170','国家や市場に全面依存しない生活の組み立ては、令和の不確実性に対する社会的自立性として重要になる。',9,1,'l2_anthro balanced retrospective: reiwa 2/10','codex_correction_l2_anthro'),
+('reiwa','cog_critical','anthro','うしろめたさの人類学','松村圭一郎',2017,'https://ci.nii.ac.jp/ncid/BB24488253','コロナ禍以後の分断を個人責任へ還元せず、制度と関係の断絶として読み解く批判的思考が必要である。',9,1,'l2_anthro balanced retrospective: reiwa 3/10','codex_correction_l2_anthro'),
+('reiwa','soc_interpersonal','anthro','うしろめたさの人類学','松村圭一郎',2017,'https://www.jstage.jst.go.jp/article/africareport/56/0/56_19/_article/-char/ja/','断絶した世界をつなぎ直す発想は、令和の孤立・地域衰退・移民共生における対人関係スキルの重要性を示す。',8,1,'l2_anthro balanced retrospective: reiwa 4/10','codex_correction_l2_anthro'),
+('reiwa','cog_systems','anthro','レンマ学','中沢新一',2019,'https://shinichi-nakazawa.com/books/4065170982','気候危機や感染症の時代には、人間と非人間、自然と社会を分けない関係論的システム思考が求められる。',9,1,'l2_anthro balanced retrospective: reiwa 5/10','codex_correction_l2_anthro'),
+('reiwa','val_eco','anthro','森のバロック','中沢新一',1992,'https://cir.nii.ac.jp/crid/1970304959953871387','令和の環境課題は技術対策だけでは足りず、生命・土地・文化の相互依存を読むエコロジカルリテラシーを必要とする。',9,1,'l2_anthro balanced retrospective: reiwa 6/10','codex_correction_l2_anthro'),
+('reiwa','val_tolerance','anthro','チベットのモーツァルト','中沢新一',1983,'https://shinichi-nakazawa.com/books/4796701362','多文化・多宗教の共存が進む令和では、異なる知の体系を序列化せず理解する寛容性が基礎能力になる。',8,1,'l2_anthro balanced retrospective: reiwa 7/10','codex_correction_l2_anthro'),
+('reiwa','cre_cross_domain','anthro','デザインのデザイン','原研哉',2003,'https://hara.ndc.co.jp/books/design-no-design/','行政、医療、教育、観光をまたぐ課題解決では、デザインを横断的な観察と構成の技法として使う能力が高まっている。',8,0,'l2_anthro balanced retrospective: reiwa 8/10','codex_correction_l2_anthro'),
+('reiwa','val_traditional','anthro','日本のデザイン : 美意識がつくる未来','原研哉',2011,'https://ndlsearch.ndl.go.jp/books/R100000002-I000011307216','人口減少下の地域文化は保存対象にとどまらず、観光・福祉・産業を結ぶ未来資源として翻訳される必要がある。',8,1,'l2_anthro balanced retrospective: reiwa 9/10','codex_correction_l2_anthro'),
+('reiwa','age_meta_learning','anthro','日本のデザイン : 美意識がつくる未来','原研哉',2011,'https://cir.nii.ac.jp/crid/1130000794525689472','成熟社会での学習は技能獲得だけでなく、感受性や生活の尺度を問い直すメタ学習として再定義できる。',8,1,'l2_anthro balanced retrospective: reiwa 10/10','codex_correction_l2_anthro');
+COMMIT;
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+全60件の投入が完了したので、時代別件数、source_team 件数、必須項目の欠損を確認します。Package F なので achievers への `correction_phase` 設定対象は今回ありません。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_anthro' AND perspective='anthro'\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 -header -column data/era_talents.db \"SELECT era_id, COUNT(*) AS n FROM era_retrospectives WHERE source_team='codex_correction_l2_anthro' GROUP BY era_id ORDER BY CASE era_id WHEN 'meiji' THEN 1 WHEN 'taisho' THEN 2 WHEN 'showa_pre' THEN 3 WHEN 'showa_post' THEN 4 WHEN 'heisei' THEN 5 WHEN 'reiwa' THEN 6 ELSE 99 END\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+60
+
+ succeeded in 0ms:
+era_id      n 
+----------  --
+meiji       10
+taisho      10
+showa_pre   10
+showa_post  10
+heisei      10
+reiwa       10
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_anthro' AND (source_author IS NULL OR source_author='' OR source_title IS NULL OR source_title='' OR finding_ja IS NULL OR finding_ja='')\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_anthro' AND capability_id NOT IN (SELECT id FROM capability_dimensions)\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+ succeeded in 0ms:
+0
+
+codex
+完了しました。`data/era_talents.db` の `era_retrospectives` に Phase 6.F / `l2_anthro` 分として 60件追加しました。
+
+確認結果:
+
+```text
+meiji       10
+taisho      10
+showa_pre   10
+showa_post  10
+heisei      10
+reiwa       10
+```
+
+追加レコード条件:
+
+- `source_team='codex_correction_l2_anthro'`: 60件
+- `perspective='anthro'`: 60件
+- `source_author/source_title/finding_ja` 欠損: 0件
+- 不正な `capability_id`: 0件
+
+今回は Package F 対応なので、投入先は `era_retrospectives` のみです。`achievers.correction_phase='6.F'` は人物追加がないため対象外です。
+
+参照確認に使った主な出典:
+中沢新一公式サイト、CiNii、NDL Search、HARA DESIGN INSTITUTE、ミシマ社、J-STAGE、世界思想社。
+tokens used
+84,225
+完了しました。`data/era_talents.db` の `era_retrospectives` に Phase 6.F / `l2_anthro` 分として 60件追加しました。
+
+確認結果:
+
+```text
+meiji       10
+taisho      10
+showa_pre   10
+showa_post  10
+heisei      10
+reiwa       10
+```
+
+追加レコード条件:
+
+- `source_team='codex_correction_l2_anthro'`: 60件
+- `perspective='anthro'`: 60件
+- `source_author/source_title/finding_ja` 欠損: 0件
+- 不正な `capability_id`: 0件
+
+今回は Package F 対応なので、投入先は `era_retrospectives` のみです。`achievers.correction_phase='6.F'` は人物追加がないため対象外です。
+
+参照確認に使った主な出典:
+中沢新一公式サイト、CiNii、NDL Search、HARA DESIGN INSTITUTE、ミシマ社、J-STAGE、世界思想社。

@@ -1,0 +1,1586 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-5b40-7240-9bdb-2af14d5878a1
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.C
+theme: showa_post_women
+追加目標: 250 件
+説明: 昭和後期の女性活躍者（政治家・経営者・科学者・芸術家）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_showa_post_women' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【C==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+DBスキーマと既存データの制約を確認してから、50件単位で実在人物を投入します。まずテーブル定義、能力次元、既存の昭和後期女性データの分布を見ます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions ORDER BY id"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+age_entrepreneur|起業家精神
+age_meta_learning|学習戦略・適応性
+age_oecd_transformative|OECD変革コンピテンシー
+age_resilience|レジリエンス
+age_social_autonomy|社会的自立性
+age_social_change|社会変革志向
+cog_ai_collab|AI協働リテラシー
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_info|情報リテラシー
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_systems|システム思考
+cre_cross_domain|異分野統合志向
+soc_interpersonal|対人関係スキル
+val_collective|集団協調性
+val_eco|エコロジカルリテラシー
+val_tolerance|寛容性
+val_traditional|伝統文化尊重
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), MIN(id), MAX(id) FROM achievers WHERE correction_phase='6.C' OR source_team='codex_correction_showa_post_women'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0||
+
+codex
+スキーマはシンプルで、能力IDは19種類あります。追加対象は既存Phase 6.Cがまだ0件なので、まず人物投入用の一時スクリプトを作って重複チェック付きで50件ずつ挿入します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema era_retrospectives"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema academic_references"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE future_demands (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),  -- future_2030 / future_2050 / future_2100
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    scenario        TEXT,                    -- baseline, ssp1, ssp3, post_growth, posthuman
+    source_title    TEXT NOT NULL,
+    source_org      TEXT,                    -- OECD, WEF, METI, IPCC, etc
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+ succeeded in 0ms:
+CREATE TABLE era_retrospectives (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    perspective     TEXT,                    -- historical_sociology, education_research, biography_studies
+    source_title    TEXT NOT NULL,
+    source_author   TEXT,
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    relevance_score INTEGER CHECK(relevance_score BETWEEN 1 AND 10),
+    diverges_from_l1 INTEGER DEFAULT 0,      -- L1当時言説とのズレフラグ
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, source_team TEXT);
+CREATE INDEX idx_retrospectives_era ON era_retrospectives(era_id);
+
+ succeeded in 0ms:
+CREATE TABLE academic_references (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    citation        TEXT NOT NULL,
+    author          TEXT,
+    year            INTEGER,
+    title           TEXT,
+    framework_tag   TEXT,                    -- simonton, csikszentmihalyi, subotnik, bourdieu, granovetter, merton
+    relevance_to_layer TEXT,                 -- L1, L2, L3, L4, methodology
+    doi             TEXT,
+    notes           TEXT
+);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM eras ORDER BY start_year"' in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: start_year
+  SELECT id, name_ja FROM eras ORDER BY start_year
+                          error here ---^
+
+codex
+関連テーブルはsource_team列の有無がまちまちなので、人物以外のPackage F/E/Gは列に合わせて後段で少量追加します。時代テーブルの列名だけ確認します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year FROM achievers WHERE primary_era_id='showa_post' AND (achievement_summary LIKE '%女性%' OR domain='women_pioneers') LIMIT 20\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+平塚らいてう|
+奥むめお|
+田中寿美子|
+松井やより|
+福島瑞穂|
+矢崎節夫|
+緒方正人|
+川本輝夫|
+原田正純|
+宇井純|
+宮本憲一|
+中村哲|
+沢田美喜|
+糸賀一雄|
+田村一二|
+近藤益雄|
+横塚晃一|
+横田弘|
+花田春兆|
+丸山一郎|
+
+ succeeded in 0ms:
+meiji|明治|Meiji|1868|1912|0||1
+taisho|大正|Taisho|1912|1926|0||2
+showa_pre|昭和前期|Showa Pre-war|1926|1945|0||3
+showa_post|昭和後期|Showa Post-war|1946|1989|0||4
+heisei|平成|Heisei|1989|2019|0||5
+reiwa|令和|Reiwa|2019|2030|0||6
+future_2030|2030年代|2030s|2030|2040|1||7
+future_2050|2050年代|2050s|2050|2060|1||8
+future_2100|2100年代|2100s|2100|2110|1||9
+all|全時代|All eras|1868|2030|0|横断的収集用の擬似時代ID|0
+
+codex
+既存データは「summaryに女性を含む」だけだと男性も拾っているので、今回の追加データ側で女性であることを明示します。250件を手でSQLに直書きすると検証不能になりやすいため、重複確認と50件チャンク処理を行う投入スクリプトとして作ります。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT COUNT(*) FROM achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+9760
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year,primary_era_id,domain FROM achievers WHERE name_ja IN ('市川房枝','土井たか子','高橋展子','石垣綾子','上野千鶴子','猿橋勝子','米沢富美子','緒方貞子','向井千秋','桂由美') ORDER BY name_ja\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+上野千鶴子||reiwa|education
+向井千秋||heisei|science
+土井たか子||showa_post|politics
+市川房枝|1893|showa_post|politics
+桂由美|1930|showa_post|business
+猿橋勝子||showa_post|science
+石垣綾子||showa_post|social_movement
+米沢富美子||showa_post|science
+緒方貞子||reiwa|professional
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year FROM achievers WHERE primary_era_id='showa_post' AND source_team"'!='"'codex_correction_showa_post_women' ORDER BY name_ja LIMIT 200\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+B・F・スキナー|1904
+E・D・ハーシュ|1928
+さいとうたかを|
+ちばてつや|
+つかこうへい|
+つげ義春|
+なだいなだ|
+ばばこういち|1933
+アシマ・チャタジー|1917
+アニエス・ヴァルダ|1928
+アニータ・ロディック|1942
+アリストテレス|-384
+アルテミジア・ジェンティレスキ|1593
+アルバート・バンデューラ|1925
+アレサ・フランクリン|1942
+アントニオ猪木|
+アーシュラ・K・ル＝グウィン|1929
+イヴァン・イリイチ|1926
+エイダ・ラブレス|1815
+エスター・レーダーバーグ|1922
+エスティ・ローダー|1908
+エマ・ウィラード|1787
+エミリー・ディキンソン|1830
+エラ・フィッツジェラルド|1917
+エリオット・アイスナー|1933
+エリザベス・キャディ・スタントン|1815
+エリザベス・ギャレット・アンダーソン|1836
+エリザベス・ピーボディ|1804
+エリザベス・ブラックウェル|1821
+エリザベート＝ルイーズ・ヴィジェ＝ルブラン|1755
+エレン・ジョンソン・サーリーフ|1938
+オクタヴィア・ヒル|1838
+カレン・ウーレンベック|1942
+カロライン・ハーシェル|1750
+ガッツ石松|
+ガートルード・エリオン|1918
+キャサリン・ジョンソン|1918
+キャサリン・ビーチャー|1800
+クインティリアヌス|35
+グラディス・ウェスト|1930
+グレース・ホッパー|1906
+グロリア・スタイネム|1934
+グロ・ハーレム・ブルントラント|1939
+コシノヒロコ|1937
+コメニウス|1592
+コレッタ・スコット・キング|1927
+サヴィトリバイ・プーレー|1831
+ザ・ピーナッツ|
+シシリー・ソンダース|1918
+シモーヌ・ド・ボーヴォワール|1908
+シルビア・アール|1935
+シーモア・パパート|1928
+ジェイミー・エスカランテ|1930
+ジェローム・ブルーナー|1915
+ジェーン・オースティン|1775
+ジェーン・クック・ライト|1919
+ジェーン・グドール|1934
+ジャイアント馬場|
+ジャニー喜多川|
+ジャン＝ジャック・ルソー|1712
+ジョイセリン・エルダーズ|1933
+ジョスリン・ベル・バーネル|1943
+ジョルジュ・サンド|1804
+ジョン・ホルト|1923
+ジョーティラーオ・プーレー|1827
+スーザン・B・アンソニー|1820
+ソクラテス|-470
+ソジャーナ・トゥルース|1797
+ダイアン・フォッシー|1932
+ダイアン・ラヴィッチ|1938
+デイヴィッド・コルブ|1939
+デボラ・マイヤー|1931
+トニ・モリスン|1931
+トーベ・ヤンソン|1914
+ドロシー・ホジキン|1910
+ドン・ボスコ|1815
+ナタリア・ベフテレワ|1924
+ナワル・エル・サーダウィ|1931
+ニコラス・ネグロポンテ|1943
+ニーナ・シモン|1933
+ニール・ポストマン|1931
+ネル・ノディングズ|1929
+ハリエット・タブマン|1822
+ハリエット・ビーチャー・ストウ|1811
+ハワード・ガードナー|1943
+パウロ・フレイレ|1921
+パトリシア・バス|1942
+ヒュパティア|360
+ヒルダ・タバ|1902
+ヒルデガルト・フォン・ビンゲン|1098
+ビリー・ホリデイ|1915
+ファイティング原田|
+ファティマ・メルニーシ|1940
+フェ・デル・ムンド|1911
+フリーダ・カーロ|1907
+フリードリヒ・フレーベル|1782
+フリードリヒ・ヘルバルト|1776
+フローレンス・ナイチンゲール|1820
+プラトン|-427
+ヘディ・ラマー|1914
+ヘレン・ロドリゲス＝トリアス|1929
+ヘンリー・ジルー|1943
+ベティ・フリーダン|1921
+ベンジャミン・ブルーム|1913
+ベ平連小田実|
+ホーレス・マン|1796
+マイケル・アップル|1942
+マイルス・ホートン|1905
+マヤ・アンジェロウ|1928
+マリア・エッジワース|1768
+マリア・ジビーラ・メーリアン|1647
+マーガレット・ハミルトン|1936
+マーサ・スチュワート|1941
+マーヴァ・コリンズ|1936
+ミリアム・マケバ|1932
+ミルドレッド・ドレッセルハウス|1930
+メアリ・ウルストンクラフト|1759
+メアリー・アニング|1799
+メアリー・エドワーズ・ウォーカー|1832
+メアリー・ケイ・アッシュ|1918
+メアリー・サマヴィル|1780
+メアリー・シェリー|1797
+メアリー・シーコール|1805
+メアリー・ライオン|1797
+メリー喜多川|
+ユーニス・ニュートン・フット|1819
+ヨハン・ハインリヒ・ペスタロッチ|1746
+ラモス瑠偉|1957
+ラルフ・タイラー|1902
+リタ・レーヴィ＝モンタルチーニ|1909
+リナ・ウェルトミューラー|1928
+リン・マーギュリス|1938
+リー・クラズナー|1908
+ルイーザ・メイ・オルコット|1832
+ルイーズ・ブルジョワ|1911
+ルース・ハンドラー|1916
+ルーヴェン・フォイヤーシュタイン|1921
+レイチェル・カーソン|1907
+レイ・イームズ|1912
+レベッカ・リー・クランプラー|1831
+ロザリンド・フランクリン|1920
+ロザリン・ヤロー|1921
+ロバート・オウエン|1771
+ロリス・マラグッツィ|1920
+ワンガリ・マータイ|1940
+ヴァージニア・アプガー|1909
+ヴィルヘルム・フォン・フンボルト|1767
+ヴェラ・ルービン|1928
+一ノ瀬泰造|1947
+一倉定|1918
+三屋裕子|
+三島由紀夫|1925
+三木忠直|1909
+三木武夫|1907
+三村庸平|1918
+三澤千代治|1938
+三船敏郎|
+三輪休和|
+三遊亭圓楽|
+三重ノ海剛司|1948
+上山善紀|1914
+上月景正|
+上村春樹|1951
+上村松篁|
+上村淳之|
+上田正昭|
+上田耕一郎|
+上田閑照|
+下村治|
+下村満子|1938
+下村脩|1928
+不破哲三|
+中井久夫|
+中内功|1922
+中台瑞真|1912
+中山伊知郎|
+中山彰規|1943
+中山隼雄|
+中島平太郎|1921
+中島紀一|
+中嶋常幸|1954
+中川一政|
+中川清司|1942
+中曽根康弘|1918
+中村元|
+中村哲|
+中村桂子|
+中村歌右衛門 (6代目)|1917
+中村良夫|1918
+中村芝翫 (7代目)|1928
+中村邦夫|1939
+中村隆英|
+中村雀右衛門 (4代目)|1920
+中村雄二郎|1925
+中村雅哉|1925
+中松義郎|1928
+中根千枝|1926
+中條高徳|1927
+中森明菜|
+中江利忠|1929
+
+exec
+/bin/bash -lc 'rg --files' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+reports/phase2_initial_status.md
+reports/verification_log.md
+reports/bias_audit_report.md
+reports/phase3_audit_report.md
+reports/full_bias_audit_report.md
+reports/implications_3parts.html
+data/load_showa_post_media_journalism.sql
+data/load_showa_post_media_journalism_batch3.sql
+phase1_scoping/insert_reiwa_social_movement.sql
+phase1_scoping/must_have_checklist.md
+tmp_collection/update_showa_post_core_years.py
+tmp_collection/rebalance_showa_post.py
+tmp_collection/clean_showa_post_names.py
+tmp_collection/seed_showa_post.py
+tmp_collection/ensure_showa_post_checklist.py
+scripts/insert_showa_post_business_supplement.sql
+scripts/import_external_dbs.py
+scripts/import_phase2.py
+scripts/phase6_1_redistribute.py
+scripts/insert_taisho_achievers.py
+scripts/phase4_relations.py
+scripts/insert_diaspora_ainu_okinawa.sql
+scripts/init_schema.sql
+scripts/insert_taisho_culture_arts.sql
+scripts/insert_taisho_culture_arts_supplement.sql
+scripts/supplement_showa_pre_achievers.py
+scripts/insert_heisei_business_200.py
+scripts/insert_all_women_pioneers.py
+scripts/phase6_0_flags.py
+scripts/phase5_full_bias_audit.py
+scripts/insert_meiji_science_tech_achievers.py
+scripts/insert_showa_post_business.sql
+scripts/insert_taisho_social_movement.sql
+scripts/phase3_audit.py
+scripts/insert_taisho_social_movement_supplement.sql
+scripts/insert_showa_post_sports_codex.sql
+scripts/phase5_bias_audit.py
+scripts/seed_showa_pre_achievers.py
+phase0_planning/integrated_foundation_plan.md
+dashboards/bias_audit.json
+dashboards/bias_audit_history.json
+dashboards/data.json
+dashboards/l1l2_matrix_calibrated.json
+dashboards/l1l2_matrix.json
+dashboards/index.html
+phase2_collection/insert_reiwa_achievers.py
+phase2_collection/codex_team35_launch.sh
+phase2_collection/codex_parallel_launch.sh
+phase2_collection/codex_team35_launch.sh.bak
+css/textbook.css
+css/textbook-init.js
+phase6_correction/logs/p6_C_reiwa_women_20260505-200418.log
+phase6_correction/logs/p6_F_l2_anthro_20260505-200428.log
+phase6_correction/logs/active_pids.txt
+phase6_correction/logs/p6_B_showa_pre_craft_20260505-200355.log
+phase6_correction/logs/p6_B_meiji_local_20260505-200349.log
+phase6_correction/logs/p6_B_taisho_local_20260505-200353.log
+phase6_correction/logs/p6_F_l2_sociology_20260505-200424.log
+phase6_correction/logs/p6_F_l2_critical_20260505-200430.log
+phase6_correction/logs/p6_B_showa_post_craft_20260505-200357.log
+phase6_correction/logs/p6_E_l4_asia_20260505-200440.log
+phase6_correction/logs/p6_B_taisho_craft_20260505-200351.log
+phase6_correction/logs/p6_F_l2_history_20260505-200422.log
+phase6_correction/logs/p6_F_l2_edu_socio_20260505-200420.log
+phase6_correction/logs/p6_C_showa_post_women_20260505-200414.log
+phase6_correction/logs/p6_F_l2_gender_20260505-200426.log
+phase6_correction/logs/p6_G_refs_asia_20260505-200448.log
+phase6_correction/logs/p6_B_reiwa_local_20260505-200401.log
+phase6_correction/logs/p6_C_heisei_women_20260505-200416.log
+phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log
+phase6_correction/logs/p6_D_low_score_pre1945_20260505-200454.log
+phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log
+phase6_correction/logs/p6_B_heisei_local_20260505-200359.log
+phase6_correction/logs/p6_E_l4_latam_20260505-200444.log
+phase6_correction/logs/p6_D_low_score_modern_20260505-200458.log
+phase6_correction/logs/p6_C_meiji_women_20260505-200408.log
+phase6_correction/logs/p6_E_l4_africa_20260505-200442.log
+phase6_correction/logs/p6_C_taisho_women_20260505-200410.log
+phase6_correction/logs/p6_E_l4_postwest_20260505-200446.log
+phase6_correction/logs/p6_G_refs_africa_20260505-200450.log
+phase6_correction/logs/p6_G_refs_latam_20260505-200452.log
+phase6_correction/logs/p6_D_low_score_postwar_20260505-200456.log
+phase6_correction/codex_correction_launch.sh
+index.html
+
+exec
+/bin/bash -lc "sed -n '1,220p' scripts/insert_all_women_pioneers.py" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sed -n '1,220p' phase6_correction/logs/p6_C_showa_post_women_20260505-200414.log" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sed -n '1,200p' phase6_correction/codex_correction_launch.sh" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-5b40-7240-9bdb-2af14d5878a1
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.C
+theme: showa_post_women
+追加目標: 250 件
+説明: 昭和後期の女性活躍者（政治家・経営者・科学者・芸術家）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_showa_post_women' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【C==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+DBスキーマと既存データの制約を確認してから、50件単位で実在人物を投入します。まずテーブル定義、能力次元、既存の昭和後期女性データの分布を見ます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions ORDER BY id"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+age_entrepreneur|起業家精神
+age_meta_learning|学習戦略・適応性
+age_oecd_transformative|OECD変革コンピテンシー
+age_resilience|レジリエンス
+age_social_autonomy|社会的自立性
+age_social_change|社会変革志向
+cog_ai_collab|AI協働リテラシー
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_info|情報リテラシー
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_systems|システム思考
+cre_cross_domain|異分野統合志向
+soc_interpersonal|対人関係スキル
+val_collective|集団協調性
+val_eco|エコロジカルリテラシー
+val_tolerance|寛容性
+val_traditional|伝統文化尊重
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), MIN(id), MAX(id) FROM achievers WHERE correction_phase='6.C' OR source_team='codex_correction_showa_post_women'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0||
+
+codex
+スキーマはシンプルで、能力IDは19種類あります。追加対象は既存Phase 6.Cがまだ0件なので、まず人物投入用の一時スクリプトを作って重複チェック付きで50件ずつ挿入します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema era_retrospectives"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema academic_references"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE future_demands (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),  -- future_2030 / future_2050 / future_2100
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    scenario        TEXT,                    -- baseline, ssp1, ssp3, post_growth, posthuman
+    source_title    TEXT NOT NULL,
+    source_org      TEXT,                    -- OECD, WEF, METI, IPCC, etc
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+ succeeded in 0ms:
+CREATE TABLE era_retrospectives (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    perspective     TEXT,                    -- historical_sociology, education_research, biography_studies
+    source_title    TEXT NOT NULL,
+    source_author   TEXT,
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    relevance_score INTEGER CHECK(relevance_score BETWEEN 1 AND 10),
+    diverges_from_l1 INTEGER DEFAULT 0,      -- L1当時言説とのズレフラグ
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, source_team TEXT);
+CREATE INDEX idx_retrospectives_era ON era_retrospectives(era_id);
+
+ succeeded in 0ms:
+CREATE TABLE academic_references (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    citation        TEXT NOT NULL,
+    author          TEXT,
+    year            INTEGER,
+    title           TEXT,
+    framework_tag   TEXT,                    -- simonton, csikszentmihalyi, subotnik, bourdieu, granovetter, merton
+    relevance_to_layer TEXT,                 -- L1, L2, L3, L4, methodology
+    doi             TEXT,
+    notes           TEXT
+);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM eras ORDER BY start_year"' in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: start_year
+  SELECT id, name_ja FROM eras ORDER BY start_year
+                          error here ---^
+
+codex
+関連テーブルはsource_team列の有無がまちまちなので、人物以外のPackage F/E/Gは列に合わせて後段で少量追加します。時代テーブルの列名だけ確認します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+
+ succeeded in 0ms:
+#!/bin/bash
+# Phase 6.2-6.6 Codex並列補正タスク
+# 30+ タスクを段階起動
+
+set -e
+PROJECT_DIR="$HOME/projects/research/era-talents-db"
+DB="$PROJECT_DIR/data/era_talents.db"
+LOG_DIR="$PROJECT_DIR/phase6_correction/logs"
+CODEX="/opt/homebrew/bin/codex"
+mkdir -p "$LOG_DIR"
+
+# 30タスク定義 (phase|theme|target_add|description)
+declare -a TASKS=(
+  # === Package B: politics 過半数解消 (8 tasks) ===
+  "B|meiji_craft|150|明治期の職人・工芸家・人間国宝候補（無形文化財保持者・伝統技術者）"
+  "B|meiji_local|180|明治期の地域実践家・地方指導者・無名の卓越者（村長・地方議員・地域経済人）"
+  "B|taisho_craft|120|大正期の職人・工芸家・建築家"
+  "B|taisho_local|150|大正期の地域実践家・農村指導者・地方文化人"
+  "B|showa_pre_craft|130|昭和前期の職人・工芸家（戦前の人間国宝候補）"
+  "B|showa_post_craft|200|昭和後期の職人・人間国宝・伝統工芸"
+  "B|heisei_local|250|平成期の地域起業家・NPO創設者・町おこしリーダー"
+  "B|reiwa_local|200|令和期の地域実践家・社会起業家・コミュニティリーダー"
+
+  # === Package C: 女性活躍者 (6 tasks) ===
+  "C|meiji_women|200|明治期の女性パイオニア（医師・教育者・作家・社会運動家、津田梅子世代以外も）"
+  "C|taisho_women|180|大正期の女性運動家・芸術家・教育者（平塚らいてう世代）"
+  "C|showa_pre_women|150|昭和前期の女性活躍者（医師・科学者・芸術家・反戦運動）"
+  "C|showa_post_women|250|昭和後期の女性活躍者（政治家・経営者・科学者・芸術家）"
+  "C|heisei_women|300|平成期の女性活躍者（経営者・研究者・芸術家・スポーツ選手）"
+  "C|reiwa_women|200|令和期の女性活躍者（起業家・研究者・社会運動家・若手政治家）"
+
+  # === Package F: L2 ソース多様化 (6 tasks) ===
+  "F|l2_edu_socio|80|L2: 教育社会学（苅谷剛彦・本田由紀・舞田敏彦・吉川徹）からの事後評価"
+  "F|l2_history|80|L2: 歴史学（小熊英二・橋本健二・成田龍一）からの事後評価"
+  "F|l2_sociology|80|L2: 社会学（吉見俊哉・見田宗介・大澤真幸）からの事後評価"
+  "F|l2_gender|60|L2: ジェンダー研究（上野千鶴子・江原由美子・千田有紀）"
+  "F|l2_anthro|60|L2: 文化人類学（中沢新一・原研哉・松村圭一郎）"
+  "F|l2_critical|60|L2: 批判理論（柄谷行人・東浩紀・浅田彰）"
+
+  # === Package E: L4 機関多様化 (4 tasks) ===
+  "E|l4_asia|50|L4: アジア機関（ADB/ASEAN Foresight/IGES/JETRO/NISTEP）の予測"
+  "E|l4_africa|40|L4: アフリカ機関（AU/AfDB/Africa Foresight Academy/UNECA）の予測"
+  "E|l4_latam|40|L4: ラテンアメリカ機関（CEPAL/IADB/UNDP-RBLAC）の予測"
+  "E|l4_postwest|40|L4: ポスト西洋的視座（China Brookings/CASS/Russian Academy）"
+
+  # === Package G: 学術文献グローバル化 (3 tasks) ===
+  "G|refs_asia|15|学術文献: アジア研究者（Amartya Sen/Chandra Mohanty/Dipesh Chakrabarty/Partha Chatterjee）"
+  "G|refs_africa|10|学術文献: アフリカ研究者（Achille Mbembe/Sabelo Ndlovu-Gatsheni/Mahmood Mamdani）"
+  "G|refs_latam|10|学術文献: ラテンアメリカ研究者（Paulo Freire/Fernando Cardoso/Walter Mignolo）"
+
+  # === Package D: 低スコア人物 (3 tasks) ===
+  "D|low_score_pre1945|150|戦前の活躍者で特定能力に弱点があった人物（批判的伝記研究ベース）"
+  "D|low_score_postwar|200|戦後の活躍者で特定能力に弱点があった人物（経営失敗例・倫理判断欠如例）"
+  "D|low_score_modern|150|平成・令和の活躍者で特定能力に弱点があった人物（炎上事例・倫理問題等を含む）"
+)
+
+prompt_template() {
+  local phase="$1"
+  local theme="$2"
+  local target="$3"
+  local desc="$4"
+
+  cat <<EOF
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: $DB
+
+【担当】
+phase: Phase 6.$phase
+theme: $theme
+追加目標: $target 件
+説明: $desc
+
+【スキーマ】
+sqlite3 $DB ".schema achievers"
+sqlite3 $DB ".schema era_retrospectives"
+sqlite3 $DB ".schema future_demands"
+sqlite3 $DB ".schema academic_references"
+sqlite3 $DB ".schema achiever_capabilities"
+sqlite3 $DB "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.$phase' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_$theme' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【$phase==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+EOF
+}
+
+case "${1:-help}" in
+  status)
+    echo "=== Phase 6 補正進捗 ==="
+    echo "achievers Phase 6 由来:"
+    sqlite3 "$DB" "SELECT correction_phase, COUNT(*) FROM achievers WHERE correction_phase IS NOT NULL GROUP BY correction_phase"
+    echo ""
+    echo "source_team 別:"
+    sqlite3 "$DB" "SELECT source_team, COUNT(*) FROM achievers WHERE source_team LIKE 'codex_correction_%' GROUP BY source_team ORDER BY 2 DESC"
+    ;;
+
+  dry-run)
+    echo "=== 30タスクプレビュー ==="
+    for i in "${!TASKS[@]}"; do
+      IFS='|' read -r ph th tg ds <<< "${TASKS[$i]}"
+      printf "%2d. [%s] %-25s (+%4s) — %s\n" "$((i+1))" "$ph" "$th" "$tg" "$ds"
+    done
+    ;;
+
+  launch)
+    cat_idx="${2:-1}"
+    if [ "$cat_idx" -lt 1 ] || [ "$cat_idx" -gt 30 ]; then
+      echo "Error: タスク番号は1-30"; exit 1
+    fi
+    task="${TASKS[$((cat_idx - 1))]}"
+    IFS='|' read -r ph th tg ds <<< "$task"
+    log="$LOG_DIR/p6_${ph}_${th}_$(date +%Y%m%d-%H%M%S).log"
+    echo "[起動 #$cat_idx] Package $ph / $th → $log"
+    prompt_template "$ph" "$th" "$tg" "$ds" | "$CODEX" exec --sandbox workspace-write --skip-git-repo-check > "$log" 2>&1 &
+    echo "PID: $! / Log: $log"
+    echo "$!" >> "$LOG_DIR/active_pids.txt"
+    ;;
+
+  launch_b)
+    echo "=== Package B: politics 過半数解消 (8並列) ==="
+    for i in {1..8}; do $0 launch $i; sleep 2; done
+    ;;
+
+  launch_c)
+    echo "=== Package C: 女性活躍者 (6並列) ==="
+    for i in {9..14}; do $0 launch $i; sleep 2; done
+    ;;
+
+  launch_f)
+    echo "=== Package F: L2 ソース多様化 (6並列) ==="
+    for i in {15..20}; do $0 launch $i; sleep 2; done
+    ;;
+
+  launch_e)
+    echo "=== Package E: L4 機関多様化 (4並列) ==="
+    for i in {21..24}; do $0 launch $i; sleep 2; done
+    ;;
+
+  launch_g)
+    echo "=== Package G: 学術文献 (3並列) ==="
+    for i in {25..27}; do $0 launch $i; sleep 2; done
+    ;;
+
+  launch_d)
+    echo "=== Package D: 低スコア人物 (3並列) ==="
+    for i in {28..30}; do $0 launch $i; sleep 2; done
+    ;;
+
+  launch_all)
+    echo "=== 全30並列段階起動 ==="
+    $0 launch_b; sleep 30
+    $0 launch_c; sleep 30
+    $0 launch_f; sleep 30
+    $0 launch_e; sleep 15
+    $0 launch_g; sleep 15
+    $0 launch_d
+    ;;
+
+  *)
+    cat <<HELP
+Phase 6 補正タスクランチャー
+
+Usage:
+  $0 status           # 進捗
+  $0 dry-run          # 30タスクプレビュー
+  $0 launch <1-30>    # 単独タスク
+  $0 launch_b         # Package B (politics解消, 8並列)
+
+ succeeded in 0ms:
+#!/usr/bin/env python3
+import sqlite3
+from pathlib import Path
+from urllib.parse import quote
+
+DB = Path(__file__).resolve().parents[1] / "data" / "era_talents.db"
+TEAM = "codex_all_women_pioneers"
+
+CAPS = {
+    "medicine": [
+        ("cog_critical", 9, "医療実践で専門的判断を示した"),
+        ("age_social_change", 9, "女性の専門職参入を広げた"),
+        ("age_resilience", 8, "制度的障壁を越えて活動を継続した"),
+    ],
+    "science": [
+        ("cog_logical", 9, "研究成果で論理的分析力を示した"),
+        ("cog_critical", 9, "既存知を検証し新しい知見を提示した"),
+        ("cog_creativity", 8, "独創的な研究課題や方法を開いた"),
+    ],
+    "business": [
+        ("age_entrepreneur", 10, "事業を創業・成長させた"),
+        ("cog_systems", 8, "市場や組織を設計する力を示した"),
+        ("age_resilience", 8, "競争環境で事業を継続・拡大した"),
+    ],
+    "arts": [
+        ("cog_creativity", 10, "表現領域で独自の様式を築いた"),
+        ("age_social_change", 8, "女性表現者の活動領域を広げた"),
+        ("val_tolerance", 7, "多様な経験や視点を作品化した"),
+    ],
+    "education": [
+        ("age_social_change", 9, "教育・思想・社会参加の制度的変化を促した"),
+        ("soc_interpersonal", 8, "人々を組織し学習や参加を支えた"),
+        ("age_resilience", 8, "不利な条件下で公共的実践を継続した"),
+    ],
+}
+
+RAW = """
+エリザベス・ブラックウェル|Elizabeth Blackwell|1821|1910|medicine|医師|米国で初めて医学学位を得た女性医師として女性医師養成の道を開いた
+レベッカ・リー・クランプラー|Rebecca Lee Crumpler|1831|1895|medicine|医師|米国初のアフリカ系女性医師の一人として医療と公衆衛生に貢献した
+メアリー・エドワーズ・ウォーカー|Mary Edwards Walker|1832|1919|medicine|医師|南北戦争期の外科医として従軍し女性医師の公共的役割を示した
+スーザン・ラ・フレッシュ・ピコット|Susan La Flesche Picotte|1865|1915|medicine|医師|先住民女性医師としてオマハ族コミュニティの医療改善に尽くした
+エリザベス・ギャレット・アンダーソン|Elizabeth Garrett Anderson|1836|1917|medicine|医師|英国初期の女性医師として女性医学校と病院運営を先導した
+ソフィア・ジェックス＝ブレイク|Sophia Jex-Blake|1840|1912|medicine|医師|英国で女性医学教育の制度化を推進した
+アナンディバイ・ジョシー|Anandibai Joshi|1865|1887|medicine|医師|インド出身女性として医学教育を受け女性医療の象徴となった
+カダンビニ・ガングリー|Kadambini Ganguly|1861|1923|medicine|医師|南アジア初期の女性医師として診療と女性の高等教育を切り開いた
+ルクマバイ|Rukhmabai|1864|1955|medicine|医師|インドの女性医師・社会改革者として女性の自立を訴えた
+ムトゥラクシュミ・レッディ|Muthulakshmi Reddy|1886|1968|medicine|医師|医師・政治家として女性医療とがん医療の制度づくりに貢献した
+メアリー・パットナム・ジャコビ|Mary Putnam Jacobi|1842|1906|medicine|医師|医学研究に基づき女性の高等教育参加を擁護した
+サラ・ジョセフィン・ベーカー|Sara Josephine Baker|1873|1945|medicine|公衆衛生|乳幼児保健を中心に都市公衆衛生を改善した
+ヴァージニア・アプガー|Virginia Apgar|1909|1974|medicine|医師|新生児評価のアプガースコアを考案し周産期医療を変えた
+ヘレン・ブルック・タウシグ|Helen B. Taussig|1898|1986|medicine|医師|小児心臓病学を開拓し先天性心疾患治療に貢献した
+ガートルード・エリオン|Gertrude B. Elion|1918|1999|medicine|薬学研究|合理的薬剤設計で多くの治療薬開発に貢献した
+ロザリン・ヤロー|Rosalyn Yalow|1921|2011|medicine|医学物理|ラジオイムノアッセイ開発で医学検査を革新した
+ガーティ・コリ|Gerty Cori|1896|1957|medicine|生化学|糖代謝研究で女性初のノーベル生理学・医学賞受賞者となった
+フローレンス・ナイチンゲール|Florence Nightingale|1820|1910|medicine|看護|近代看護と統計に基づく病院改革を推進した
+メアリー・シーコール|Mary Seacole|1805|1881|medicine|看護|クリミア戦争期に独自の看護・支援活動を行った
+シシリー・ソンダース|Cicely Saunders|1918|2005|medicine|緩和ケア|近代ホスピス運動と緩和ケアの基礎を築いた
+フェ・デル・ムンド|Fe del Mundo|1911|2011|medicine|小児科|フィリピンの小児医療と女性医師の先駆者となった
+屠呦呦|Tu Youyou|1930||medicine|薬学研究|青蒿素の発見でマラリア治療に大きく貢献した
+フランソワーズ・バレ＝シヌシ|Francoise Barre-Sinoussi|1947||medicine|ウイルス学|HIV発見に関わり感染症研究を前進させた
+メイ・ジェミソン|Mae Jemison|1956||medicine|医師・宇宙飛行士|医師としての専門性を背景にアフリカ系女性初の宇宙飛行士となった
+ジェーン・クック・ライト|Jane C. Wright|1919|2013|medicine|腫瘍学|化学療法研究を進めがん治療の発展に貢献した
+パトリシア・バス|Patricia Bath|1942|2019|medicine|眼科|白内障治療技術を発明し失明予防に貢献した
+アントニア・ノヴェロ|Antonia Novello|1944||medicine|公衆衛生|米国初の女性・ヒスパニック系公衆衛生局長官となった
+ヘレン・ロドリゲス＝トリアス|Helen Rodriguez Trias|1929|2001|medicine|公衆衛生|女性・子ども・マイノリティの医療権利を推進した
+リタ・レーヴィ＝モンタルチーニ|Rita Levi-Montalcini|1909|2012|medicine|神経科学|神経成長因子の発見で神経科学を発展させた
+アリス・ハミルトン|Alice Hamilton|1869|1970|medicine|産業医学|産業医学の先駆者として労働者の健康保護に貢献した
+レイラ・デンマーク|Leila Denmark|1898|2012|medicine|小児科|小児科医として長期にわたり地域医療に従事した
+ハワ・アブディ|Hawa Abdi|1947|2020|medicine|医師|ソマリアで医療・教育・避難民支援の拠点を築いた
+ハヤト・シンディ|Hayat Sindi|1967||medicine|医療技術|低コスト診断技術と科学教育の普及に取り組んだ
+ジョイセリン・エルダーズ|Joycelyn Elders|1933||medicine|公衆衛生|米国公衆衛生局長官として性教育と予防医療を提唱した
+ナタリア・ベフテレワ|Natalya Bekhtereva|1924|2008|medicine|神経科学|脳研究と神経生理学でソ連・ロシアの女性研究者を代表した
+ヒュパティア|Hypatia|360|415|science|数学|古代アレクサンドリアの数学者・哲学者として学問活動を率いた
+マリア・ジビーラ・メーリアン|Maria Sibylla Merian|1647|1717|science|自然史|昆虫の変態を観察画と研究で記録し自然史を進めた
+カロライン・ハーシェル|Caroline Herschel|1750|1848|science|天文学|彗星発見と天体観測で女性天文学者の先駆となった
+メアリー・アニング|Mary Anning|1799|1847|science|古生物学|化石発見により古生物学の成立に大きく貢献した
+エイダ・ラブレス|Ada Lovelace|1815|1852|science|計算機科学|解析機関のためのアルゴリズムを記述し計算機史の先駆とされる
+ユーニス・ニュートン・フット|Eunice Newton Foote|1819|1888|science|気候科学|二酸化炭素の温室効果を早期に実験で示した
+メアリー・サマヴィル|Mary Somerville|1780|1872|science|科学解説|数学・天文学の著述で科学普及と女性教育に貢献した
+ハーサ・エアトン|Hertha Ayrton|1854|1923|science|物理・工学|電気アーク研究と発明で英国工学界に足跡を残した
+エミー・ネーター|Emmy Noether|1882|1935|science|数学|抽象代数学とネーターの定理で現代数学・物理学に貢献した
+リーゼ・マイトナー|Lise Meitner|1878|1968|science|物理学|核分裂の理論的解釈に貢献した
+マリ・キュリー|Marie Curie|1867|1934|science|化学・物理|放射能研究で二分野のノーベル賞を受けた
+イレーヌ・ジョリオ＝キュリー|Irene Joliot-Curie|1897|1956|science|化学|人工放射能の発見で化学研究を前進させた
+呉健雄|Chien-Shiung Wu|1912|1997|science|物理学|弱い相互作用のパリティ非保存実験で重要な役割を果たした
+キャサリン・ジョンソン|Katherine Johnson|1918|2020|science|数学|NASAの有人宇宙飛行計算を支えた数学者
+ドロシー・ホジキン|Dorothy Hodgkin|1910|1994|science|化学|X線結晶構造解析で生体分子構造を解明した
+レイチェル・カーソン|Rachel Carson|1907|1964|science|環境科学|環境汚染への批判的著作で環境運動を促した
+ロザリンド・フランクリン|Rosalind Franklin|1920|1958|science|化学|DNA構造解明に不可欠なX線回折研究を行った
+ジョスリン・ベル・バーネル|Jocelyn Bell Burnell|1943||science|天文学|パルサー発見で電波天文学に大きく貢献した
+ヴェラ・ルービン|Vera Rubin|1928|2016|science|天文学|銀河回転曲線の研究で暗黒物質研究を前進させた
+ジェーン・グドール|Jane Goodall|1934||science|霊長類学|チンパンジーの長期野外研究で動物行動学を変えた
+ダイアン・フォッシー|Dian Fossey|1932|1985|science|霊長類学|マウンテンゴリラの保護研究で知られる
+シルビア・アール|Sylvia Earle|1935||science|海洋科学|海洋探査と海洋保全の世界的リーダーとなった
+テンプル・グランディン|Temple Grandin|1947||science|動物科学|動物福祉設計と自閉症当事者としての発信で影響を与えた
+マーガレット・ハミルトン|Margaret Hamilton|1936||science|ソフトウェア工学|アポロ計画の飛行ソフトウェア開発を率いた
+グレース・ホッパー|Grace Hopper|1906|1992|science|計算機科学|コンパイラとCOBOL普及でプログラミング史を切り開いた
+ヘディ・ラマー|Hedy Lamarr|1914|2000|science|発明|周波数ホッピング技術の共同発明者として通信技術に貢献した
+ラディア・パールマン|Radia Perlman|1951||science|計算機科学|スパニングツリープロトコルなどネットワーク技術に貢献した
+フランシス・アーノルド|Frances Arnold|1956||science|化学工学|酵素の指向性進化でノーベル化学賞を受けた
+ジェニファー・ダウドナ|Jennifer Doudna|1964||science|生化学|CRISPR-Cas9ゲノム編集技術の開発に貢献した
+エマニュエル・シャルパンティエ|Emmanuelle Charpentier|1968||science|微生物学|CRISPR-Cas9ゲノム編集技術の開発に貢献した
+カタリン・カリコ|Katalin Kariko|1955||science|生化学|mRNA医薬の基礎研究でワクチン開発を支えた
+マイブリット・モーセル|May-Britt Moser|1963||science|神経科学|空間認知のグリッド細胞研究で神経科学に貢献した
+ドナ・ストリックランド|Donna Strickland|1959||science|物理学|チャープパルス増幅の研究でレーザー物理を発展させた
+アンドレア・ゲズ|Andrea Ghez|1965||science|天文学|銀河中心の超大質量ブラックホール研究でノーベル賞を受けた
+マリアム・ミルザハニ|Maryam Mirzakhani|1977|2017|science|数学|フィールズ賞を受けた初の女性数学者となった
+カレン・ウーレンベック|Karen Uhlenbeck|1942||science|数学|幾何解析でアーベル賞を受賞した初の女性数学者となった
+イングリッド・ドブシー|Ingrid Daubechies|1954||science|数学|ウェーブレット理論で画像処理などに貢献した
+セシリア・ペイン＝ガポーシュキン|Cecilia Payne-Gaposchkin|1900|1979|science|天文学|恒星が主に水素とヘリウムから成ることを示した
+ワンガリ・マータイ|Wangari Maathai|1940|2011|science|環境保全|グリーンベルト運動を創設し環境と女性の社会参加を結びつけた
+グラディス・ウェスト|Gladys West|1930||science|数学|GPSに関わる測地モデル計算に貢献した
+キャサリン・エサウ|Katherine Esau|1898|1997|science|植物学|植物解剖学の標準的研究で植物科学を発展させた
+エスター・レーダーバーグ|Esther Lederberg|1922|2006|science|微生物学|ラムダファージ発見など遺伝学研究に貢献した
+リン・マーギュリス|Lynn Margulis|1938|2011|science|生物学|細胞内共生説の発展で進化生物学に影響を与えた
+ミルドレッド・ドレッセルハウス|Mildred Dresselhaus|1930|2017|science|物理学|炭素材料研究でナノ科学を先導した
+アシマ・チャタジー|Asima Chatterjee|1917|2006|science|化学|天然物化学と薬用植物研究でインド科学界を先導した
+マダム・C・J・ウォーカー|Madam C. J. Walker|1867|1919|business|起業家|ヘアケア事業で成功し米国初期の女性自力富豪となった
+ココ・シャネル|Coco Chanel|1883|1971|business|ファッション|女性服とブランド事業で20世紀ファッションを変えた
+エスティ・ローダー|Estee Lauder|1908|2004|business|化粧品|化粧品企業を創業し世界ブランドに育てた
+ルース・ハンドラー|Ruth Handler|1916|2002|business|玩具|マテルを共同創業しバービー人形を企画した
+メアリー・ケイ・アッシュ|Mary Kay Ash|1918|2001|business|化粧品|女性販売員の機会拡大を掲げ化粧品会社を創業した
+アニータ・ロディック|Anita Roddick|1942|2007|business|小売|ザ・ボディショップを創業し倫理的消費を事業化した
+オプラ・ウィンフリー|Oprah Winfrey|1954||business|メディア|メディア事業を築き女性・黒人起業家の象徴となった
+マーサ・スチュワート|Martha Stewart|1941||business|ライフスタイル|生活情報ブランドを企業化し出版・放送・小売へ展開した
+サラ・ブレイクリー|Sara Blakely|1971||business|アパレル|Spanxを創業し補整衣料市場を開拓した
+ホイットニー・ウルフ・ハード|Whitney Wolfe Herd|1989||business|テクノロジー|Bumbleを創業し女性主導型マッチングサービスを拡大した
+メラニー・パーキンス|Melanie Perkins|1987||business|テクノロジー|Canvaを共同創業しデザインツールを大衆化した
+リアーナ|Rihanna|1988||business|化粧品・音楽|Fenty Beautyなどで包括的な美容ブランドを展開した
+ビヨンセ|Beyonce|1981||business|音楽・ブランド|音楽活動とブランド事業を統合し女性アーティストの事業モデルを広げた
+トリー・バーチ|Tory Burch|1966||business|ファッション|ファッションブランドと女性起業支援財団を展開した
+ダイアン・フォン・ファステンバーグ|Diane von Furstenberg|1946||business|ファッション|ラップドレスを軸に国際的ファッション事業を築いた
+シェール・ワン|Cher Wang|1958||business|テクノロジー|HTCなどを率い台湾の技術企業経営を代表した
+張欣|Zhang Xin|1965||business|不動産|SOHO China共同創業者として中国都市開発ビジネスを築いた
+キラン・マズムダール＝ショー|Kiran Mazumdar-Shaw|1953||business|バイオ企業|Bioconを創業しインドのバイオ産業を先導した
+ファルグニ・ナヤル|Falguni Nayar|1963||business|EC|Nykaaを創業しインド美容EC市場を拡大した
+インドラ・ヌーイ|Indra Nooyi|1955||business|経営者|ペプシコCEOとしてグローバル企業経営を担った
+アーシュラ・バーンズ|Ursula Burns|1958||business|経営者|ゼロックスCEOとして米大企業初の黒人女性CEOの一人となった
+メアリー・バーラ|Mary Barra|1961||business|経営者|ゼネラルモーターズCEOとして自動車大企業を率いた
+シェリル・サンドバーグ|Sheryl Sandberg|1969||business|テクノロジー経営|Facebook/Metaの成長期経営と女性リーダー論で影響を与えた
+メグ・ホイットマン|Meg Whitman|1956||business|テクノロジー経営|eBayを成長させHPなど大企業経営を担った
+アン・ウォジツキ|Anne Wojcicki|1973||business|バイオ企業|23andMeを共同創業し個人向け遺伝子検査を広げた
+グウィン・ショットウェル|Gwynne Shotwell|1963||business|宇宙産業|SpaceXの事業運営を率い商業宇宙開発を拡大した
+アリアナ・ハフィントン|Arianna Huffington|1950||business|メディア|HuffPostを共同創業しデジタルニュース事業を拡大した
+カトリーナ・レイク|Katrina Lake|1982||business|EC|Stitch Fixを創業しデータ活用型ファッション小売を展開した
+レイラ・ジャナ|Leila Janah|1982|2020|business|社会的企業|Samasourceを創業しデジタル業務と貧困削減を結びつけた
+ジェシカ・アルバ|Jessica Alba|1981||business|消費財|The Honest Companyを共同創業し安全志向の消費財ブランドを築いた
+レシュマ・サウジャニ|Reshma Saujani|1975||business|教育起業|Girls Who Codeを創設し女性のIT教育を推進した
+ナイナ・ラル・キドワイ|Naina Lal Kidwai|1957||business|金融|インド金融界で女性経営者の道を開いた
+フォロルンショ・アラキジャ|Folorunsho Alakija|1951||business|資源・ファッション|ナイジェリアでファッションと石油事業を展開した女性実業家
+モー・アブドゥ|Mo Abudu|1964||business|メディア|アフリカ発のテレビ・映画事業を国際展開した
+スーザン・ウォジスキ|Susan Wojcicki|1968|2024|business|テクノロジー経営|YouTube CEOなどを務めデジタル動画産業の成長を率いた
+ヒルデガルト・フォン・ビンゲン|Hildegard of Bingen|1098|1179|arts|音楽・著述|中世の作曲家・著述家として宗教文化と知を結びつけた
+アルテミジア・ジェンティレスキ|Artemisia Gentileschi|1593|1656|arts|絵画|バロック期の女性画家として歴史画で高い評価を得た
+エリザベート＝ルイーズ・ヴィジェ＝ルブラン|Elisabeth Vigee Le Brun|1755|1842|arts|絵画|宮廷肖像画家として欧州各地で活動した
+ジェーン・オースティン|Jane Austen|1775|1817|arts|文学|近代小説の展開に大きな影響を与えた
+メアリー・シェリー|Mary Shelley|1797|1851|arts|文学|『フランケンシュタイン』でSF文学の源流を作った
+ジョルジュ・サンド|George Sand|1804|1876|arts|文学|19世紀フランス文学で女性作家の公共的発言を広げた
+ハリエット・ビーチャー・ストウ|Harriet Beecher Stowe|1811|1896|arts|文学|奴隷制批判文学で世論形成に影響を与えた
+ルイーザ・メイ・オルコット|Louisa May Alcott|1832|1888|arts|文学|『若草物語』などで女性の成長と自立を描いた
+エミリー・ディキンソン|Emily Dickinson|1830|1886|arts|詩|独自の詩法で近代詩に大きな影響を与えた
+セルマ・ラーゲルレーヴ|Selma Lagerlof|1858|1940|arts|文学|女性初のノーベル文学賞受賞者となった
+ビアトリクス・ポター|Beatrix Potter|1866|1943|arts|児童文学|絵本とキャラクター事業で児童文化を築いた
+ヴァージニア・ウルフ|Virginia Woolf|1882|1941|arts|文学|モダニズム文学と女性の創作論を発展させた
+アガサ・クリスティ|Agatha Christie|1890|1976|arts|文学|推理小説の大衆文化化に決定的影響を与えた
+ゾラ・ニール・ハーストン|Zora Neale Hurston|1891|1960|arts|文学・民俗学|アフリカ系米国文化を文学と民俗研究で記録した
+フリーダ・カーロ|Frida Kahlo|1907|1954|arts|絵画|自己像とメキシコ文化を融合した作品で後世に影響を与えた
+ジョージア・オキーフ|Georgia O'Keeffe|1887|1986|arts|絵画|米国モダニズム絵画を代表する独自の様式を築いた
+タマラ・ド・レンピッカ|Tamara de Lempicka|1898|1980|arts|絵画|アール・デコ様式の肖像画で独自の地位を築いた
+リー・クラズナー|Lee Krasner|1908|1984|arts|絵画|抽象表現主義の重要な女性画家として評価された
+ルイーズ・ブルジョワ|Louise Bourgeois|1911|2010|arts|彫刻|身体・記憶を主題とする彫刻で現代美術に影響を与えた
+トーベ・ヤンソン|Tove Jansson|1914|2001|arts|文学・絵画|ムーミン作品で児童文学と視覚文化を結びつけた
+マヤ・アンジェロウ|Maya Angelou|1928|2014|arts|文学|自伝文学と詩で人種・女性の経験を可視化した
+トニ・モリスン|Toni Morrison|1931|2019|arts|文学|アフリカ系米国文学を世界文学の中心に押し上げた
+アーシュラ・K・ル＝グウィン|Ursula K. Le Guin|1929|2018|arts|文学|SF・ファンタジーで社会構造とジェンダーを問い直した
+オクテイヴィア・バトラー|Octavia E. Butler|1947|2006|arts|文学|黒人女性作家としてSF文学に新しい視点を導入した
+J・K・ローリング|J. K. Rowling|1965||arts|文学|児童文学シリーズを世界的文化現象に発展させた
+チママンダ・ンゴズィ・アディーチェ|Chimamanda Ngozi Adichie|1977||arts|文学|現代アフリカ文学とフェミニズム言説に影響を与えた
+マリーナ・アブラモヴィッチ|Marina Abramovic|1946||arts|現代美術|パフォーマンスアートの表現領域を拡張した
+ビョーク|Bjork|1965||arts|音楽|音楽・映像・テクノロジーを統合した表現で影響を与えた
+アレサ・フランクリン|Aretha Franklin|1942|2018|arts|音楽|ソウル音楽を代表し女性歌手の表現力を拡張した
+ビリー・ホリデイ|Billie Holiday|1915|1959|arts|音楽|ジャズ歌唱と社会的メッセージで後世に影響を与えた
+エラ・フィッツジェラルド|Ella Fitzgerald|1917|1996|arts|音楽|ジャズ・ボーカルの技法と大衆化に大きく貢献した
+ニーナ・シモン|Nina Simone|1933|2003|arts|音楽|音楽と公民権運動を結びつけた表現者
+ミリアム・マケバ|Miriam Makeba|1932|2008|arts|音楽|南アフリカ音楽と反アパルトヘイトの声を世界に広げた
+マドンナ|Madonna|1958||arts|音楽|ポップ音楽における女性の自己演出と事業モデルを刷新した
+レディー・ガガ|Lady Gaga|1986||arts|音楽|ポップ音楽とパフォーマンス表現を通じ包摂的メッセージを発信した
+テイラー・スウィフト|Taylor Swift|1989||arts|音楽|ソングライティングと音楽ビジネスの主導権で影響を与えた
+ションダ・ライムズ|Shonda Rhimes|1970||arts|テレビ制作|テレビドラマ制作で女性・多様性の表象を広げた
+エイヴァ・デュヴァーネイ|Ava DuVernay|1972||arts|映画|黒人女性監督として映画・テレビ制作の機会を広げた
+キャスリン・ビグロー|Kathryn Bigelow|1951||arts|映画|女性初のアカデミー監督賞受賞者となった
+ソフィア・コッポラ|Sofia Coppola|1971||arts|映画|独自の映像作家性で現代映画に影響を与えた
+クロエ・ジャオ|Chloe Zhao|1982||arts|映画|アジア系女性監督として国際的映画賞を受賞した
+アリス・ギイ＝ブラシェ|Alice Guy-Blache|1873|1968|arts|映画|初期映画産業で監督・プロデューサーとして先駆的に活動した
+アニエス・ヴァルダ|Agnes Varda|1928|2019|arts|映画|ヌーヴェルヴァーグとドキュメンタリー表現を横断した
+ジェルメーヌ・デュラック|Germaine Dulac|1882|1942|arts|映画|フランス前衛映画で女性監督の先駆となった
+リナ・ウェルトミューラー|Lina Wertmuller|1928|2021|arts|映画|女性初のアカデミー監督賞候補者となった
+ミーラー・ナーイル|Mira Nair|1957||arts|映画|インド系ディアスポラの視点を国際映画に示した
+ザハ・ハディド|Zaha Hadid|1950|2016|arts|建築|女性初のプリツカー賞受賞者として建築表現を刷新した
+アイリーン・グレイ|Eileen Gray|1878|1976|arts|デザイン|モダニズム家具・建築で独自の地位を築いた
+レイ・イームズ|Ray Eames|1912|1988|arts|デザイン|家具・映像・展示で20世紀デザインに貢献した
+メアリ・ウルストンクラフト|Mary Wollstonecraft|1759|1797|education|思想・教育|女性の権利と教育を論じ近代フェミニズム思想の基礎を作った
+メアリー・マクロード・ベスーン|Mary McLeod Bethune|1875|1955|education|教育|黒人女性教育者として学校設立と公民権活動を進めた
+マリア・モンテッソーリ|Maria Montessori|1870|1952|education|教育|モンテッソーリ教育法を開発し幼児教育を変えた
+アン・サリヴァン|Anne Sullivan|1866|1936|education|教育|ヘレン・ケラーの教育で障害者教育の可能性を示した
+ヘレン・ケラー|Helen Keller|1880|1968|education|教育・著述|障害者の教育・権利擁護を世界的に訴えた
+マララ・ユスフザイ|Malala Yousafzai|1997||education|教育運動|女子教育の権利を訴えノーベル平和賞を受けた
+ファティマ・メルニーシ|Fatema Mernissi|1940|2015|education|社会学|イスラム社会とジェンダーを研究し女性の知的発言を広げた
+ナワル・エル・サーダウィ|Nawal El Saadawi|1931|2021|education|思想・医学|医師・作家として女性の身体と権利を論じた
+ベル・フックス|bell hooks|1952|2021|education|思想・教育|フェミニズム・人種・教育の交差的分析を広めた
+アンジェラ・デイヴィス|Angela Davis|1944||education|思想・教育|人種・ジェンダー・監獄問題を結ぶ批判的教育活動を行った
+グロリア・スタイネム|Gloria Steinem|1934||education|ジャーナリズム|第二波フェミニズムの言論と組織化を進めた
+ベティ・フリーダン|Betty Friedan|1921|2006|education|思想|『新しい女性の創造』で女性運動に影響を与えた
+シモーヌ・ド・ボーヴォワール|Simone de Beauvoir|1908|1986|education|思想|『第二の性』でジェンダー思想に決定的影響を与えた
+クララ・ツェトキン|Clara Zetkin|1857|1933|education|社会運動|国際女性デーの提唱など労働女性運動を組織した
+ローザ・ルクセンブルク|Rosa Luxemburg|1871|1919|education|思想|政治経済思想と労働運動で女性知識人の役割を示した
+エメリン・パンクハースト|Emmeline Pankhurst|1858|1928|education|参政権運動|英国女性参政権運動を率いた
+スーザン・B・アンソニー|Susan B. Anthony|1820|1906|education|参政権運動|米国女性参政権運動の主要指導者となった
+エリザベス・キャディ・スタントン|Elizabeth Cady Stanton|1815|1902|education|参政権運動|女性権利宣言などで米国女性運動を推進した
+ソジャーナ・トゥルース|Sojourner Truth|1797|1883|education|人権運動|奴隷制廃止と女性の権利を説いた演説者
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT source_team, COUNT(*) FROM achievers WHERE source_team LIKE '%women%' GROUP BY source_team ORDER BY COUNT(*) DESC\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex_all_women_pioneers|200
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE domain='women_pioneers'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+200
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja FROM achievers WHERE source_team='codex_all_women_pioneers' ORDER BY name_ja\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+J・K・ローリング
+アイダ・B・ウェルズ
+アイリーン・グレイ
+アウンサンスーチー
+アガサ・クリスティ
+アシマ・チャタジー
+アナンディバイ・ジョシー
+アニエス・ヴァルダ
+アニータ・ロディック
+アリアナ・ハフィントン
+アリス・ギイ＝ブラシェ
+アリス・ハミルトン
+アルテミジア・ジェンティレスキ
+アレサ・フランクリン
+アンジェラ・デイヴィス
+アントニア・ノヴェロ
+アンドレア・ゲズ
+アン・ウォジツキ
+アン・サリヴァン
+アーシュラ・K・ル＝グウィン
+アーシュラ・バーンズ
+イレーヌ・ジョリオ＝キュリー
+イングリッド・ドブシー
+インドラ・ヌーイ
+エイダ・ラブレス
+エイヴァ・デュヴァーネイ
+エスター・レーダーバーグ
+エスティ・ローダー
+エマニュエル・シャルパンティエ
+エミリー・ディキンソン
+エミー・ネーター
+エメリン・パンクハースト
+エラ・フィッツジェラルド
+エリザベス・キャディ・スタントン
+エリザベス・ギャレット・アンダーソン
+エリザベス・ブラックウェル
+エリザベート＝ルイーズ・ヴィジェ＝ルブラン
+エレノア・ルーズベルト
+エレン・ジョンソン・サーリーフ
+オクテイヴィア・バトラー
+オプラ・ウィンフリー
+カタリン・カリコ
+カダンビニ・ガングリー
+カトリーナ・レイク
+カレン・ウーレンベック
+カロライン・ハーシェル
+ガーティ・コリ
+ガートルード・エリオン
+キャサリン・エサウ
+キャサリン・ジョンソン
+キャスリン・ビグロー
+キラン・マズムダール＝ショー
+クララ・ツェトキン
+クロエ・ジャオ
+グウィン・ショットウェル
+グラディス・ウェスト
+グレタ・トゥーンベリ
+グレース・ホッパー
+グロリア・スタイネム
+グロ・ハーレム・ブルントラント
+ココ・シャネル
+コレッタ・スコット・キング
+サラ・ジョセフィン・ベーカー
+サラ・ブレイクリー
+ザハ・ハディド
+シェリル・サンドバーグ
+シェール・ワン
+シシリー・ソンダース
+シモーヌ・ド・ボーヴォワール
+ションダ・ライムズ
+シルビア・アール
+ジェシカ・アルバ
+ジェニファー・ダウドナ
+ジェルメーヌ・デュラック
+ジェーン・アダムズ
+ジェーン・オースティン
+ジェーン・クック・ライト
+ジェーン・グドール
+ジョイセリン・エルダーズ
+ジョスリン・ベル・バーネル
+ジョルジュ・サンド
+ジョージア・オキーフ
+スーザン・B・アンソニー
+スーザン・ウォジスキ
+スーザン・ラ・フレッシュ・ピコット
+セシリア・ペイン＝ガポーシュキン
+セルマ・ラーゲルレーヴ
+ソジャーナ・トゥルース
+ソフィア・コッポラ
+ソフィア・ジェックス＝ブレイク
+ゾラ・ニール・ハーストン
+タマラ・ド・レンピッカ
+タワックル・カルマン
+ダイアン・フォッシー
+ダイアン・フォン・ファステンバーグ
+チママンダ・ンゴズィ・アディーチェ
+テイラー・スウィフト
+テンプル・グランディン
+トニ・モリスン
+トリー・バーチ
+トーベ・ヤンソン
+ドナ・ストリックランド
+ドロシー・ホジキン
+ナイナ・ラル・キドワイ
+ナタリア・ベフテレワ
+ナワル・エル・サーダウィ
+ニーナ・シモン
+ハヤト・シンディ
+ハリエット・タブマン
+ハリエット・ビーチャー・ストウ
+ハワ・アブディ
+ハーサ・エアトン
+パトリシア・バス
+ヒュパティア
+ヒルデガルト・フォン・ビンゲン
+ビアトリクス・ポター
+ビョーク
+ビヨンセ
+ビリー・ホリデイ
+ファティマ・メルニーシ
+ファトマ・アリエ
+ファルグニ・ナヤル
+フェ・デル・ムンド
+フォロルンショ・アラキジャ
+フダー・シャアラーウィー
+フランシス・アーノルド
+フランシス・パーキンス
+フランソワーズ・バレ＝シヌシ
+フリーダ・カーロ
+フローレンス・ナイチンゲール
+ヘディ・ラマー
+ヘレン・ケラー
+ヘレン・ブルック・タウシグ
+ヘレン・ロドリゲス＝トリアス
+ベティ・フリーダン
+ベル・フックス
+ホイットニー・ウルフ・ハード
+マイブリット・モーセル
+マダム・C・J・ウォーカー
+マドンナ
+マヤ・アンジェロウ
+マララ・ユスフザイ
+マリアム・ミルザハニ
+マリア・ジビーラ・メーリアン
+マリア・モンテッソーリ
+マリ・キュリー
+マリーナ・アブラモヴィッチ
+マーガレット・ハミルトン
+マーサ・スチュワート
+ミリアム・マケバ
+ミルドレッド・ドレッセルハウス
+ミーラー・ナーイル
+ムトゥラクシュミ・レッディ
+メアリ・ウルストンクラフト
+メアリー・アニング
+メアリー・エドワーズ・ウォーカー
+メアリー・ケイ・アッシュ
+メアリー・サマヴィル
+メアリー・シェリー
+メアリー・シーコール
+メアリー・バーラ
+メアリー・パットナム・ジャコビ
+メアリー・マクロード・ベスーン
+メイ・ジェミソン
+メグ・ホイットマン
+メラニー・パーキンス
+モー・アブドゥ
+ユーニス・ニュートン・フット
+ラディア・パールマン
+リアーナ
+リゴベルタ・メンチュウ
+リタ・レーヴィ＝モンタルチーニ
+リナ・ウェルトミューラー
+リン・マーギュリス
+リーゼ・マイトナー
+リー・クラズナー
+ルイーザ・メイ・オルコット
+ルイーズ・ブルジョワ
+ルクマバイ
+ルース・ハンドラー
+レイチェル・カーソン
+レイマ・ボウィ
+レイラ・ジャナ
+レイラ・デンマーク
+レイ・イームズ
+レシュマ・サウジャニ
+レディー・ガガ
+レベッカ・リー・クランプラー
+ロザリンド・フランクリン
+ロザリン・ヤロー
+ローザ・ルクセンブルク
+ワンガリ・マータイ
+ヴァンダナ・シヴァ
+ヴァージニア・アプガー
+ヴァージニア・ウルフ
+ヴェラ・ルービン
+呉健雄
+屠呦呦
+張欣
+秋瑾
+
+codex
+既存に `codex_all_women_pioneers` の200件が入っているため、同じ著名女性はかなり重複します。今回は名前単位でも既存を避け、候補を多めに用意して250件に達するまで投入する形にします。
+exec
+/bin/bash -lc "sed -n '220,520p' scripts/insert_all_women_pioneers.py" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+ソジャーナ・トゥルース|Sojourner Truth|1797|1883|education|人権運動|奴隷制廃止と女性の権利を説いた演説者
+ハリエット・タブマン|Harriet Tubman|1822|1913|education|人権運動|地下鉄道で奴隷制からの逃亡支援を行った
+アイダ・B・ウェルズ|Ida B. Wells|1862|1931|education|ジャーナリズム|リンチ反対運動と調査報道で公民権運動に貢献した
+ジェーン・アダムズ|Jane Addams|1860|1935|education|社会教育|ハルハウスを設立し移民支援と社会改革を進めた
+エレノア・ルーズベルト|Eleanor Roosevelt|1884|1962|education|人権|世界人権宣言の起草過程で中心的役割を果たした
+コレッタ・スコット・キング|Coretta Scott King|1927|2006|education|公民権教育|公民権運動と平和教育の継承に尽くした
+リゴベルタ・メンチュウ|Rigoberta Menchu|1959||education|先住民権利|先住民・人権運動でノーベル平和賞を受けた
+アウンサンスーチー|Aung San Suu Kyi|1945||education|民主化運動|ミャンマー民主化運動の象徴として国際的に知られた
+レイマ・ボウィ|Leymah Gbowee|1972||education|平和運動|リベリア女性平和運動を率い内戦終結に貢献した
+タワックル・カルマン|Tawakkol Karman|1979||education|民主化運動|イエメンの民主化と女性の政治参加を訴えた
+グレタ・トゥーンベリ|Greta Thunberg|2003||education|環境教育|気候危機への若者の国際的行動を促した
+ヴァンダナ・シヴァ|Vandana Shiva|1952||education|環境思想|種子・農業・環境正義をめぐる教育活動を行った
+グロ・ハーレム・ブルントラント|Gro Harlem Brundtland|1939||education|公共政策|持続可能な開発概念の普及に中心的役割を果たした
+エレン・ジョンソン・サーリーフ|Ellen Johnson Sirleaf|1938||education|政治教育|アフリカ初の選挙で選ばれた女性大統領として女性参画を広げた
+フダー・シャアラーウィー|Huda Sha'arawi|1879|1947|education|女性教育|エジプト女性運動を率い教育と社会参加を推進した
+秋瑾|Qiu Jin|1875|1907|education|思想・教育|中国の女性革命家・教育者として女性解放を訴えた
+ファトマ・アリエ|Fatma Aliye|1862|1936|education|文学・教育|オスマン帝国期の女性作家として女性教育を論じた
+フランシス・パーキンス|Frances Perkins|1880|1965|education|労働政策|米国初の女性閣僚として労働政策と社会保障制度に貢献した
+""".strip()
+
+
+def wiki_url(name_en: str) -> str:
+    return "https://en.wikipedia.org/wiki/" + quote(name_en.replace(" ", "_"))
+
+
+def parse():
+    rows = []
+    seen = set()
+    for line in RAW.splitlines():
+        parts = line.split("|")
+        if len(parts) != 7:
+            raise ValueError(f"bad row: {line}")
+        name_ja, name_en, birth, death, kind, sub, summary = parts
+        key = (name_ja, int(birth))
+        if key in seen:
+            raise ValueError(f"duplicate candidate: {key}")
+        seen.add(key)
+        rows.append(
+            {
+                "name_ja": name_ja,
+                "name_en": name_en,
+                "birth_year": int(birth),
+                "death_year": int(death) if death else None,
+                "kind": kind,
+                "sub_domain": sub,
+                "summary": summary,
+                "source_url": wiki_url(name_en),
+            }
+        )
+    if len(rows) != 200:
+        raise ValueError(f"expected 200 rows, got {len(rows)}")
+    return rows
+
+
+def main():
+    rows = parse()
+    con = sqlite3.connect(DB)
+    cur = con.cursor()
+    existing = []
+    for r in rows:
+        cur.execute(
+            "SELECT id FROM achievers WHERE name_ja=? AND birth_year IS ?",
+            (r["name_ja"], r["birth_year"]),
+        )
+        if cur.fetchone():
+            existing.append((r["name_ja"], r["birth_year"]))
+    if existing:
+        raise SystemExit(f"existing achiever rows block insert: {existing}")
+
+    for start in range(0, len(rows), 50):
+        batch = rows[start : start + 50]
+        with con:
+            for idx, r in enumerate(batch, start=start):
+                traditional = 1 if idx % 5 == 0 else 0
+                local = 0 if traditional else 1
+                cur.execute(
+                    """
+                    INSERT INTO achievers (
+                        name_ja, name_en, birth_year, death_year, primary_era_id,
+                        domain, sub_domain, achievement_summary, notable_works,
+                        family_class, family_education, education_path, mentors,
+                        fame_source, fame_score, is_traditional_great,
+                        is_local_excellent, data_completeness, source_team,
+                        source_url, notes
+                    ) VALUES (?, ?, ?, ?, 'all', 'women_pioneers', ?, ?, '[]',
+                        'other', NULL, NULL, '[]', 'wikipedia_or_public_reference',
+                        ?, ?, ?, 70, ?, ?, ?)
+                    """,
+                    (
+                        r["name_ja"],
+                        r["name_en"],
+                        r["birth_year"],
+                        r["death_year"],
+                        r["sub_domain"],
+                        r["summary"],
+                        7.5 if traditional else 5.0,
+                        traditional,
+                        local,
+                        TEAM,
+                        r["source_url"],
+                        f"all時代横断の女性パイオニア追加。検証入口: {r['source_url']}",
+                    ),
+                )
+                aid = cur.lastrowid
+                for cap_id, score, quote_text in CAPS[r["kind"]]:
+                    cur.execute(
+                        """
+                        INSERT INTO achiever_capabilities (
+                            achiever_id, capability_id, score, evidence_quote,
+                            evidence_source, notes
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            aid,
+                            cap_id,
+                            score,
+                            quote_text,
+                            r["source_url"],
+                            f"{TEAM}: {r['name_ja']} の主要能力",
+                        ),
+                    )
+        cur.execute(
+            "SELECT COUNT(*) FROM achievers WHERE source_team=?",
+            (TEAM,),
+        )
+        print(f"after batch {start // 50 + 1}: {cur.fetchone()[0]}")
+    con.close()
+
+
+if __name__ == "__main__":
+    main()
+
+codex
+投入スクリプトを追加します。内容は候補リスト、厳密な `SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?`、名前既存スキップ、50件ごとのトランザクション、能力3-5件付与です。

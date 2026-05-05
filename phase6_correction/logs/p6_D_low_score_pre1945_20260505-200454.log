@@ -1,0 +1,257 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-f55f-7303-a8fb-e5943fc00d69
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.D
+theme: low_score_pre1945
+追加目標: 150 件
+説明: 戦前の活躍者で特定能力に弱点があった人物（批判的伝記研究ベース）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.D' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_low_score_pre1945' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【D==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まずスキーマと既存データの分布、能力ディメンションを確認します。Phase 6.D の担当は低スコア戦前人物なので、投入対象は主に `achievers` と `achiever_capabilities` になる前提で確認します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions ORDER BY id"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+age_entrepreneur|起業家精神
+age_meta_learning|学習戦略・適応性
+age_oecd_transformative|OECD変革コンピテンシー
+age_resilience|レジリエンス
+age_social_autonomy|社会的自立性
+age_social_change|社会変革志向
+cog_ai_collab|AI協働リテラシー
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_info|情報リテラシー
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_systems|システム思考
+cre_cross_domain|異分野統合志向
+soc_interpersonal|対人関係スキル
+val_collective|集団協調性
+val_eco|エコロジカルリテラシー
+val_tolerance|寛容性
+val_traditional|伝統文化尊重
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.D'; SELECT domain, COUNT(*) FROM achievers WHERE correction_phase='6.D' GROUP BY domain ORDER BY COUNT(*) DESC LIMIT 20;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+codex
+`achievers` 側は既存の Phase 6.D が 0 件でした。次に時代 ID と既存の低スコア補正系の記述パターンを見て、今回の 150 件を同じ粒度で揃えます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras ORDER BY start_year"' in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: start_year
+  SELECT * FROM eras ORDER BY start_year
+                error here ---^
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT COUNT(*), MIN(id), MAX(id) FROM achievers"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT correction_phase, source_team, COUNT(*) FROM achievers GROUP BY correction_phase, source_team ORDER BY correction_phase LIMIT 30"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+9760|1|10531
+
+ succeeded in 0ms:
+|codex_all_diaspora_ainu_okinawa|79
+|codex_all_education_practice|100
+|codex_all_local_excellent|145
+|codex_all_religion_thought|88
+|codex_all_women_pioneers|200
+|codex_heisei|623
+|codex_heisei_business|200
+|codex_heisei_culture_arts|150
+|codex_heisei_science_tech|93
+|codex_heisei_sports|99
+|codex_meiji|452
+|codex_meiji_business|100
+|codex_meiji_culture_arts|99
+|codex_meiji_education_thought|80
+|codex_meiji_science_tech|80
+|codex_reiwa|450
+|codex_reiwa_business|100
+|codex_reiwa_culture_arts|57
+|codex_reiwa_science_tech|79
+|codex_reiwa_social_movement|59
+|codex_showa_post|671
+|codex_showa_post_business|150
+|codex_showa_post_media_journalism|80
+|codex_showa_post_science_tech|78
+|codex_showa_post_sports|80
+|codex_showa_pre|352
+|codex_showa_pre_business|100
+|codex_showa_pre_culture_arts|90
+|codex_showa_pre_science_tech|80
+|codex_showa_pre_social_movement|60
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT a.name_ja,a.birth_year,a.domain,a.achievement_summary,c.capability_id,c.score,c.evidence_source FROM achievers a JOIN achiever_capabilities c ON c.achiever_id=a.id ORDER BY a.id DESC LIMIT 12"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+森下洋一|1934|business|松下電器産業社長。海外事業とデジタル化前夜の家電経営に携わった。|age_entrepreneur|9|https://ja.wikipedia.org/wiki/森下洋一
+森下洋一|1934|business|松下電器産業社長。海外事業とデジタル化前夜の家電経営に携わった。|cog_systems|8|https://ja.wikipedia.org/wiki/森下洋一
+森下洋一|1934|business|松下電器産業社長。海外事業とデジタル化前夜の家電経営に携わった。|soc_interpersonal|8|https://ja.wikipedia.org/wiki/森下洋一
+森下洋一|1934|business|松下電器産業社長。海外事業とデジタル化前夜の家電経営に携わった。|age_resilience|8|https://ja.wikipedia.org/wiki/森下洋一
+谷井昭雄|1928|business|松下電器産業社長。家電の国際展開と事業部制経営を継承発展させた。|age_entrepreneur|9|https://ja.wikipedia.org/wiki/谷井昭雄
+谷井昭雄|1928|business|松下電器産業社長。家電の国際展開と事業部制経営を継承発展させた。|cog_systems|8|https://ja.wikipedia.org/wiki/谷井昭雄
+谷井昭雄|1928|business|松下電器産業社長。家電の国際展開と事業部制経営を継承発展させた。|soc_interpersonal|8|https://ja.wikipedia.org/wiki/谷井昭雄
+谷井昭雄|1928|business|松下電器産業社長。家電の国際展開と事業部制経営を継承発展させた。|age_resilience|8|https://ja.wikipedia.org/wiki/谷井昭雄
+金井務|1929|business|日立製作所社長。重電・情報・電子事業の複合経営を進めた。|age_entrepreneur|9|https://ja.wikipedia.org/wiki/金井務
+金井務|1929|business|日立製作所社長。重電・情報・電子事業の複合経営を進めた。|cog_systems|8|https://ja.wikipedia.org/wiki/金井務
+金井務|1929|business|日立製作所社長。重電・情報・電子事業の複合経営を進めた。|soc_interpersonal|8|https://ja.wikipedia.org/wiki/金井務
+金井務|1929|business|日立製作所社長。重電・情報・電子事業の複合経営を進めた。|age_resilience|8|https://ja.wikipedia.org/wiki/金井務
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+meiji|明治|Meiji|1868|1912|0||1
+taisho|大正|Taisho|1912|1926|0||2
+showa_pre|昭和前期|Showa Pre-war|1926|1945|0||3
+showa_post|昭和後期|Showa Post-war|1946|1989|0||4
+heisei|平成|Heisei|1989|2019|0||5
+reiwa|令和|Reiwa|2019|2030|0||6
+future_2030|2030年代|2030s|2030|2040|1||7
+future_2050|2050年代|2050s|2050|2060|1||8
+future_2100|2100年代|2100s|2100|2110|1||9
+all|全時代|All eras|1868|2030|0|横断的収集用の擬似時代ID|0
+
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT primary_era_id, COUNT(*) FROM achievers GROUP BY primary_era_id ORDER BY primary_era_id"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+heisei|2160
+meiji|866
+reiwa|3919
+showa_post|1386
+showa_pre|752
+taisho|677
+
+codex
+既存データは日本史中心ですが、スキーマ上は国籍制約がなく、今回のテーマは「戦前の活躍者」です。150 件を確実に満たすため、日本人だけに狭めず、実在確認しやすい世界史上の政治家・軍人・思想家・芸術家・実業家も含めて、全員に低スコア能力を少なくとも 1 つ付ける形で投入します。
+codex
+投入は `INSERT ...` だけでなく、各候補ごとに `SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?` を実行してから入れるスクリプトで処理します。50 件ごとに commit し、重複で不足した場合に備えて候補数は 150 より多めに用意します。

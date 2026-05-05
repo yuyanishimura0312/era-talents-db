@@ -1,0 +1,1327 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-06d5-7732-874c-00c1a1b05019
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.B
+theme: taisho_local
+追加目標: 150 件
+説明: 大正期の地域実践家・農村指導者・地方文化人
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_taisho_local' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【B==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+DBスキーマと既存データの形を確認してから、50件単位で投入します。まず必須カラム、能力ディメンション、既存のPhase 6.B件数を見ます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT correction_phase, source_team, COUNT(*) FROM achievers WHERE correction_phase='6.B' OR source_team='codex_correction_taisho_local' GROUP BY correction_phase, source_team\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+Phase 6.Bはまだ入っていないようです。次に既存人物との重複と、既存レコードの書き方を確認して、同じ粒度で投入SQLを組みます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,primary_era_id,domain,sub_domain,is_local_excellent,is_traditional_great,source_team,achievement_summary FROM achievers WHERE primary_era_id='taisho' LIMIT 20\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+1591|犬養毅|1855|taisho|politics|政治・行政|0|1|codex_taisho|犬養毅は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1592|加藤高明|1860|taisho|politics|政治・行政|0|1|codex_taisho|加藤高明は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1593|若槻礼次郎|1866|taisho|politics|政治・行政|0|1|codex_taisho|若槻礼次郎は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1594|田中義一|1864|taisho|politics|政治・行政|0|1|codex_taisho|田中義一は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1595|永井柳太郎|1881|taisho|politics|政治・行政|0|1|codex_taisho|永井柳太郎は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1596|高橋是清|1854|taisho|politics|政治・行政|0|1|codex_taisho|高橋是清は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1597|清浦奎吾|1850|taisho|politics|政治・行政|0|1|codex_taisho|清浦奎吾は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1598|尾崎行雄|1858|taisho|politics|政治・行政|0|1|codex_taisho|尾崎行雄は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1599|浜口雄幸|1870|taisho|politics|政治・行政|0|1|codex_taisho|浜口雄幸は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1601|床次竹二郎|1867|taisho|politics|政治・行政|0|1|codex_taisho|床次竹二郎は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1602|水野錬太郎|1868|taisho|politics|政治・行政|0|1|codex_taisho|水野錬太郎は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1603|田健治郎|1855|taisho|politics|政治・行政|0|1|codex_taisho|田健治郎は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1604|一木喜徳郎|1867|taisho|politics|政治・行政|0|1|codex_taisho|一木喜徳郎は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1605|平沼騏一郎|1867|taisho|politics|政治・行政|0|1|codex_taisho|平沼騏一郎は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1606|美濃部達吉|1873|taisho|politics|政治・行政|0|1|codex_taisho|美濃部達吉は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1607|吉野作造|1878|taisho|politics|政治・行政|0|1|codex_taisho|吉野作造は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1608|牧野伸顕|1861|taisho|politics|政治・行政|0|1|codex_taisho|牧野伸顕は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1609|内田康哉|1865|taisho|politics|政治・行政|0|1|codex_taisho|内田康哉は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1610|松岡洋右|1880|taisho|politics|政治・行政|0|1|codex_taisho|松岡洋右は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+1611|石井菊次郎|1866|taisho|politics|政治・行政|0|1|codex_taisho|石井菊次郎は大正期前後に政治・行政で活動し、近代日本の政治・行政分野の形成に実績を残した。
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers; SELECT primary_era_id, COUNT(*) FROM achievers GROUP BY primary_era_id; SELECT domain, COUNT(*) FROM achievers WHERE primary_era_id='taisho' GROUP BY domain ORDER BY COUNT(*) DESC\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+9760
+heisei|2160
+meiji|866
+reiwa|3919
+showa_post|1386
+showa_pre|752
+taisho|677
+culture_arts|168
+business|112
+social_movement|100
+local_craft|60
+politics|36
+craft|36
+education|35
+sports|32
+agriculture_local|28
+science|23
+women_pioneers|14
+religion_thought|14
+science_tech|7
+education_practice|6
+local_excellent_culture|3
+military|2
+professional|1
+
+exec
+/bin/bash -lc 'rg --files' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "rg -n \"taisho_local|6\\.B|codex_correction_taisho_local|農村指導|地方文化\" ." in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+reports/phase2_initial_status.md
+reports/verification_log.md
+reports/bias_audit_report.md
+reports/phase3_audit_report.md
+reports/full_bias_audit_report.md
+reports/implications_3parts.html
+data/load_showa_post_media_journalism.sql
+data/load_showa_post_media_journalism_batch3.sql
+phase1_scoping/insert_reiwa_social_movement.sql
+phase1_scoping/must_have_checklist.md
+tmp_collection/update_showa_post_core_years.py
+tmp_collection/rebalance_showa_post.py
+tmp_collection/clean_showa_post_names.py
+tmp_collection/seed_showa_post.py
+tmp_collection/ensure_showa_post_checklist.py
+scripts/insert_showa_post_business_supplement.sql
+scripts/import_external_dbs.py
+scripts/import_phase2.py
+scripts/phase6_1_redistribute.py
+scripts/insert_taisho_achievers.py
+scripts/phase4_relations.py
+scripts/insert_diaspora_ainu_okinawa.sql
+scripts/init_schema.sql
+scripts/insert_taisho_culture_arts.sql
+scripts/insert_taisho_culture_arts_supplement.sql
+scripts/supplement_showa_pre_achievers.py
+scripts/insert_heisei_business_200.py
+scripts/insert_all_women_pioneers.py
+scripts/phase6_0_flags.py
+scripts/phase5_full_bias_audit.py
+scripts/insert_meiji_science_tech_achievers.py
+scripts/insert_showa_post_business.sql
+scripts/insert_taisho_social_movement.sql
+scripts/phase3_audit.py
+scripts/insert_taisho_social_movement_supplement.sql
+scripts/insert_showa_post_sports_codex.sql
+scripts/phase5_bias_audit.py
+scripts/seed_showa_pre_achievers.py
+phase0_planning/integrated_foundation_plan.md
+dashboards/bias_audit.json
+dashboards/bias_audit_history.json
+dashboards/data.json
+dashboards/l1l2_matrix_calibrated.json
+dashboards/l1l2_matrix.json
+dashboards/index.html
+phase2_collection/insert_reiwa_achievers.py
+phase2_collection/codex_team35_launch.sh
+phase2_collection/codex_parallel_launch.sh
+phase2_collection/codex_team35_launch.sh.bak
+css/textbook.css
+css/textbook-init.js
+phase6_correction/logs/active_pids.txt
+phase6_correction/logs/p6_B_showa_pre_craft_20260505-200355.log
+phase6_correction/logs/p6_B_meiji_local_20260505-200349.log
+phase6_correction/logs/p6_B_taisho_local_20260505-200353.log
+phase6_correction/logs/p6_B_showa_post_craft_20260505-200357.log
+phase6_correction/logs/p6_B_taisho_craft_20260505-200351.log
+phase6_correction/logs/p6_C_showa_post_women_20260505-200414.log
+phase6_correction/logs/p6_B_reiwa_local_20260505-200401.log
+phase6_correction/logs/p6_C_heisei_women_20260505-200416.log
+phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log
+phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log
+phase6_correction/logs/p6_B_heisei_local_20260505-200359.log
+phase6_correction/logs/p6_C_meiji_women_20260505-200408.log
+phase6_correction/logs/p6_C_taisho_women_20260505-200410.log
+phase6_correction/codex_correction_launch.sh
+index.html
+
+ succeeded in 0ms:
+./phase6_correction/logs/p6_B_showa_pre_craft_20260505-200355.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_showa_pre_craft_20260505-200355.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), MIN(id), MAX(id) FROM achievers; SELECT id,name_ja,birth_year,domain,correction_phase,source_team FROM achievers WHERE correction_phase='6.B' LIMIT 5;\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:207:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE primary_era_id='meiji' AND domain='craft'; SELECT domain, COUNT(*) FROM achievers WHERE correction_phase='6.B' GROUP BY domain;\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:224:./phase6_correction/logs/p6_B_showa_pre_craft_20260505-200355.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:225:./phase6_correction/logs/p6_B_showa_pre_craft_20260505-200355.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:228:./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:230:./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:234:./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:235:./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:236:./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:69:DBスキーマと既存データの形を確認してから、50件単位で投入します。まず必須カラム、能力ディメンション、既存のPhase 6.B件数を見ます。
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:237:./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:119:, correction_phase TEXT);
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:238:./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT correction_phase, source_team, COUNT(*) FROM achievers WHERE correction_phase='6.B' OR source_team='codex_correction_taisho_local' GROUP BY correction_phase, source_team\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:239:./phase6_correction/logs/p6_B_showa_post_craft_20260505-200357.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:240:./phase6_correction/logs/p6_B_showa_post_craft_20260505-200357.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:242:./phase6_correction/logs/p6_B_showa_post_craft_20260505-200357.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.B'; SELECT domain, COUNT(*) FROM achievers WHERE correction_phase='6.B' GROUP BY domain ORDER BY COUNT(*) DESC;\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:246:./phase6_correction/logs/p6_B_taisho_craft_20260505-200351.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:247:./phase6_correction/logs/p6_B_taisho_craft_20260505-200351.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:249:./phase6_correction/logs/p6_B_taisho_craft_20260505-200351.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.B' AND source_team='codex_correction_taisho_craft'\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:250:./phase6_correction/logs/p6_B_reiwa_local_20260505-200401.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:251:./phase6_correction/logs/p6_B_reiwa_local_20260505-200401.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:265:./phase6_correction/logs/p6_B_heisei_local_20260505-200359.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:266:./phase6_correction/logs/p6_B_heisei_local_20260505-200359.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:268:./phase6_correction/logs/p6_B_heisei_local_20260505-200359.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.B' AND source_team='codex_correction_heisei_local'\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:269:./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:270:./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:272:./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), MIN(id), MAX(id) FROM achievers; SELECT id,name_ja,birth_year,domain,correction_phase,source_team FROM achievers WHERE correction_phase='6.B' LIMIT 5;\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:274:./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:207:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE primary_era_id='meiji' AND domain='craft'; SELECT domain, COUNT(*) FROM achievers WHERE correction_phase='6.B' GROUP BY domain;\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_B_heisei_local_20260505-200359.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_heisei_local_20260505-200359.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_heisei_local_20260505-200359.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.B' AND source_team='codex_correction_heisei_local'\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:19:theme: taisho_local
+./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:21:説明: 大正期の地域実践家・農村指導者・地方文化人
+./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:39:2. source_team='codex_correction_taisho_local' を必ず設定
+./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:69:DBスキーマと既存データの形を確認してから、50件単位で投入します。まず必須カラム、能力ディメンション、既存のPhase 6.B件数を見ます。
+./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT correction_phase, source_team, COUNT(*) FROM achievers WHERE correction_phase='6.B' OR source_team='codex_correction_taisho_local' GROUP BY correction_phase, source_team\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:151:Phase 6.Bはまだ入っていないようです。次に既存人物との重複と、既存レコードの書き方を確認して、同じ粒度で投入SQLを組みます。
+./phase6_correction/codex_correction_launch.sh:18:  "B|taisho_local|150|大正期の地域実践家・農村指導者・地方文化人"
+./phase6_correction/logs/p6_B_showa_post_craft_20260505-200357.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_showa_post_craft_20260505-200357.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_showa_post_craft_20260505-200357.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.B'; SELECT domain, COUNT(*) FROM achievers WHERE correction_phase='6.B' GROUP BY domain ORDER BY COUNT(*) DESC;\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_B_reiwa_local_20260505-200401.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_reiwa_local_20260505-200401.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_taisho_craft_20260505-200351.log:18:phase: Phase 6.B
+./phase6_correction/logs/p6_B_taisho_craft_20260505-200351.log:38:1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_taisho_craft_20260505-200351.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.B' AND source_team='codex_correction_taisho_craft'\"" in /Users/nishimura+/projects/research/era-talents-db
+
+codex
+既存の大正データは政治・文化中心で、今回のlocal枠は確かに薄いです。過去のPhase 6.Bログとスクリプトを見て、バッチ投入の形式を合わせます。
+exec
+/bin/bash -lc "sed -n '1,260p' phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7ce-f30b-7123-bc0b-a31f7442147f
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.B
+theme: meiji_craft
+追加目標: 150 件
+説明: 明治期の職人・工芸家・人間国宝候補（無形文化財保持者・伝統技術者）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.B' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_meiji_craft' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【B==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まず既存スキーマと能力ディメンション、既存データの分布を確認します。人物追加は実在確認と重複回避が必要なので、DB制約と既存レコードの形に合わせて投入スクリプトを組みます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), MIN(id), MAX(id) FROM achievers; SELECT id,name_ja,birth_year,domain,correction_phase,source_team FROM achievers WHERE correction_phase='6.B' LIMIT 5;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+9760|1|10531
+
+codex
+スキーマ上は `achievers` と能力テーブルだけで今回の主投入は足ります。次に既存の明治・工芸系レコードの書き方、時代ID、制約の有無を確認して、同じ粒度で150件を作ります。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras;"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,death_year,birth_place,primary_era_id,domain,sub_domain,achievement_summary,is_local_excellent,correction_phase,source_team,source_url FROM achievers WHERE primary_era_id='meiji' AND domain IN ('craft','culture_arts','local_excellent_business') LIMIT 20;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+meiji|明治|Meiji|1868|1912|0||1
+taisho|大正|Taisho|1912|1926|0||2
+showa_pre|昭和前期|Showa Pre-war|1926|1945|0||3
+showa_post|昭和後期|Showa Post-war|1946|1989|0||4
+heisei|平成|Heisei|1989|2019|0||5
+reiwa|令和|Reiwa|2019|2030|0||6
+future_2030|2030年代|2030s|2030|2040|1||7
+future_2050|2050年代|2050s|2050|2060|1||8
+future_2100|2100年代|2100s|2100|2110|1||9
+all|全時代|All eras|1868|2030|0|横断的収集用の擬似時代ID|0
+
+ succeeded in 0ms:
+1367|夏目漱石|1867|1916||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1368|森鴎外|1862|1922||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1369|樋口一葉|1872|1896||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1370|正岡子規|1867|1902||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1371|二葉亭四迷|1864|1909||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1372|横山大観|1868|1958||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1373|岡倉天心|1863|1913||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1374|菱田春草|1874|1911||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1375|滝廉太郎|1879|1903||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1376|坪内逍遥|1859|1935||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1377|与謝野晶子|1878|1942||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1378|島崎藤村|1872|1943||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1379|泉鏡花|1873|1939||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1380|石川啄木|1886|1912||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1381|尾崎紅葉|1868|1903||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1382|幸田露伴|1867|1947||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1383|国木田独歩|1871|1908||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1384|北村透谷|1868|1894||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1385|田山花袋|1872|1930||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+1386|徳富蘆花|1868|1927||meiji|culture_arts|literature_fine_arts_performing_arts|文学、美術、音楽、演劇、評論により明治文化の近代的表現を作った文化芸術人材。|1||codex_meiji|https://www.ndl.go.jp/portrait/
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE primary_era_id='meiji' AND domain='craft'; SELECT domain, COUNT(*) FROM achievers WHERE correction_phase='6.B' GROUP BY domain;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+
+exec
+/bin/bash -lc "sed -n '1,240p' scripts/insert_taisho_achievers.py" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+#!/usr/bin/env python3
+import json
+import sqlite3
+from pathlib import Path
+from urllib.parse import quote
+
+DB_PATH = Path(__file__).resolve().parents[1] / "data" / "era_talents.db"
+TEAM = "codex_taisho"
+
+DOMAIN_CAPS = {
+    "politics": [("age_social_change", 9), ("cog_systems", 8), ("soc_interpersonal", 8), ("val_collective", 8)],
+    "business": [("age_entrepreneur", 9), ("cog_systems", 8), ("age_meta_learning", 8), ("soc_interpersonal", 7)],
+    "science": [("cog_logical", 9), ("cog_critical", 8), ("cog_creativity", 8), ("age_meta_learning", 7)],
+    "technology": [("cog_systems", 9), ("cog_logical", 8), ("cre_cross_domain", 8), ("age_entrepreneur", 7)],
+    "culture_arts": [("cog_creativity", 9), ("val_traditional", 8), ("cre_cross_domain", 8), ("val_tolerance", 7)],
+    "education": [("age_meta_learning", 9), ("cog_critical", 8), ("soc_interpersonal", 8), ("val_collective", 7)],
+    "social_movement": [("age_social_change", 9), ("age_resilience", 8), ("soc_interpersonal", 8), ("val_tolerance", 7)],
+    "sports": [("age_resilience", 9), ("age_meta_learning", 8), ("val_collective", 7), ("soc_interpersonal", 7)],
+    "agriculture_local": [("cog_systems", 8), ("val_eco", 8), ("soc_interpersonal", 8), ("age_social_change", 7)],
+    "craft": [("val_traditional", 9), ("cog_creativity", 8), ("age_meta_learning", 8), ("cre_cross_domain", 7)],
+    "media": [("cog_info", 9), ("cog_critical", 8), ("age_social_change", 7), ("soc_interpersonal", 7)],
+}
+
+DOMAIN_LABEL = {
+    "politics": "政治・行政",
+    "business": "実業・経営",
+    "science": "科学",
+    "technology": "技術",
+    "culture_arts": "文化芸術",
+    "education": "教育・思想",
+    "social_movement": "社会運動",
+    "sports": "スポーツ",
+    "agriculture_local": "地域・農業",
+    "craft": "工芸",
+    "media": "メディア",
+}
+
+YEARS = {
+    "原敬": (1856, 1921), "犬養毅": (1855, 1932), "加藤高明": (1860, 1926),
+    "若槻礼次郎": (1866, 1949), "田中義一": (1864, 1929), "永井柳太郎": (1881, 1944),
+    "後藤新平": (1857, 1929), "高橋是清": (1854, 1936), "山本権兵衛": (1852, 1933),
+    "清浦奎吾": (1850, 1942), "寺内正毅": (1852, 1919), "西園寺公望": (1849, 1940),
+    "尾崎行雄": (1858, 1954), "浜口雄幸": (1870, 1931), "幣原喜重郎": (1872, 1951),
+    "床次竹二郎": (1867, 1935), "水野錬太郎": (1868, 1949), "田健治郎": (1855, 1930),
+    "一木喜徳郎": (1867, 1944), "平沼騏一郎": (1867, 1952), "美濃部達吉": (1873, 1948),
+    "吉野作造": (1878, 1933), "牧野伸顕": (1861, 1949), "内田康哉": (1865, 1936),
+    "松岡洋右": (1880, 1946), "石井菊次郎": (1866, 1945), "小川平吉": (1869, 1942),
+    "小林一三": (1873, 1957), "松下幸之助": (1894, 1989), "出光佐三": (1885, 1981),
+    "堤康次郎": (1889, 1964), "根津嘉一郎": (1860, 1940), "武藤山治": (1867, 1934),
+    "渋沢栄一": (1840, 1931), "岩崎久弥": (1865, 1955), "大倉喜八郎": (1837, 1928),
+    "安田善次郎": (1838, 1921), "浅野総一郎": (1848, 1930), "鮎川義介": (1880, 1967),
+    "石橋正二郎": (1889, 1976), "豊田佐吉": (1867, 1930), "豊田喜一郎": (1894, 1952),
+    "野村徳七": (1878, 1945), "本多光太郎": (1870, 1954), "寺田寅彦": (1878, 1935),
+    "長岡半太郎": (1865, 1950), "八木秀次": (1886, 1976), "鈴木梅太郎": (1874, 1943),
+    "北里柴三郎": (1853, 1931), "志賀潔": (1871, 1957), "野口英世": (1876, 1928),
+    "高峰譲吉": (1854, 1922), "池田菊苗": (1864, 1936), "牧野富太郎": (1862, 1957),
+    "保井コノ": (1880, 1971), "黒田チカ": (1884, 1968), "芥川龍之介": (1892, 1927),
+    "谷崎潤一郎": (1886, 1965), "菊池寛": (1888, 1948), "武者小路実篤": (1885, 1976),
+    "志賀直哉": (1883, 1971), "宮沢賢治": (1896, 1933), "北原白秋": (1885, 1942),
+    "竹久夢二": (1884, 1934), "岸田劉生": (1891, 1929), "与謝野晶子": (1878, 1942),
+    "新渡戸稲造": (1862, 1933), "河上肇": (1879, 1946), "和辻哲郎": (1889, 1960),
+    "九鬼周造": (1888, 1941), "西田幾多郎": (1870, 1945), "田辺元": (1885, 1962),
+    "安部能成": (1883, 1966), "平塚らいてう": (1886, 1971), "市川房枝": (1893, 1981),
+    "山川菊栄": (1890, 1980), "伊藤野枝": (1895, 1923), "堺利彦": (1871, 1933),
+    "大杉栄": (1885, 1923), "賀川豊彦": (1888, 1960), "嘉納治五郎": (1860, 1938),
+    "金栗四三": (1891, 1983), "三島弥彦": (1886, 1954), "人見絹枝": (1907, 1931),
+}
+
+GROUPS = [
+("politics","政治・行政","原敬,犬養毅,加藤高明,若槻礼次郎,田中義一,永井柳太郎,後藤新平,高橋是清,山本権兵衛,清浦奎吾,寺内正毅,西園寺公望,尾崎行雄,浜口雄幸,幣原喜重郎,床次竹二郎、水野錬太郎,田健治郎,一木喜徳郎,平沼騏一郎,美濃部達吉,吉野作造,牧野伸顕,内田康哉,松岡洋右,石井菊次郎,小川平吉,中橋徳五郎,望月圭介,江木翼,芦田均,町田忠治,三土忠造,松田源治,斎藤隆夫,鳩山一郎"),
+("business","実業・起業","小林一三,松下幸之助,出光佐三,堤康次郎,根津嘉一郎,武藤山治,渋沢栄一,岩崎久弥,住友友純,大倉喜八郎,安田善次郎,浅野総一郎,鮎川義介,石橋正二郎,豊田佐吉,豊田喜一郎,野村徳七,山下亀三郎,藤原銀次郎,大川平三郎,郷誠之助,団琢磨,益田孝,森村市左衛門,服部金太郎,相馬愛蔵,鳥井信治郎,江崎利一,森永太一郎,藤山雷太,福澤桃介,松永安左エ門,早川徳次,御木本幸吉,大原孫三郎,金子直吉"),
+("science","科学技術","本多光太郎,寺田寅彦,長岡半太郎,八木秀次,鈴木梅太郎,北里柴三郎,志賀潔,野口英世,高峰譲吉,池田菊苗,田中館愛橘,石原純,仁科芳雄,湯川秀樹,朝永振一郎,西川正治,菊池正士,正田建次郎,岡潔,高木貞治,藤原松三郎,牧野富太郎,三好学,柴田桂太,本多静六,石川千代松,丘浅次郎,飯島魁,平瀬作五郎,藤井健次郎,保井コノ,黒田チカ,荻野久作,二木謙三,山極勝三郎,大森房吉"),
+("culture_arts","文学","芥川龍之介,谷崎潤一郎,菊池寛,武者小路実篤,志賀直哉,宮沢賢治,北原白秋,萩原朔太郎,佐藤春夫,室生犀星,島崎藤村,与謝野晶子,与謝野鉄幹,永井荷風,有島武郎,有島生馬,里見弴,久米正雄,宇野浩二,広津和郎,葛西善蔵,正宗白鳥,徳田秋声,泉鏡花,小山内薫,坪内逍遥,岡本綺堂,小川未明,鈴木三重吉,千葉省三,野口雨情,西條八十,堀口大學,小酒井不木,江戸川乱歩,横光利一"),
+("culture_arts","美術・音楽・演劇","竹久夢二,岸田劉生,黒田清輝,藤島武二,梅原龍三郎,安井曾太郎,小出楢重,萬鉄五郎,村山槐多,関根正二,恩地孝四郎,山本鼎,柳宗悦,高村光太郎,朝倉文夫,中山晋平,山田耕筰,藤原義江,本居長世,弘田龍太郎,三浦環,松井須磨子,川上貞奴,栗島すみ子,二代目市川左團次,初代中村吉右衛門,六代目尾上菊五郎,七代目松本幸四郎,初代水谷八重子,岡田嘉子,村田実,小山内薫,土方与志,佐々紅華,島村抱月,久保田万太郎"),
+("education","教育・思想","新渡戸稲造,河上肇,和辻哲郎,九鬼周造,西田幾多郎,田辺元,安部能成,左右田喜一郎,柳田国男,折口信夫,津田左右吉,内藤湖南,白鳥庫吉,喜田貞吉,田中耕太郎,小泉信三,南原繁,大内兵衛,矢内原忠雄,末弘厳太郎,穂積重遠,高田保馬,三木清,戸坂潤,長谷川如是閑,大山郁夫,福田徳三,土田杏村,西晋一郎,桑木厳翼,倉田百三,波多野精一,朝永三十郎,阿部次郎,小原國芳,沢柳政太郎"),
+("social_movement","社会運動・福祉","平塚らいてう,市川房枝,山川菊栄,伊藤野枝,堺利彦,大杉栄,賀川豊彦,鈴木文治,麻生久,山川均,荒畑寒村,徳田球一,片山潜,安部磯雄,赤松克麿,松岡駒吉,高野岩三郎,添田唖蝉坊,布施辰治,宮崎龍介,奥むめお,ガントレット恒子,久布白落実,矢嶋楫子,河崎なつ,高群逸枝,山田わか,山室軍平,留岡幸助,生江孝之,石井十次,田澤義鋪,下村湖人,杉山元治郎,神近市子,高良とみ"),
+("sports","スポーツ・体育","嘉納治五郎,金栗四三,三島弥彦,二階堂トクヨ,野口源三郎,織田幹雄,人見絹枝,鶴田義行,内田正練,高石勝男,斎藤兼吉,入江稔夫,宮崎康二,清川正二,牧野正蔵,横山隆志,前畑秀子,田畑政治,岸清一,野津謙,鈴木惣太郎,飛田穂洲,河野安通志,押川春浪,水原茂,三原脩,若林忠志,苅田久徳,西村幸生,藤本定義,鈴木龍二,大谷武一,東龍太郎,可児徳,大森兵蔵,安藤幸"),
+("agriculture_local","地域・農業・民俗","横井時敬,稲塚権次郎,加藤完治,石黒忠篤,那須皓,東畑精一,近藤康男,小平権一,千石興太郎,山崎延吉,前田正名,佐藤昌介,南方熊楠,渋沢敬三,早川孝太郎,今和次郎,有馬頼寧,三宅正一,下中弥三郎,川村竹治,山本滝之助,松本烝治,一戸兵衛,井上友一,田子一民,井上雅二,宮本常一,折口信夫,小寺融吉,竹内利美,柳田国男,佐々木喜善,金田一京助,知里真志保,鳥居龍蔵,伊波普猷"),
+("craft","工芸・職人","濱田庄司,河井寛次郎,富本憲吉,北大路魯山人,板谷波山,香取秀真,六角紫水,山鹿清華,芹沢銈介,小森忍,バーナード・リーチ,高村豊周,鹿島一谷,五代清水六兵衛,宮川香山,初代諏訪蘇山,二代諏訪蘇山,加藤土師萌,荒川豊蔵,金重陶陽,石黒宗麿,山田宗美,海野清,沼田一雅,楠部彌弌,十二代酒井田柿右衛門,十一代今泉今右衛門,初代宮之原謙,津田信夫,平田郷陽,堀柳女,野口園生,飯塚琅玕斎,高野松山,松田権六,磯井如真"),
+]
+
+WOMEN = "相馬黒光,生田花世,長谷川時雨,岡本かの子,柳原白蓮,野上弥生子,宇野千代,吉屋信子,宮本百合子,網野菊,林芙美子,円地文子,佐多稲子,三宅やす子,村岡花子,九条武子,柳兼子,鳩山春子,安井てつ,井上秀,河井道,津田梅子,広岡浅子,加藤シヅエ,羽仁もと子,下田歌子,成瀬仁蔵,吉岡彌生,大江スミ,山脇房子,棚橋絢子,跡見花蹊,大妻コタカ,小原春香,久保より江,渡辺カ子"
+
+
+def split_names(text):
+    return [x.strip() for x in text.replace("、", ",").split(",") if x.strip()]
+
+
+def build_rows():
+    rows = []
+    for domain, sub, names in GROUPS:
+        for name in split_names(names):
+            rows.append((name, domain, sub))
+    for name in split_names(WOMEN):
+        rows.append((name, "education", "女性活躍・教育文化"))
+
+    seen = set()
+    unique = []
+    for name, domain, sub in rows:
+        if name in seen:
+            continue
+        seen.add(name)
+        unique.append((name, domain, sub))
+
+    if len(unique) < 360:
+        raise SystemExit(f"only {len(unique)} unique names")
+    return unique[:360]
+
+
+def main():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys=ON")
+    inserted = 0
+    rows = build_rows()
+    for idx, (name, domain, sub_domain) in enumerate(rows, start=1):
+        birth_year, death_year = YEARS.get(name, (None, None))
+        if birth_year is None:
+            exists = conn.execute(
+                "SELECT id FROM achievers WHERE name_ja=? AND birth_year IS NULL", (name,)
+            ).fetchone()
+        else:
+            exists = conn.execute(
+                "SELECT id FROM achievers WHERE name_ja=? AND birth_year=?", (name, birth_year)
+            ).fetchone()
+        if exists:
+            continue
+
+        label = DOMAIN_LABEL.get(domain, domain)
+        summary = f"{name}は大正期前後に{sub_domain}で活動し、近代日本の{label}分野の形成に実績を残した。"
+        source_url = "https://ja.wikipedia.org/wiki/" + quote(name)
+        is_traditional = 1 if idx <= 120 else 0
+        is_local = 0 if is_traditional else 1
+        completeness = 80 if birth_year is not None and death_year is not None else 55
+        cur = conn.execute(
+            """
+            INSERT INTO achievers (
+                name_ja, birth_year, death_year, primary_era_id, domain, sub_domain,
+                achievement_summary, notable_works, is_traditional_great, is_local_excellent,
+                data_completeness, source_team, source_url, notes
+            ) VALUES (?, ?, ?, 'taisho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                name, birth_year, death_year, domain, sub_domain, summary,
+                json.dumps([sub_domain], ensure_ascii=False),
+                is_traditional, is_local, completeness, TEAM, source_url,
+                "大正期基礎母集団投入。生没年NULLの行は追加検証対象。",
+            ),
+        )
+        achiever_id = cur.lastrowid
+        for cap_id, score in DOMAIN_CAPS.get(domain, DOMAIN_CAPS["education"]):
+            conn.execute(
+                """
+                INSERT INTO achiever_capabilities (
+                    achiever_id, capability_id, score, evidence_quote, evidence_source, notes
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    achiever_id, cap_id, score, summary, source_url,
+                    "分野・業績要約に基づく初期スコア。後続調査で精緻化。",
+                ),
+            )
+        inserted += 1
+        if inserted % 50 == 0:
+            conn.commit()
+            count = conn.execute(
+                "SELECT COUNT(*) FROM achievers WHERE primary_era_id='taisho'"
+            ).fetchone()[0]
+            print(f"committed {inserted}; taisho count={count}")
+
+    conn.commit()
+    final = conn.execute("SELECT COUNT(*) FROM achievers WHERE primary_era_id='taisho'").fetchone()[0]
+    trad = conn.execute("SELECT COALESCE(SUM(is_traditional_great),0) FROM achievers WHERE primary_era_id='taisho'").fetchone()[0]
+    local = conn.execute("SELECT COALESCE(SUM(is_local_excellent),0) FROM achievers WHERE primary_era_id='taisho'").fetchone()[0]
+    caps = conn.execute(
+        "SELECT COUNT(*) FROM achiever_capabilities WHERE achiever_id IN (SELECT id FROM achievers WHERE primary_era_id='taisho')"
+    ).fetchone()[0]
+    print(f"inserted={inserted}")
+    print(f"final taisho count={final}")
+    print(f"traditional={trad}; local_excellent={local}; capabilities={caps}")
+
+
+if __name__ == "__main__":
+    main()
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT a.name_ja,a.birth_year,a.domain,c.capability_id,c.score,c.evidence_quote FROM achievers a JOIN achiever_capabilities c ON c.achiever_id=a.id WHERE a.correction_phase='6.B' LIMIT 20\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+web search: 
+web search: site:ja.wikipedia.org 日本 篤農家 大正 農業指導者
+codex
+150件を一気に手打ちすると実在性と重複のリスクが高いので、既存の大正母集団で使われた人物群は避けます。候補は篤農家・農政実務家・民俗/郷土研究者・地域産業家・工芸家に寄せ、投入前にDB側で名前/生年重複を機械チェックします。
+exec
+/bin/bash -lc "curl -L --max-time 10 'https://ja.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=Category:%E6%97%A5%E6%9C%AC%E3%81%AE%E8%BE%B2%E5%AD%A6%E8%80%85&cmlimit=50&format=json' | head -c 500" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0curl: (6) Could not resolve host: ja.wikipedia.org
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year FROM achievers WHERE source_team='codex_taisho' OR primary_era_id='taisho'\" > /tmp/taisho_existing.tsv && wc -l /tmp/taisho_existing.tsv && head /tmp/taisho_existing.tsv" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+     677 /tmp/taisho_existing.tsv
+犬養毅|1855
+加藤高明|1860
+若槻礼次郎|1866
+田中義一|1864
+永井柳太郎|1881
+高橋是清|1854
+清浦奎吾|1850
+尾崎行雄|1858
+浜口雄幸|1870
+床次竹二郎|1867
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,domain,source_team FROM achievers WHERE name_ja IN ('横井時敬','稲塚権次郎','加藤完治','石黒忠篤','那須皓','東畑精一','近藤康男','小平権一','千石興太郎','山崎延吉','前田正名','佐藤昌介','早川孝太郎','今和次郎','渋沢敬三','佐々木喜善','金田一京助','鳥居龍蔵','伊波普猷')\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+1310|横井時敬|1860|science|codex_meiji
+1484|千石興太郎|1874|social_movement|codex_meiji
+1551|前田正名|1850|professional|codex_meiji
+1833|稲塚権次郎||agriculture_local|codex_taisho
+1834|加藤完治||agriculture_local|codex_taisho
+1835|石黒忠篤||agriculture_local|codex_taisho
+1836|那須皓||agriculture_local|codex_taisho
+1837|東畑精一||agriculture_local|codex_taisho
+1838|近藤康男||agriculture_local|codex_taisho
+1839|小平権一||agriculture_local|codex_taisho
+1841|山崎延吉||agriculture_local|codex_taisho
+1843|佐藤昌介||agriculture_local|codex_taisho
+1845|渋沢敬三|1896|agriculture_local|codex_taisho
+1846|早川孝太郎|1889|agriculture_local|codex_taisho
+1847|今和次郎|1888|agriculture_local|codex_taisho
+1860|佐々木喜善||agriculture_local|codex_taisho
+1861|金田一京助|1882|agriculture_local|codex_taisho
+1863|鳥居龍蔵|1870|agriculture_local|codex_taisho
+1864|伊波普猷|1876|agriculture_local|codex_taisho
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year,domain,source_team FROM achievers WHERE domain IN ('craft','local_craft','agriculture_local','local_excellent_business') ORDER BY name_ja\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+ナガオカケンメイ||agriculture_local|codex_heisei
+バーナード・リーチ|1887|craft|codex_taisho
+一戸兵衛||agriculture_local|codex_taisho
+三代徳田八十吉||craft|codex_heisei
+三宅正一|1900|agriculture_local|codex_taisho
+三浦小平二||craft|codex_heisei
+三浦展||agriculture_local|codex_heisei
+三輪休和||agriculture_local|codex_showa_post
+三輪壽雪|1910|local_craft|codex_taisho_local_craft
+上村松篁||agriculture_local|codex_showa_post
+上村淳之||agriculture_local|codex_showa_post
+上野為二||craft|codex_showa_pre
+下中弥三郎|1878|agriculture_local|codex_taisho
+与那嶺貞|1909|local_craft|codex_taisho_local_craft
+中島宏||craft|codex_reiwa
+中島明子||agriculture_local|codex_heisei
+中島秀吉|1883|local_craft|codex_taisho_local_craft
+中島紀一||agriculture_local|codex_showa_post
+中川一政||agriculture_local|codex_showa_post
+中川政七||agriculture_local|codex_reiwa
+中川衛||craft|codex_heisei
+中村勇二郎|1902|local_craft|codex_taisho_local_craft
+中村勘三郎||craft|codex_heisei
+中村勝馬|1894|local_craft|codex_taisho_local_craft
+中村吉右衛門||craft|codex_heisei
+中村朱美||agriculture_local|codex_reiwa
+中村桂子||agriculture_local|codex_showa_post
+中臺瑞真|1912|local_craft|codex_taisho_local_craft
+中里無庵||craft|codex_showa_pre
+久松達央||agriculture_local|codex_reiwa
+九代岩野市兵衛|1933|local_craft|codex_taisho_local_craft
+亀井忠雄||craft|codex_heisei
+二代前田竹房斎|1917|local_craft|codex_taisho_local_craft
+二代諏訪蘇山||craft|codex_taisho
+二塚長生|1946|local_craft|codex_taisho_local_craft
+五世早川尚古斎|1932|local_craft|codex_taisho_local_craft
+五代清水六兵衛||craft|codex_taisho
+井上友一||agriculture_local|codex_taisho
+井上英明||agriculture_local|codex_heisei
+井上貴至||agriculture_local|codex_reiwa
+井上雅二||agriculture_local|codex_taisho
+井本喜久||agriculture_local|codex_reiwa
+井筒耕平||agriculture_local|codex_heisei
+今和次郎|1888|agriculture_local|codex_taisho
+今泉今右衛門||agriculture_local|codex_showa_post
+伊勢崎淳||craft|codex_reiwa
+伊波普猷|1876|agriculture_local|codex_taisho
+伊藤洋志||agriculture_local|codex_reiwa
+伊藤赤水||craft|codex_heisei
+佐々木喜善||agriculture_local|codex_taisho
+佐々木象堂||craft|codex_showa_pre
+佐藤忠良||agriculture_local|codex_showa_post
+佐藤昌介||agriculture_local|codex_taisho
+佐藤藤三郎||agriculture_local|codex_showa_post
+佐藤裕久||agriculture_local|codex_reiwa
+佐野陽光|1973|local_excellent_business|codex_all_local_excellent
+信岡良亮||agriculture_local|codex_heisei
+元永定正||agriculture_local|codex_showa_post
+元谷外志雄|1943|local_excellent_business|codex_all_local_excellent
+八代岩野市兵衛|1901|local_craft|codex_taisho_local_craft
+六角紫水|1867|craft|codex_taisho
+六谷梅軒|1907|local_craft|codex_taisho_local_craft
+内藤四郎|1907|local_craft|codex_taisho_local_craft
+初代宮之原謙||craft|codex_taisho
+初代徳田八十吉||craft|codex_showa_pre
+初代諏訪蘇山||craft|codex_taisho
+初代須田菁華||craft|codex_showa_pre
+初代魚住為楽|1886|local_craft|codex_taisho_local_craft
+前大峰||craft|codex_showa_pre
+前田昭博||craft|codex_reiwa
+前田青邨||agriculture_local|codex_showa_post
+加山又造||agriculture_local|codex_showa_post
+加納夏雄||craft|codex_showa_pre
+加藤唐九郎||agriculture_local|codex_showa_post
+加藤土師萌|1900|craft|codex_taisho
+加藤孝造||craft|codex_heisei
+加藤完治||agriculture_local|codex_taisho
+加藤登紀子||agriculture_local|codex_showa_post
+北大路魯山人|1883|craft|codex_taisho
+北村武資||craft|codex_reiwa
+十一代今泉今右衛門||craft|codex_taisho
+十二代酒井田柿右衛門||craft|codex_taisho
+十五代酒井田柿右衛門||craft|codex_reiwa
+十代三輪休雪||craft|codex_showa_pre
+十四代今泉今右衛門||craft|codex_reiwa
+十四代酒井田柿右衛門||craft|codex_heisei
+千葉あやの|1889|local_craft|codex_taisho_local_craft
+南部芳松|1894|local_craft|codex_taisho_local_craft
+原清||craft|codex_heisei
+原研哉||craft|codex_reiwa
+友廣裕一||agriculture_local|codex_reiwa
+古田秘馬||agriculture_local|codex_heisei
+吉原治良||agriculture_local|codex_showa_post
+吉田文之|1915|local_craft|codex_taisho_local_craft
+吉田美統||craft|codex_heisei
+吉里裕也||agriculture_local|codex_heisei
+唐池恒二|1953|local_excellent_business|codex_all_local_excellent
+喜多川俵二||craft|codex_heisei
+喜多川平朗|1898|craft|codex_showa_pre
+土井勝||agriculture_local|codex_showa_post
+坂本大祐||agriculture_local|codex_heisei
+坂本孝|1940|local_excellent_business|codex_all_local_excellent
+坂東玉三郎||craft|codex_heisei
+坂田藤十郎||craft|codex_heisei
+坂茂||craft|codex_reiwa
+堀文子||agriculture_local|codex_showa_post
+堀柳女||craft|codex_taisho
+塚本快示||agriculture_local|codex_showa_post
+塚田正昭|1942|local_excellent_business|codex_all_local_excellent
+塩多慶四郎|1926|local_craft|codex_taisho_local_craft
+塩見直紀||agriculture_local|codex_reiwa
+増村益城|1910|local_craft|codex_taisho_local_craft
+大倉源次郎||craft|codex_heisei
+大南信也||agriculture_local|codex_reiwa
+大坂弘道|1937|local_craft|codex_taisho_local_craft
+大場松魚|1916|local_craft|codex_taisho_local_craft
+大樋年雄||craft|codex_reiwa
+大西勲||craft|codex_heisei
+大谷早人|1947|local_craft|codex_taisho_local_craft
+大野昭和斎|1912|local_craft|codex_taisho_local_craft
+大野鈍阿||craft|codex_showa_pre
+太刀川英輔||craft|codex_reiwa
+奥村彪生||agriculture_local|codex_showa_post
+奥田元宋||agriculture_local|codex_showa_post
+奥田政行||craft|codex_reiwa
+妹島和世||craft|codex_reiwa
+宇根豊||agriculture_local|codex_showa_post
+守本陽一||agriculture_local|codex_reiwa
+安部榮四郎|1902|local_craft|codex_taisho_local_craft
+宗廣力三|1914|local_craft|codex_taisho_local_craft
+室瀬和美||craft|codex_reiwa
+宮入行平|1913|local_craft|codex_taisho_local_craft
+宮口侗廸||agriculture_local|codex_heisei
+宮城道雄|1894|craft|codex_showa_pre
+宮川香山|1842|craft|codex_taisho
+富本憲吉|1886|craft|codex_taisho
+寺井元一||agriculture_local|codex_heisei
+寺井直次|1912|local_craft|codex_taisho_local_craft
+寺田千代乃|1947|local_excellent_business|codex_all_local_excellent
+小倉遊亀||agriculture_local|codex_showa_post
+小宮康助|1882|local_craft|codex_taisho_local_craft
+小宮康孝||craft|codex_heisei
+小宮康正||craft|codex_heisei
+小寺融吉||agriculture_local|codex_taisho
+小山進||craft|codex_reiwa
+小川善三郎||craft|codex_heisei
+小平権一||agriculture_local|codex_taisho
+小松理虔||agriculture_local|codex_heisei
+小森忍|1889|craft|codex_taisho
+小泉武夫||agriculture_local|codex_showa_post
+小泉誠||craft|codex_reiwa
+小田切徳美||agriculture_local|codex_heisei
+小磯良平||agriculture_local|codex_showa_post
+小野光敬|1913|local_craft|codex_taisho_local_craft
+小野邦彦||agriculture_local|codex_reiwa
+尾上菊五郎||craft|codex_heisei
+山下惣一||agriculture_local|codex_showa_post
+山中勧|1921|local_excellent_business|codex_all_local_excellent
+山井太|1959|local_excellent_business|codex_all_local_excellent
+山口長男||agriculture_local|codex_showa_post
+山崎亮||agriculture_local|codex_reiwa
+山崎延吉||agriculture_local|codex_taisho
+山本滝之助||agriculture_local|codex_taisho
+山本陶秀||agriculture_local|codex_showa_post
+山田宗美|1871|craft|codex_taisho
+山田貢|1912|local_craft|codex_taisho_local_craft
+山納洋||agriculture_local|codex_reiwa
+山野智久||agriculture_local|codex_reiwa
+山鹿清華|1885|craft|codex_taisho
+岡鹿之助||agriculture_local|codex_showa_post
+岩佐十良||agriculture_local|codex_heisei
+岩佐大輝||agriculture_local|codex_reiwa
+岩本悠||agriculture_local|codex_reiwa
+岸朝子||agriculture_local|codex_showa_post
+島岡達三||agriculture_local|codex_showa_post
+島正博|1937|local_excellent_business|codex_all_local_excellent
+島田由香||agriculture_local|codex_reiwa
+嶋田洋平||agriculture_local|codex_reiwa
+川北秀人||agriculture_local|codex_heisei
+川口由一||agriculture_local|codex_showa_post
+川村竹治||agriculture_local|codex_taisho
+市川團十郎||craft|codex_heisei
+市川海老蔵||craft|codex_heisei
+市橋とし子|1907|local_craft|codex_taisho_local_craft
+平井太郎||agriculture_local|codex_reiwa
+平山郁夫||agriculture_local|codex_showa_post
+平田郷陽||craft|codex_taisho
+影山知明||agriculture_local|codex_heisei
+後藤健市||agriculture_local|codex_heisei
+徳田八十吉||agriculture_local|codex_showa_post
+徳谷柿次郎||agriculture_local|codex_heisei
+志村ふくみ||craft|codex_reiwa
+志村洋子||craft|codex_reiwa
+成澤由浩||craft|codex_reiwa
+指出一正||agriculture_local|codex_reiwa
+新里明士||craft|codex_reiwa
+早川孝太郎|1889|agriculture_local|codex_taisho
+星寛治||agriculture_local|codex_showa_post
+春風亭小朝||craft|codex_heisei
+月山貞一|1907|local_craft|codex_taisho_local_craft
+服部幸應||agriculture_local|codex_showa_post
+木下斉||agriculture_local|codex_reiwa
+木村秋則||agriculture_local|codex_showa_post
+木村雨山|1891|local_craft|codex_taisho_local_craft
+本阿彌日洲|1908|local_craft|codex_taisho_local_craft
+杉山寧||agriculture_local|codex_showa_post
+東山魁夷||agriculture_local|codex_showa_post
+東畑精一||agriculture_local|codex_taisho
+松井康成||agriculture_local|codex_showa_post
+松本烝治|1877|agriculture_local|codex_taisho
+松永桂子||agriculture_local|codex_reiwa
+松田権六|1896|craft|codex_taisho
+板谷波山|1872|craft|codex_taisho
+林武||agriculture_local|codex_showa_post
+林篤志||agriculture_local|codex_reiwa
+柳家喬太郎||craft|codex_heisei
+柳家小三治||craft|codex_heisei
+柳田國男||agriculture_local|codex_showa_post
+柴田文江||craft|codex_reiwa
+栗原幹雄|1951|local_excellent_business|codex_all_local_excellent
+桂文枝||craft|codex_heisei
+桂文珍||craft|codex_heisei
+梅若六郎||craft|codex_heisei
+棟方志功||agriculture_local|codex_showa_post
+森口邦彦||craft|codex_reiwa
+森本千絵||agriculture_local|codex_heisei
+森枝卓士||agriculture_local|codex_showa_post
+椎川忍||agriculture_local|codex_heisei
+楠部彌弌|1897|craft|codex_taisho
+樂吉左衛門||craft|codex_reiwa
+横石知二||agriculture_local|codex_heisei
+水戸岡鋭治|1947|local_excellent_business|codex_all_local_excellent
+氷見晃堂|1906|local_craft|codex_taisho_local_craft
+永井一史||craft|codex_reiwa
+永山光幹|1920|local_craft|codex_taisho_local_craft
+永山祐子||craft|codex_reiwa
+池田親生||agriculture_local|codex_reiwa
+河井寛次郎|1890|craft|codex_taisho
+油井啓祐||agriculture_local|codex_heisei
+沼田一雅|1873|craft|codex_taisho
+津田信夫||craft|codex_taisho
+浅蔵五十吉||agriculture_local|codex_showa_post
+浜田統之||craft|codex_reiwa
+海野勝珉||craft|codex_showa_pre
+海野清|1884|craft|codex_taisho
+深澤直人||craft|codex_reiwa
+深見重助|1885|local_craft|codex_taisho_local_craft
+清水六兵衛||craft|codex_showa_pre
+清水南山||craft|codex_showa_pre
+清水卯一||agriculture_local|codex_showa_post
+清水幸太郎|1897|local_craft|codex_taisho_local_craft
+渋沢敬三|1896|agriculture_local|codex_taisho
+渋澤健||agriculture_local|codex_heisei
+濱田庄司|1894|craft|codex_taisho
+濵田幸雄|1913|local_craft|codex_taisho_local_craft
+灰外達夫|1941|local_craft|codex_taisho_local_craft
+熊谷守一||agriculture_local|codex_showa_post
+片岡仁左衛門||craft|codex_heisei
+片岡球子||agriculture_local|codex_showa_post
+片桐孝憲|1982|local_excellent_business|codex_all_local_excellent
+瑛九||agriculture_local|codex_showa_post
+生野祥雲斎|1904|local_craft|codex_taisho_local_craft
+田中仁||agriculture_local|codex_heisei
+田中佑典||agriculture_local|codex_reiwa
+田中元子||agriculture_local|codex_heisei
+田中敦子||agriculture_local|codex_showa_post
+田中輝美||agriculture_local|codex_reiwa
+田口壽恒|1940|local_craft|codex_taisho_local_craft
+田子一民||agriculture_local|codex_taisho
+田島比呂子||craft|codex_heisei
+田川欣哉||craft|codex_reiwa
+田村太郎||agriculture_local|codex_heisei
+田村耕一||agriculture_local|codex_showa_post
+田根剛||craft|codex_reiwa
+田渕俊夫||agriculture_local|codex_showa_post
+田畑喜八||craft|codex_showa_pre
+甲田栄祐|1892|local_craft|codex_taisho_local_craft
+甲田綏郎|1929|local_craft|codex_taisho_local_craft
+畠山重篤||agriculture_local|codex_heisei
+白山松哉||craft|codex_showa_pre
+白髪一雄||agriculture_local|codex_showa_post
+皆川明||craft|codex_reiwa
+矢島里佳||agriculture_local|codex_reiwa
+知里真志保|1909|agriculture_local|codex_taisho
+石上純也||craft|codex_reiwa
+石黒宗麿|1893|craft|codex_taisho
+石黒忠篤||agriculture_local|codex_taisho
+磯井如真||craft|codex_taisho
+祁答院弘智||agriculture_local|codex_reiwa
+福岡正信||agriculture_local|codex_showa_post
+福田喜重||craft|codex_reiwa
+秋好陽介|1981|local_excellent_business|codex_all_local_excellent
+秋山逸生|1901|local_craft|codex_taisho_local_craft
+稲垣稔次郎|1902|local_craft|codex_taisho_local_craft
+稲塚権次郎||agriculture_local|codex_taisho
+立川志の輔||craft|codex_heisei
+竹内利美||agriculture_local|codex_taisho
+竹内昌義||agriculture_local|codex_heisei
+竹本住大夫||craft|codex_heisei
+笑福亭鶴瓶||craft|codex_heisei
+筧裕介||agriculture_local|codex_reiwa
+篠田桃紅||agriculture_local|codex_showa_post
+米光光正||craft|codex_showa_pre
+米田智彦||agriculture_local|codex_heisei
+紫牟田伸子||agriculture_local|codex_heisei
+羽田登喜男||craft|codex_heisei
+芹沢銈介|1895|craft|codex_taisho
+荒川豊蔵|1894|craft|codex_taisho
+荻須高徳||agriculture_local|codex_showa_post
+菅井汲||agriculture_local|codex_showa_post
+藤代松雄|1914|local_craft|codex_taisho_local_craft
+藤原啓||agriculture_local|codex_showa_post
+藤原雄||agriculture_local|codex_showa_post
+藤本敏夫||agriculture_local|codex_showa_post
+藤本智士||agriculture_local|codex_heisei
+藤本能道||agriculture_local|codex_showa_post
+藤森照信||craft|codex_reiwa
+藻谷ゆかり||agriculture_local|codex_heisei
+藻谷浩介||agriculture_local|codex_reiwa
+西出大三|1913|local_craft|codex_taisho_local_craft
+西村浩||agriculture_local|codex_heisei
+西沢立衛||craft|codex_reiwa
+観世清和||craft|codex_heisei
+角谷一圭||craft|codex_showa_pre
+角谷勇圭|1938|local_craft|codex_taisho_local_craft
+豊竹山城少掾|1878|craft|codex_showa_pre
+豊重哲郎||agriculture_local|codex_heisei
+赤地友哉|1906|local_craft|codex_taisho_local_craft
+辰巳芳子||agriculture_local|codex_showa_post
+辻口博啓||craft|codex_reiwa
+辻嘉一||agriculture_local|codex_showa_post
+辻静雄||agriculture_local|codex_showa_post
+近藤康男||agriculture_local|codex_taisho
+近藤悠三||craft|codex_showa_pre
+道場六三郎||agriculture_local|codex_showa_post
+那須皓||agriculture_local|codex_taisho
+酒井田柿右衛門||agriculture_local|codex_showa_post
+野口園生||craft|codex_taisho
+野村万作||craft|codex_heisei
+野村萬斎||craft|codex_heisei
+金丸弘美||agriculture_local|codex_showa_post
+金城次郎||agriculture_local|codex_showa_post
+金森映井智|1908|local_craft|codex_taisho_local_craft
+金田一京助|1882|agriculture_local|codex_taisho
+金重陶陽|1896|craft|codex_taisho
+鈴木藏||craft|codex_reiwa
+鈴木表朔||craft|codex_showa_pre
+鍵山秀三郎|1933|local_excellent_business|codex_all_local_excellent
+鎌倉芳太郎|1898|local_craft|codex_taisho_local_craft
+鎧塚俊彦||craft|codex_reiwa
+長坂常||craft|codex_reiwa
+長野垤志|1900|local_craft|codex_taisho_local_craft
+関満博||agriculture_local|codex_heisei
+関谷四郎|1907|local_craft|codex_taisho_local_craft
+陳建民||agriculture_local|codex_showa_post
+隅谷正峯|1921|local_craft|codex_taisho_local_craft
+隈研吾||craft|codex_reiwa
+靉光||agriculture_local|codex_showa_post
+青木純||agriculture_local|codex_heisei
+音丸耕堂|1898|craft|codex_showa_pre
+飯塚琅玕斎||craft|codex_taisho
+饗庭伸||agriculture_local|codex_heisei
+香取正彦|1899|local_craft|codex_taisho_local_craft
+香取秀真|1874|craft|codex_taisho
+香月泰男||agriculture_local|codex_showa_post
+馬場正尊||agriculture_local|codex_reiwa
+高村豊周|1890|craft|codex_taisho
+高橋俊宏||agriculture_local|codex_heisei
+高橋貞次|1902|local_craft|codex_taisho_local_craft
+高野松山||craft|codex_taisho
+高野誠鮮||agriculture_local|codex_heisei
+髙山辰雄||agriculture_local|codex_showa_post
+鬼塚喜八郎|1918|local_excellent_business|codex_all_local_excellent
+鳥居龍蔵|1870|agriculture_local|codex_taisho
+鳥羽博道|1937|local_excellent_business|codex_all_local_excellent
+鴨下春明|1915|local_craft|codex_taisho_local_craft
+鶴澤清治||craft|codex_heisei
+鹿児島寿蔵|1898|craft|codex_showa_pre
+鹿島一谷|1898|craft|codex_taisho
+黒田辰秋||agriculture_local|codex_showa_post
+齋田梅亭|1900|local_craft|codex_taisho_local_craft
+齋藤明|1920|local_craft|codex_taisho_local_craft
+齋藤潤一||agriculture_local|codex_reiwa
+
+exec
+/bin/bash -lc "find . -maxdepth 4 -type f \\( -name '*.csv' -o -name '*.json' -o -name '*.db' \\) -print" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+./dashboards/l1l2_matrix.json
+./dashboards/l1l2_matrix_calibrated.json
+./dashboards/data.json
+./dashboards/bias_audit_history.json
+./dashboards/bias_audit.json
+./data/era_talents.db
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year,domain FROM achievers WHERE name_ja IN ('柳宗悦','森口華弘','桂盛仁','奥山峰石','藤沼昇','林駒夫','秋山信子','江里佐代子','磯永吉','末永仁','石川理紀之助','船津伝次平','林遠里')\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+船津伝次平|1832|professional
+柳宗悦|1889|culture_arts
+奥山峰石|1937|local_excellent_craft
+桂盛仁|1944|local_excellent_craft
+林駒夫|1936|local_excellent_craft
+秋山信子|1928|local_excellent_craft
+江里佐代子|1945|local_excellent_craft
+林遠里|1831|science_tech
+石川理紀之助|1845|science_tech
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT domain, COUNT(*) FROM achievers GROUP BY domain ORDER BY domain"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+agriculture_local|172
+business|1116
+craft|135
+culture_arts|1005
+diaspora_ainu_okinawa|79
+education|243
+education_practice|100
+education_thought|80
+local_craft|60
+local_excellent_business|16
+local_excellent_craft|69
+local_excellent_culture|51
+local_excellent_social|9
+media|130
+media_journalism|80
+military|12
+other|1
+politics|4314
+professional|153
+religion_thought|88
+science|296
+science_tech|455
+social_movement|410
+sports|478
+technology|8
+women_pioneers|200
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year FROM achievers WHERE domain='local_excellent_craft' ORDER BY name_ja\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+中台瑞真|1912
+中島晴美|1950
+中川清司|1942
+中野孝一|1947
+久保田一竹|1917
+井上萬二|1929
+今泉今右衛門 (13代)|1926
+今泉今右衛門 (14代)|1962
+伊藤赤水 (5代)|1941
+佐々木苑子|1939
+児玉博|1909
+八木一夫|1918
+前史雄|1940
+加守田章二|1933
+加藤卓男|1917
+勝城蒼鳳|1934
+北村昭斎|1938
+古賀フミ|1927
+土屋順紀|1954
+城ノ口みゑ|1917
+増村紀一郎|1941
+増田三男|1909
+大坪正人|1968
+大澤光民|1941
+大角幸枝|1945
+大隅俊平|1932
+天田昭次|1927
+太田儔|1931
+奥山峰石|1937
+小川規三郎|1936
+小森邦衛|1945
+山下義人|1951
+山田常山 (3代)|1924
+山田日登志|1939
+岡部嶺男|1919
+岩野市兵衛 (8代)|1901
+岩野市兵衛 (9代)|1933
+川北良造|1934
+徳田八十吉 (3代)|1933
+村上良子|1949
+村山明|1944
+松井青々|1925
+松原定吉|1893
+林駒夫|1936
+柚木沙弥郎|1922
+桂盛仁|1944
+樂吉左衛門 (15代)|1949
+江里佐代子|1945
+浜田幸雄|1931
+深見陶治|1947
+玉川宣夫|1942
+玉那覇有公|1936
+田口善国|1923
+由水十久|1913
+磯井正美|1926
+福島善三|1959
+秋山信子|1928
+築城則子|1952
+藤塚松星|1949
+辻村史朗|1947
+辻清明|1927
+酒井田柿右衛門 (14代)|1934
+鈴木治|1926
+鈴田滋人|1954
+隠崎隆一|1953
+飯塚小玕斎|1919
+魚住為楽|1886
+魚住為楽 (3代)|1937
+鯉江良二|1938
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year,domain FROM achievers WHERE name_ja IN ('岩谷直治','似鳥昭雄','山田昇','鈴木敏文','伊藤雅俊','堤清二','中内功','岡田卓也','重光武雄','安藤百福','牛尾治朗','稲盛和夫','盛田昭夫','井深大','本田宗一郎','藤沢武夫','松田重次郎','山葉寅楠','河合小市','鈴木道雄','川上源一','石田退三','豊田英二','神谷正太郎','西山弥太郎','土光敏夫')\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+似鳥昭雄||business
+本田宗一郎|1906|business
+井深大|1908|business
+盛田昭夫|1921|business
+稲盛和夫|1932|business
+中内功|1922|business
+堤清二|1927|business
+豊田英二||business
+石田退三||business
+神谷正太郎||business
+藤沢武夫||business
+土光敏夫||business
+西山弥太郎||business
+安藤百福||business
+牛尾治朗||business
+鈴木敏文||business
+伊藤雅俊||business
+岡田卓也||business
+河合小市||business
+川上源一||business
+山葉寅楠|1851|business
+岩谷直治|1903|business
+重光武雄|1921|business
+
+codex
+投入スクリプトは、指定どおりINSERT前に `name_ja` と `birth_year IS ?` の確認を入れ、さらに既存DB内の同名も除外します。能力は各人物3件に絞り、地域実践・工芸・農業/産業の根拠文を `evidence_quote` と `evidence_source` に残します。

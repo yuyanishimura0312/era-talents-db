@@ -1,0 +1,38 @@
+{
+  "snapshots": [
+    {
+      "timestamp": "2026-05-05T20:01:50.807407",
+      "phase": "6.0_baseline",
+      "summary": {
+        "total_achievers": 9760,
+        "reiwa_pct": 48.7,
+        "politics_pct": 44.2,
+        "score_var": 0.53,
+        "score_missing_low": true,
+        "uniform_bulk_count": 85,
+        "l2_total": 336,
+        "l2_mgmt_pct_entrepreneur": 71.8,
+        "l4_top_org_pct": 9.1,
+        "women_pct": 11.7,
+        "academic_japan_pct": 0.0,
+        "temporal_inconsistent": 90
+      }
+    },
+    {
+      "timestamp": "2026-05-05T20:10:00",
+      "phase": "6.1_experts_redistribution_done",
+      "summary": {
+        "total_achievers": 10850,
+        "reiwa_pct": 38.0,
+        "politics_pct": 39.8,
+        "score_var": 0.74,
+        "uniform_bulk_count": 82,
+        "l2_total": 756,
+        "l2_mgmt_pct_entrepreneur": 59.6,
+        "l4_top_org_pct": 6.1,
+        "women_pct": 11.1,
+        "temporal_inconsistent": 103
+      }
+    }
+  ]
+}

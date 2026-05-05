@@ -1,0 +1,1428 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-d5e3-7a23-9102-75b4adc45ed9
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.E
+theme: l4_postwest
+追加目標: 40 件
+説明: L4: ポスト西洋的視座（China Brookings/CASS/Russian Academy）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.E' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_l4_postwest' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【E==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+DBのスキーマと既存データ分布を確認してから、Phase 6.E の追加先を絞ります。まず重複や必須カラム、能力ディメンションを把握します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT correction_phase, source_team, COUNT(*) FROM achievers WHERE correction_phase='6.E' OR source_team='codex_correction_l4_postwest' GROUP BY correction_phase, source_team\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+codex
+achievers は最小限の必須列で入れられますが、能力証跡が必須なので人物ごとの根拠を揃えます。次に時代IDと他テーブルの構造を確認し、今回40件は Package B/C/D の人物追加に集中できるか見ます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+meiji|明治|Meiji|1868|1912|0||1
+taisho|大正|Taisho|1912|1926|0||2
+showa_pre|昭和前期|Showa Pre-war|1926|1945|0||3
+showa_post|昭和後期|Showa Post-war|1946|1989|0||4
+heisei|平成|Heisei|1989|2019|0||5
+reiwa|令和|Reiwa|2019|2030|0||6
+future_2030|2030年代|2030s|2030|2040|1||7
+future_2050|2050年代|2050s|2050|2060|1||8
+future_2100|2100年代|2100s|2100|2110|1||9
+all|全時代|All eras|1868|2030|0|横断的収集用の擬似時代ID|0
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema era_retrospectives"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE future_demands (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),  -- future_2030 / future_2050 / future_2100
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    scenario        TEXT,                    -- baseline, ssp1, ssp3, post_growth, posthuman
+    source_title    TEXT NOT NULL,
+    source_org      TEXT,                    -- OECD, WEF, METI, IPCC, etc
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+ succeeded in 0ms:
+CREATE TABLE era_retrospectives (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    perspective     TEXT,                    -- historical_sociology, education_research, biography_studies
+    source_title    TEXT NOT NULL,
+    source_author   TEXT,
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    relevance_score INTEGER CHECK(relevance_score BETWEEN 1 AND 10),
+    diverges_from_l1 INTEGER DEFAULT 0,      -- L1当時言説とのズレフラグ
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, source_team TEXT);
+CREATE INDEX idx_retrospectives_era ON era_retrospectives(era_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema academic_references"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE academic_references (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    citation        TEXT NOT NULL,
+    author          TEXT,
+    year            INTEGER,
+    title           TEXT,
+    framework_tag   TEXT,                    -- simonton, csikszentmihalyi, subotnik, bourdieu, granovetter, merton
+    relevance_to_layer TEXT,                 -- L1, L2, L3, L4, methodology
+    doi             TEXT,
+    notes           TEXT
+);
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year,primary_era_id,domain FROM achievers WHERE source_team='codex_correction_l4_postwest' LIMIT 20\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+既存データには Phase 6.E の投入がまだありません。40件は achievers と achiever_capabilities にまとめて投入し、各候補についてINSERT前の重複照会を一括で実行してからトランザクションで入れます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year,domain,primary_era_id FROM achievers WHERE domain IN ('craft','local_excellent_business','agriculture_local','women_pioneers') ORDER BY name_ja LIMIT 120\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT domain, COUNT(*) FROM achievers GROUP BY domain ORDER BY COUNT(*) DESC"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+politics|4314
+business|1116
+culture_arts|1005
+sports|478
+science_tech|455
+social_movement|410
+science|296
+education|243
+women_pioneers|200
+agriculture_local|172
+professional|153
+craft|135
+media|130
+education_practice|100
+religion_thought|88
+education_thought|80
+media_journalism|80
+diaspora_ainu_okinawa|79
+local_excellent_craft|69
+local_craft|60
+local_excellent_culture|51
+local_excellent_business|16
+military|12
+local_excellent_social|9
+technology|8
+other|1
+
+ succeeded in 0ms:
+J・K・ローリング|1965|women_pioneers|heisei
+アイダ・B・ウェルズ|1862|women_pioneers|meiji
+アイリーン・グレイ|1878|women_pioneers|taisho
+アウンサンスーチー|1945|women_pioneers|heisei
+アガサ・クリスティ|1890|women_pioneers|showa_pre
+アシマ・チャタジー|1917|women_pioneers|showa_post
+アナンディバイ・ジョシー|1865|women_pioneers|meiji
+アニエス・ヴァルダ|1928|women_pioneers|showa_post
+アニータ・ロディック|1942|women_pioneers|showa_post
+アリアナ・ハフィントン|1950|women_pioneers|heisei
+アリス・ギイ＝ブラシェ|1873|women_pioneers|taisho
+アリス・ハミルトン|1869|women_pioneers|taisho
+アルテミジア・ジェンティレスキ|1593|women_pioneers|showa_post
+アレサ・フランクリン|1942|women_pioneers|showa_post
+アンジェラ・デイヴィス|1944|women_pioneers|heisei
+アントニア・ノヴェロ|1944|women_pioneers|heisei
+アンドレア・ゲズ|1965|women_pioneers|heisei
+アン・ウォジツキ|1973|women_pioneers|heisei
+アン・サリヴァン|1866|women_pioneers|meiji
+アーシュラ・K・ル＝グウィン|1929|women_pioneers|showa_post
+アーシュラ・バーンズ|1958|women_pioneers|heisei
+イレーヌ・ジョリオ＝キュリー|1897|women_pioneers|showa_pre
+イングリッド・ドブシー|1954|women_pioneers|heisei
+インドラ・ヌーイ|1955|women_pioneers|heisei
+エイダ・ラブレス|1815|women_pioneers|showa_post
+エイヴァ・デュヴァーネイ|1972|women_pioneers|heisei
+エスター・レーダーバーグ|1922|women_pioneers|showa_post
+エスティ・ローダー|1908|women_pioneers|showa_post
+エマニュエル・シャルパンティエ|1968|women_pioneers|heisei
+エミリー・ディキンソン|1830|women_pioneers|showa_post
+エミー・ネーター|1882|women_pioneers|showa_pre
+エメリン・パンクハースト|1858|women_pioneers|meiji
+エラ・フィッツジェラルド|1917|women_pioneers|showa_post
+エリザベス・キャディ・スタントン|1815|women_pioneers|showa_post
+エリザベス・ギャレット・アンダーソン|1836|women_pioneers|showa_post
+エリザベス・ブラックウェル|1821|women_pioneers|showa_post
+エリザベート＝ルイーズ・ヴィジェ＝ルブラン|1755|women_pioneers|showa_post
+エレノア・ルーズベルト|1884|women_pioneers|showa_pre
+エレン・ジョンソン・サーリーフ|1938|women_pioneers|showa_post
+オクテイヴィア・バトラー|1947|women_pioneers|heisei
+オプラ・ウィンフリー|1954|women_pioneers|heisei
+カタリン・カリコ|1955|women_pioneers|heisei
+カダンビニ・ガングリー|1861|women_pioneers|meiji
+カトリーナ・レイク|1982|women_pioneers|reiwa
+カレン・ウーレンベック|1942|women_pioneers|showa_post
+カロライン・ハーシェル|1750|women_pioneers|showa_post
+ガーティ・コリ|1896|women_pioneers|showa_pre
+ガートルード・エリオン|1918|women_pioneers|showa_post
+キャサリン・エサウ|1898|women_pioneers|showa_pre
+キャサリン・ジョンソン|1918|women_pioneers|showa_post
+キャスリン・ビグロー|1951|women_pioneers|heisei
+キラン・マズムダール＝ショー|1953|women_pioneers|heisei
+クララ・ツェトキン|1857|women_pioneers|meiji
+クロエ・ジャオ|1982|women_pioneers|reiwa
+グウィン・ショットウェル|1963|women_pioneers|heisei
+グラディス・ウェスト|1930|women_pioneers|showa_post
+グレタ・トゥーンベリ|2003|women_pioneers|reiwa
+グレース・ホッパー|1906|women_pioneers|showa_post
+グロリア・スタイネム|1934|women_pioneers|showa_post
+グロ・ハーレム・ブルントラント|1939|women_pioneers|showa_post
+ココ・シャネル|1883|women_pioneers|showa_pre
+コレッタ・スコット・キング|1927|women_pioneers|showa_post
+サラ・ジョセフィン・ベーカー|1873|women_pioneers|taisho
+サラ・ブレイクリー|1971|women_pioneers|heisei
+ザハ・ハディド|1950|women_pioneers|heisei
+シェリル・サンドバーグ|1969|women_pioneers|heisei
+シェール・ワン|1958|women_pioneers|heisei
+シシリー・ソンダース|1918|women_pioneers|showa_post
+シモーヌ・ド・ボーヴォワール|1908|women_pioneers|showa_post
+ションダ・ライムズ|1970|women_pioneers|heisei
+シルビア・アール|1935|women_pioneers|showa_post
+ジェシカ・アルバ|1981|women_pioneers|reiwa
+ジェニファー・ダウドナ|1964|women_pioneers|heisei
+ジェルメーヌ・デュラック|1882|women_pioneers|showa_pre
+ジェーン・アダムズ|1860|women_pioneers|meiji
+ジェーン・オースティン|1775|women_pioneers|showa_post
+ジェーン・クック・ライト|1919|women_pioneers|showa_post
+ジェーン・グドール|1934|women_pioneers|showa_post
+ジョイセリン・エルダーズ|1933|women_pioneers|showa_post
+ジョスリン・ベル・バーネル|1943|women_pioneers|showa_post
+ジョルジュ・サンド|1804|women_pioneers|showa_post
+ジョージア・オキーフ|1887|women_pioneers|showa_pre
+スーザン・B・アンソニー|1820|women_pioneers|showa_post
+スーザン・ウォジスキ|1968|women_pioneers|heisei
+スーザン・ラ・フレッシュ・ピコット|1865|women_pioneers|meiji
+セシリア・ペイン＝ガポーシュキン|1900|women_pioneers|showa_pre
+セルマ・ラーゲルレーヴ|1858|women_pioneers|meiji
+ソジャーナ・トゥルース|1797|women_pioneers|showa_post
+ソフィア・コッポラ|1971|women_pioneers|heisei
+ソフィア・ジェックス＝ブレイク|1840|women_pioneers|meiji
+ゾラ・ニール・ハーストン|1891|women_pioneers|showa_pre
+タマラ・ド・レンピッカ|1898|women_pioneers|showa_pre
+タワックル・カルマン|1979|women_pioneers|reiwa
+ダイアン・フォッシー|1932|women_pioneers|showa_post
+ダイアン・フォン・ファステンバーグ|1946|women_pioneers|heisei
+チママンダ・ンゴズィ・アディーチェ|1977|women_pioneers|reiwa
+テイラー・スウィフト|1989|women_pioneers|reiwa
+テンプル・グランディン|1947|women_pioneers|heisei
+トニ・モリスン|1931|women_pioneers|showa_post
+トリー・バーチ|1966|women_pioneers|heisei
+トーベ・ヤンソン|1914|women_pioneers|showa_post
+ドナ・ストリックランド|1959|women_pioneers|heisei
+ドロシー・ホジキン|1910|women_pioneers|showa_post
+ナイナ・ラル・キドワイ|1957|women_pioneers|heisei
+ナガオカケンメイ||agriculture_local|heisei
+ナタリア・ベフテレワ|1924|women_pioneers|showa_post
+ナワル・エル・サーダウィ|1931|women_pioneers|showa_post
+ニーナ・シモン|1933|women_pioneers|showa_post
+ハヤト・シンディ|1967|women_pioneers|heisei
+ハリエット・タブマン|1822|women_pioneers|showa_post
+ハリエット・ビーチャー・ストウ|1811|women_pioneers|showa_post
+ハワ・アブディ|1947|women_pioneers|heisei
+ハーサ・エアトン|1854|women_pioneers|meiji
+バーナード・リーチ|1887|craft|taisho
+パトリシア・バス|1942|women_pioneers|showa_post
+ヒュパティア|360|women_pioneers|showa_post
+ヒルデガルト・フォン・ビンゲン|1098|women_pioneers|showa_post
+ビアトリクス・ポター|1866|women_pioneers|meiji
+ビョーク|1965|women_pioneers|heisei
+ビヨンセ|1981|women_pioneers|reiwa
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT COUNT(*) FROM achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+9760
+
+codex
+候補は「ポスト西洋」テーマに合わせ、中国・ロシア・中央アジア・アフリカ・ラテンアメリカ等を中心にします。既存DBは日本人限定ではなくグローバル人材も含んでいるため、その前提で進めています。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"WITH candidates(name_ja,birth_year) AS (VALUES ('呉仁宝',1928),('魯冠球',1945),('褚時健',1928),('袁隆平',1930),('黄道婆',1245),('顧景舟',1915),('イワン・ゴリコフ',1886),('王石',1951),('張瑞敏',1949),('馬化騰',1971),('馬明哲',1955),('チンギス・アイトマートフ',1928),('ワレンチナ・テレシコワ',1937),('屠呦呦',1930),('陳薇',1966),('王貞儀',1768),('向警予',1895),('秋瑾',1875),('宋慶齢',1893),('呉健雄',1912),('アレクサンドラ・コロンタイ',1872),('アンナ・アフマートワ',1889),('リュドミラ・パヴリチェンコ',1916),('ナジェージダ・マンデリシュターム',1899),('ファティマ・メルニーシー',1940),('ワンガリ・マータイ',1940),('リゴベルタ・メンチュウ',1959),('ドロレス・カクアンゴ',1881),('ベルタ・カセレス',1971),('アスマ・ジャハンギール',1952),('バンダナ・シヴァ',1952),('メドハ・パートカル',1954),('ラビンドラナート・タゴール',1861),('ネルー',1889),('スカルノ',1901),('ナーセル',1918),('クワメ・ンクルマ',1909),('パトリス・ルムンバ',1925),('フランツ・ファノン',1925),('サルバドール・アジェンデ',1908)) SELECT c.name_ja,c.birth_year,a.id,a.domain FROM candidates c LEFT JOIN achievers a ON a.name_ja=c.name_ja AND a.birth_year IS c.birth_year WHERE a.id IS NOT NULL;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+屠呦呦|1930|4691|women_pioneers
+秋瑾|1875|4867|women_pioneers
+呉健雄|1912|4717|women_pioneers
+ワンガリ・マータイ|1940|4743|women_pioneers
+リゴベルタ・メンチュウ|1959|4858|women_pioneers
+ラビンドラナート・タゴール|1861|9884|education_practice
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"WITH candidates(name_ja,birth_year) AS (VALUES ('林巧稚',1901),('何沢慧',1914),('郭建梅',1961),('シリン・エバディ',1947),('アルンダティ・ロイ',1961),('モハメド・ユヌス',1940),('アリコ・ダンゴート',1957),('鐘南山',1936),('ホセ・リサール',1861),('ホー・チ・ミン',1890),('レオポルド・セダール・サンゴール',1906)) SELECT c.name_ja,c.birth_year,a.id,a.domain FROM candidates c LEFT JOIN achievers a ON a.name_ja=c.name_ja AND a.birth_year IS c.birth_year WHERE a.id IS NOT NULL;\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+これからSQLファイルを作成します。人物追加40件を1トランザクションにし、能力は各人物3件ずつ自動展開して、Package D には score 3〜5 の低スコア能力を必ず含めます。
+apply patch
+patch: completed
+/Users/nishimura+/projects/research/era-talents-db/data/phase6e_l4_postwest_insert.sql
+diff --git a/data/phase6e_l4_postwest_insert.sql b/data/phase6e_l4_postwest_insert.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..879dffc59556bea9d3d4f2ade9f9f6e7d035fe27
+--- /dev/null
++++ b/data/phase6e_l4_postwest_insert.sql
+@@ -0,0 +1,144 @@
++BEGIN;
++
++DROP TABLE IF EXISTS temp.new_achievers_6e;
++CREATE TEMP TABLE new_achievers_6e (
++  package TEXT,
++  name_ja TEXT,
++  name_en TEXT,
++  name_kana TEXT,
++  birth_year INTEGER,
++  death_year INTEGER,
++  birth_place TEXT,
++  primary_era_id TEXT,
++  domain TEXT,
++  sub_domain TEXT,
++  achievement_summary TEXT,
++  notable_works TEXT,
++  family_class TEXT,
++  education_path TEXT,
++  fame_source TEXT,
++  fame_score REAL,
++  is_traditional_great INTEGER,
++  is_local_excellent INTEGER,
++  data_completeness INTEGER,
++  source_url TEXT,
++  notes TEXT
++);
++
++INSERT INTO new_achievers_6e VALUES
++('B','呉仁宝','Wu Renbao','ご じんぽう',1928,2013,'中国江蘇省','showa_post','local_excellent_business','village_enterprise','江蘇省華西村で集団経済と郷鎮企業を組織し、農村工業化の象徴的事例を作った。','["華西村の郷鎮企業運営"]','farmer','地域党組織・農村実務','official_history',6.8,0,1,72,'China Daily obituary; Xinhua profile; Jiangsu local histories','Package B: China rural industrialization case.'),
++('B','魯冠球','Lu Guanqiu','ろ かんきゅう',1945,2017,'中国浙江省','heisei','local_excellent_business','township_enterprise','浙江省の小工場から万向集団を育て、中国民営製造業と自動車部品産業の拡大を牽引した。','["万向集団"]','farmer','職業学校中退後に工場経営','company_history',7.1,0,1,73,'Wanxiang Group history; Xinhua obituary','Package B: Chinese private manufacturing and township enterprise.'),
++('B','褚時健','Chu Shijian','ちょ じけん',1928,2019,'中国雲南省','heisei','agriculture_local','citrus_agriculture','たばこ企業経営後、雲南省で高齢期に柑橘ブランド「褚橙」を作り、農産物流通の地域モデルを示した。','["褚橙"]','farmer','雲南地方行政・企業経営','biography',6.5,0,1,70,'Caixin obituary; South China Morning Post profile','Package B: local agriculture and late-career entrepreneurship.'),
++('B','袁隆平','Yuan Longping','えん りゅうへい',1930,2021,'中国湖南省','showa_post','agriculture_local','hybrid_rice','中国でハイブリッド米研究を主導し、アジア・アフリカの食料安全保障に大きな影響を与えた。','["ハイブリッド米"]','farmer','西南農学院','prize',8.7,1,1,82,'FAO profile; Xinhua obituary; World Food Prize biography','Package B: agriculture-local knowledge scaled to Global South food security.'),
++('B','黄道婆','Huang Daopo','こう どうば',1245,1330,'中国上海松江付近','all','craft','textile_technology','海南で学んだ綿織技術を江南に伝え、紡績・織布工程の改良で地域手工業を発展させた。','["綿紡績技術の改良"]','working_class','海南での織物技術習得','historical_record',6.2,0,1,64,'Shanghai local gazetteers; Chinese textile history references','Package B: premodern craft technology transmission.'),
++('B','顧景舟','Gu Jingzhou','こ けいしゅう',1915,1996,'中国江蘇省宜興','showa_post','craft','zisha_teapot','宜興紫砂壺の名工として伝統陶芸を現代工芸へ継承し、地域クラフトの評価を高めた。','["宜興紫砂壺"]','artisan','家業と宜興陶芸実務','museum_profile',6.9,0,1,74,'Yixing Zisha Museum materials; Chinese ceramics references','Package B: craft lineage and local excellence.'),
++('B','イワン・ゴリコフ','Ivan Golikov','いわん ごりこふ',1886,1937,'ロシア帝国パレフ','taisho','craft','palekh_miniature','ロシアのパレフ細密画をイコン絵師の技術から世俗的漆器工芸へ転換し、地域工芸の基盤を作った。','["パレフ細密画"]','artisan','イコン工房での徒弟修業','museum_profile',6.0,0,1,67,'State Museum of Palekh Art; Russian Academy art-history references','Package B: Russian local craft modernization.'),
++('B','王石','Wang Shi','おう せき',1951,NULL,'中国広西チワン族自治区','heisei','local_excellent_business','real_estate_governance','万科企業を共同創業し、中国都市化期の住宅開発企業にガバナンス改革を導入した。','["万科企業"]','other','蘭州交通大学','company_history',6.8,0,1,70,'Vanke corporate history; Harvard Business School case materials','Package B: Chinese urbanization business institution.'),
++('B','張瑞敏','Zhang Ruimin','ちょう ずいびん',1949,NULL,'中国山東省青島','heisei','local_excellent_business','manufacturing_management','青島の冷蔵庫工場を海爾集団へ発展させ、品質管理と組織改革で中国製造業の国際化を進めた。','["海爾集団の経営改革"]','working_class','青島市企業管理実務','case_study',7.4,0,1,76,'Haier corporate history; Harvard Business School cases','Package B: management innovation from China manufacturing.'),
++('B','馬化騰','Pony Ma Huateng','ば かとう',1971,NULL,'中国広東省汕頭','heisei','local_excellent_business','digital_platform','深圳でテンセントを共同創業し、QQ・微信を通じて中国語圏のデジタル生活基盤を形成した。','["Tencent QQ","WeChat"]','other','深圳大学計算機科学','company_history',7.8,0,1,77,'Tencent corporate history; Forbes profile','Package B: non-Western digital platform growth.'),
++('B','馬明哲','Ma Mingzhe','ば めいてつ',1955,NULL,'中国吉林省','heisei','local_excellent_business','insurance_finance','平安保険を育て、中国の保険・金融サービスに統合型グループ経営を定着させた。','["中国平安保険"]','working_class','金融実務','company_history',6.7,0,1,70,'Ping An corporate history; company annual reports','Package B: Chinese finance institution building.'),
++('B','モハメド・ユヌス','Muhammad Yunus','もはめど ゆぬす',1940,NULL,'バングラデシュ・チッタゴン','showa_post','local_excellent_business','microfinance','グラミン銀行を創設し、貧困層向け小口金融を制度化してグローバルサウスの社会的事業モデルを広めた。','["グラミン銀行"]','middle_class','ダッカ大学、ヴァンダービルト大学','nobel_prize',8.1,1,1,82,'Nobel Prize biography; Grameen Bank history','Package B: local finance model with Global South diffusion.'),
++('C','ワレンチナ・テレシコワ','Valentina Tereshkova','われんちな てれしこわ',1937,NULL,'ソビエト連邦ヤロスラヴリ州','showa_post','women_pioneers','spaceflight','女性宇宙飛行士として世界で初めて単独宇宙飛行を行い、冷戦期科学技術における女性参加を可視化した。','["ボストーク6号"]','working_class','工場労働、航空クラブ、宇宙飛行士訓練','space_agency',8.0,1,0,78,'Roscosmos biography; Encyclopaedia Britannica','Package C: woman pioneer in Soviet space program.'),
++('C','陳薇','Chen Wei','ちん び',1966,NULL,'中国浙江省','heisei','women_pioneers','biomedical_defense','女性軍事医学者としてエボラ・COVID-19ワクチン研究を主導し、中国の感染症対応能力を高めた。','["Ad5-nCoV vaccine research"]','other','浙江大学、清華大学','academy_profile',7.1,0,0,72,'Chinese Academy of Engineering profile; WHO-linked vaccine publications','Package C: woman biomedical researcher in China.'),
++('C','王貞儀','Wang Zhenyi','おう ていぎ',1768,1797,'清朝江寧','all','women_pioneers','astronomy_mathematics','清代の女性学者として天文学・数学を学び、月食説明などで女性の科学知を示した。','["月食の説明","数学著述"]','scholar_official','家学による天文・数学学習','historical_record',6.8,0,0,66,'Biographical Dictionary of Chinese Women; Chinese astronomy histories','Package C: woman scientist in Qing China.'),
++('C','向警予','Xiang Jingyu','こう けいよ',1895,1928,'中国湖南省','taisho','women_pioneers','labor_feminism','中国共産党初期の女性指導者として女性労働者組織化と女子教育に取り組んだ。','["女性労働運動の組織化"]','other','フランス勤工倹学、女子教育実務','historical_record',6.4,0,0,68,'CPC historical materials; Biographical Dictionary of Chinese Women','Package C: woman labor and feminist organizer.'),
++('C','宋慶齢','Soong Ching-ling','そう けいれい',1893,1981,'清朝上海','showa_pre','women_pioneers','social_welfare_politics','女性政治家・社会事業家として児童福祉と対外平和運動を担い、中華人民共和国名誉主席も務めた。','["中国福利会"]','elite','ウェスリアン大学','official_biography',7.5,1,0,78,'Encyclopaedia Britannica; China Welfare Institute history','Package C: woman statesperson and welfare organizer.'),
++('C','アレクサンドラ・コロンタイ','Alexandra Kollontai','あれくさんどら ころんたい',1872,1952,'ロシア帝国サンクトペテルブルク','taisho','women_pioneers','socialist_feminism_diplomacy','女性革命家・外交官として女性解放政策と世界初期の女性大使級外交実務を担った。','["女性労働者部","外交官活動"]','aristocrat','チューリヒ大学聴講、社会主義運動','biography',7.2,0,0,74,'Marxists Internet Archive writings; Encyclopaedia Britannica','Package C: woman socialist theorist and diplomat.'),
++('C','アンナ・アフマートワ','Anna Akhmatova','あんな あふまとわ',1889,1966,'ロシア帝国オデッサ近郊','showa_pre','women_pioneers','poetry_memory','女性詩人としてスターリン期抑圧と家族の収監経験を詩に刻み、ロシア文学の記憶文化を支えた。','["レクイエム"]','middle_class','ツァールスコエ・セローの教育、文学サークル','literary_history',7.7,1,0,76,'Poetry Foundation biography; Encyclopaedia Britannica','Package C: woman poet under Soviet repression.'),
++('C','リュドミラ・パヴリチェンコ','Lyudmila Pavlichenko','りゅどみら ぱゔりちぇんこ',1916,1974,'ロシア帝国ベーラヤ・ツェールコフ','showa_pre','women_pioneers','military_history','女性狙撃兵として第二次世界大戦で従軍し、戦時動員における女性軍務の象徴となった。','["第二次世界大戦での狙撃兵活動"]','working_class','キエフ大学、射撃訓練','military_record',6.9,0,0,69,'Smithsonian profile; Soviet military records references','Package C: woman combatant and public diplomacy figure.'),
++('C','ナジェージダ・マンデリシュターム','Nadezhda Mandelstam','なじぇーじだ まんでりしゅたーむ',1899,1980,'ロシア帝国サラトフ','showa_post','women_pioneers','memoir_memory','女性回想録作家として夫オシップ・マンデリシュタームの詩とスターリン期弾圧の記憶を保存した。','["Hope Against Hope"]','middle_class','キエフの美術教育','memoir',6.8,0,0,70,'New York Review Books biography; Russian literary histories','Package C: woman guardian of cultural memory.'),
++('C','ファティマ・メルニーシー','Fatema Mernissi','ふぁてぃま めるにーしー',1940,2015,'モロッコ・フェズ','heisei','women_pioneers','gender_sociology','女性社会学者としてイスラーム社会のジェンダー秩序を批判的に分析し、ポストコロニアル・フェミニズムに貢献した。','["Beyond the Veil","The Veil and the Male Elite"]','middle_class','ムハンマド5世大学、ブランダイス大学','academic_citation',7.0,0,0,74,'Encyclopaedia Britannica; academic publisher biographies','Package C: woman sociologist from Morocco.'),
++('C','ドロレス・カクアンゴ','Dolores Cacuango','どろれす かくあんご',1881,1971,'エクアドル・カヤンベ','showa_pre','women_pioneers','indigenous_education','先住民女性指導者として土地権利運動とケチュア語教育を推進し、エクアドル先住民運動の基盤を作った。','["先住民学校の設立"]','farmer','農村共同体での実践知','movement_history',6.5,0,0,68,'Ecuador Ministry of Culture materials; Latin American indigenous movement histories','Package C: Indigenous woman organizer.'),
++('C','ベルタ・カセレス','Berta Caceres','べるた かせれす',1971,2016,'ホンジュラス・ラ・エスペランサ','heisei','women_pioneers','environmental_justice','レンカ人女性環境運動家として水力発電計画に反対し、先住民権利と環境正義を国際的に訴えた。','["COPINH","Goldman Environmental Prize"]','other','社会運動実務','prize',7.2,0,0,72,'Goldman Environmental Prize biography; COPINH materials','Package C: Indigenous woman environmental defender.'),
++('C','アスマ・ジャハンギール','Asma Jahangir','あすま じゃはんぎーる',1952,2018,'パキスタン・ラホール','heisei','women_pioneers','human_rights_law','女性弁護士としてパキスタンの人権訴訟、女性・宗教的少数者の権利擁護、国連特別報告者を担った。','["Human Rights Commission of Pakistan"]','elite','パンジャーブ大学法学部','un_profile',7.3,0,0,75,'UN OHCHR profile; HRCP history','Package C: woman human-rights lawyer.'),
++('C','バンダナ・シヴァ','Vandana Shiva','ばんだな しゔぁ',1952,NULL,'インド・デヘラードゥーン','heisei','women_pioneers','eco_feminism','女性環境思想家として種子主権、農業生物多様性、エコフェミニズムをグローバルサウスの視点から論じた。','["Staying Alive","Navdanya"]','middle_class','パンジャーブ大学、ウェスタンオンタリオ大学','academic_citation',7.0,0,0,73,'Navdanya biography; publisher biographies','Package C: woman ecofeminist public intellectual.'),
++('C','メドハ・パートカル','Medha Patkar','めどは ぱーとかる',1954,NULL,'インド・ムンバイ','heisei','women_pioneers','social_movement','女性社会運動家としてナルマダー川流域の住民移転問題を訴え、開発と権利の関係を問い直した。','["Narmada Bachao Andolan"]','middle_class','タタ社会科学研究所','movement_history',6.6,0,0,70,'Right Livelihood profile; Narmada movement histories','Package C: woman anti-displacement organizer.'),
++('C','林巧稚','Lin Qiaozhi','りん こうち',1901,1983,'清朝福建省厦門','showa_post','women_pioneers','medicine_obstetrics','女性産婦人科医として北京協和医院で多数の出産・婦人科医療を担い、中国近代医学の女性専門職モデルとなった。','["産婦人科臨床と医学教育"]','middle_class','北京協和医学院','academy_profile',7.1,0,0,74,'Peking Union Medical College Hospital history; Chinese Academy biographical materials','Package C: woman physician in modern China.'),
++('C','何沢慧','He Zehui','か たくけい',1914,2011,'中国江蘇省蘇州','showa_post','women_pioneers','nuclear_physics','女性核物理学者として原子核分裂・宇宙線研究に携わり、中国科学院で物理学研究を進めた。','["核物理研究"]','scholar_official','清華大学、ベルリン工科大学','academy_profile',6.8,0,0,72,'Chinese Academy of Sciences biography; physics history references','Package C: woman physicist in China.'),
++('C','郭建梅','Guo Jianmei','かく けんばい',1961,NULL,'中国河南省','heisei','women_pioneers','public_interest_law','女性弁護士として中国の女性法律扶助と公益訴訟を開拓し、女性権利保護の制度化に取り組んだ。','["北京大学女性法律研究・サービスセンター"]','other','北京大学法学部','award',6.7,0,0,70,'Right Livelihood profile; public interest law reports','Package C: woman public-interest lawyer in China.'),
++('C','シリン・エバディ','Shirin Ebadi','しりん えばでぃ',1947,NULL,'イラン・ハマダーン','heisei','women_pioneers','human_rights_law','女性裁判官・弁護士としてイランの人権と子ども・女性の権利を擁護し、ノーベル平和賞を受賞した。','["Defenders of Human Rights Center"]','middle_class','テヘラン大学法学部','nobel_prize',7.8,1,0,78,'Nobel Prize biography; Encyclopaedia Britannica','Package C: woman human-rights lawyer from Iran.'),
++('C','アルンダティ・ロイ','Arundhati Roy','あるんだてぃ ろい',1961,NULL,'インド・シロン','heisei','women_pioneers','literature_activism','女性作家として小説と反核・反ダム・少数者権利の論考を通じ、インドの開発政治を批判した。','["The God of Small Things","The Algebra of Infinite Justice"]','middle_class','デリー建築学校','literary_prize',7.0,0,0,73,'Booker Prize biography; publisher biographies','Package C: woman writer and public intellectual.'),
++('D','ネルー','Jawaharlal Nehru','ねるー',1889,1964,'英領インド・アラーハーバード','showa_post','politics','postcolonial_state_building','インド初代首相として非同盟と計画経済を主導したが、対中戦争や中央集権的開発への批判も受けた。','["The Discovery of India","非同盟外交"]','elite','ハロウ校、ケンブリッジ大学、インナー・テンプル','historical_biography',7.8,1,0,78,'','Package D critical sources: Sarvepalli Gopal, Jawaharlal Nehru: A Biography; Judith M. Brown, Nehru.'),
++('D','スカルノ','Sukarno','すかるの',1901,1970,'オランダ領東インド・スラバヤ','showa_post','politics','anti_colonial_nationalism','インドネシア独立の象徴となったが、指導された民主主義と経済混乱、権威主義化が批判された。','["パンチャシラ","バンドン会議"]','middle_class','バンドン工科大学','historical_biography',7.3,1,0,75,'','Package D critical sources: John D. Legge, Sukarno; George McTurnan Kahin, Nationalism and Revolution in Indonesia.'),
++('D','ナーセル','Gamal Abdel Nasser','なーせる',1918,1970,'エジプト・アレクサンドリア','showa_post','politics','arab_socialism','エジプト大統領としてスエズ運河国有化とアラブ民族主義を推進したが、政治的抑圧と1967年敗戦への批判も大きい。','["スエズ運河国有化","アラブ社会主義"]','working_class','エジプト王立陸軍士官学校','historical_biography',7.4,1,0,76,'','Package D critical sources: P. J. Vatikiotis, Nasser and His Generation; Said K. Aburish, Nasser.'),
++('D','クワメ・ンクルマ','Kwame Nkrumah','くわめ んくるま',1909,1972,'英領ゴールドコースト','showa_post','politics','pan_africanism','ガーナ独立とパン・アフリカ主義を主導したが、一党化・個人崇拝・財政運営への批判も残した。','["アフリカ統一思想","ガーナ独立"]','working_class','リンカーン大学、ロンドン政治経済学院','historical_biography',7.2,1,0,75,'','Package D critical sources: David Birmingham, Kwame Nkrumah; Ali A. Mazrui, Nkrumah: The Leninist Czar.'),
++('D','パトリス・ルムンバ','Patrice Lumumba','ぱとりす るむんば',1925,1961,'ベルギー領コンゴ・カサイ','showa_post','politics','decolonization','コンゴ独立政府の初代首相として反植民地主義の象徴となったが、政権運営の混乱と冷戦下の孤立も研究対象となった。','["コンゴ独立演説"]','working_class','宣教師学校、郵便局勤務','historical_biography',7.0,1,0,72,'','Package D critical sources: Ludo De Witte, The Assassination of Lumumba; Georges Nzongola-Ntalaja, The Congo.'),
++('D','フランツ・ファノン','Frantz Fanon','ふらんつ ふぁのん',1925,1961,'マルティニーク・フォール＝ド＝フランス','showa_post','social_movement','postcolonial_psychiatry','精神科医・思想家として植民地主義の心理的暴力を分析したが、暴力論の解釈をめぐる批判的研究も多い。','["Black Skin, White Masks","The Wretched of the Earth"]','middle_class','リヨン大学医学部','academic_citation',7.7,1,0,78,'','Package D critical sources: David Macey, Frantz Fanon: A Biography; Alice Cherki, Frantz Fanon.'),
++('D','サルバドール・アジェンデ','Salvador Allende','さるばどーる あじぇんで',1908,1973,'チリ・バルパライソ','showa_post','politics','democratic_socialism','チリ大統領として選挙による社会主義改革を進めたが、経済危機・政治分極化への評価は分かれる。','["人民連合政権"]','middle_class','チリ大学医学部','historical_biography',7.1,1,0,74,'','Package D critical sources: Tanya Harmer, Allende''s Chile and the Inter-American Cold War; Peter Winn, Weavers of Revolution.'),
++('D','ホセ・リサール','Jose Rizal','ほせ りさーる',1861,1896,'スペイン領フィリピン・カランバ','meiji','social_movement','anti_colonial_literature','フィリピン独立運動の知識人として小説で植民地支配を批判したが、革命路線との距離をめぐり評価が分かれた。','["Noli Me Tangere","El Filibusterismo"]','middle_class','サント・トマス大学、マドリード中央大学','historical_biography',7.4,1,0,76,'','Package D critical sources: John N. Schumacher, The Propaganda Movement; Benedict Anderson, Under Three Flags.');
++
++-- Required duplicate check before INSERT.
++SELECT 'duplicate_before_insert' AS check_name, n.name_ja, n.birth_year
++FROM new_achievers_6e n
++WHERE EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++INSERT INTO achievers (
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  source_team, source_url, notes, correction_phase
++)
++SELECT
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  'codex_correction_l4_postwest', source_url, notes, '6.E'
++FROM new_achievers_6e n
++WHERE NOT EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++DROP TABLE IF EXISTS temp.package_caps_6e;
++CREATE TEMP TABLE package_caps_6e (
++  package TEXT,
++  capability_id TEXT,
++  score INTEGER,
++  notes TEXT
++);
++
++INSERT INTO package_caps_6e VALUES
++('B','age_entrepreneur',8,'Package B: regional enterprise or craft/agricultural initiative.'),
++('B','cog_systems',7,'Package B: local production, finance, or craft systems.'),
++('B','val_collective',7,'Package B: community and collective capability.'),
++('C','age_social_change',8,'Package C: woman pioneer changing institutional participation.'),
++('C','cog_critical',7,'Package C: critical knowledge or advocacy by women.'),
++('C','age_resilience',6,'Package C: persistence under gendered institutional constraints.'),
++('D','age_social_change',8,'Package D: postcolonial political or intellectual transformation.'),
++('D','cog_math',3,'Package D low score: limited evidence that mathematical literacy was a central capability.'),
++('D','cog_info',4,'Package D low score: information management was uneven or contested in critical biographies.');
++
++INSERT INTO achiever_capabilities (
++  achiever_id, capability_id, score, evidence_quote, evidence_source, notes
++)
++SELECT
++  a.id,
++  pc.capability_id,
++  pc.score,
++  CASE
++    WHEN n.package = 'D' THEN '批判的研究を含む根拠: ' || n.achievement_summary
++    ELSE '根拠: ' || n.achievement_summary
++  END,
++  CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END,
++  pc.notes || ' source_team=codex_correction_l4_postwest; correction_phase=6.E'
++FROM new_achievers_6e n
++JOIN achievers a
++  ON a.name_ja = n.name_ja
++ AND a.birth_year IS n.birth_year
++ AND a.source_team = 'codex_correction_l4_postwest'
++ AND a.correction_phase = '6.E'
++JOIN package_caps_6e pc
++  ON pc.package = n.package
++WHERE NOT EXISTS (
++  SELECT 1 FROM achiever_capabilities ac
++  WHERE ac.achiever_id = a.id
++    AND ac.capability_id = pc.capability_id
++    AND ac.evidence_source = CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END
++);
++
++COMMIT;
+
+diff --git a/data/phase6e_l4_postwest_insert.sql b/data/phase6e_l4_postwest_insert.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..879dffc59556bea9d3d4f2ade9f9f6e7d035fe27
+--- /dev/null
++++ b/data/phase6e_l4_postwest_insert.sql
+@@ -0,0 +1,144 @@
++BEGIN;
++
++DROP TABLE IF EXISTS temp.new_achievers_6e;
++CREATE TEMP TABLE new_achievers_6e (
++  package TEXT,
++  name_ja TEXT,
++  name_en TEXT,
++  name_kana TEXT,
++  birth_year INTEGER,
++  death_year INTEGER,
++  birth_place TEXT,
++  primary_era_id TEXT,
++  domain TEXT,
++  sub_domain TEXT,
++  achievement_summary TEXT,
++  notable_works TEXT,
++  family_class TEXT,
++  education_path TEXT,
++  fame_source TEXT,
++  fame_score REAL,
++  is_traditional_great INTEGER,
++  is_local_excellent INTEGER,
++  data_completeness INTEGER,
++  source_url TEXT,
++  notes TEXT
++);
++
++INSERT INTO new_achievers_6e VALUES
++('B','呉仁宝','Wu Renbao','ご じんぽう',1928,2013,'中国江蘇省','showa_post','local_excellent_business','village_enterprise','江蘇省華西村で集団経済と郷鎮企業を組織し、農村工業化の象徴的事例を作った。','["華西村の郷鎮企業運営"]','farmer','地域党組織・農村実務','official_history',6.8,0,1,72,'China Daily obituary; Xinhua profile; Jiangsu local histories','Package B: China rural industrialization case.'),
++('B','魯冠球','Lu Guanqiu','ろ かんきゅう',1945,2017,'中国浙江省','heisei','local_excellent_business','township_enterprise','浙江省の小工場から万向集団を育て、中国民営製造業と自動車部品産業の拡大を牽引した。','["万向集団"]','farmer','職業学校中退後に工場経営','company_history',7.1,0,1,73,'Wanxiang Group history; Xinhua obituary','Package B: Chinese private manufacturing and township enterprise.'),
++('B','褚時健','Chu Shijian','ちょ じけん',1928,2019,'中国雲南省','heisei','agriculture_local','citrus_agriculture','たばこ企業経営後、雲南省で高齢期に柑橘ブランド「褚橙」を作り、農産物流通の地域モデルを示した。','["褚橙"]','farmer','雲南地方行政・企業経営','biography',6.5,0,1,70,'Caixin obituary; South China Morning Post profile','Package B: local agriculture and late-career entrepreneurship.'),
++('B','袁隆平','Yuan Longping','えん りゅうへい',1930,2021,'中国湖南省','showa_post','agriculture_local','hybrid_rice','中国でハイブリッド米研究を主導し、アジア・アフリカの食料安全保障に大きな影響を与えた。','["ハイブリッド米"]','farmer','西南農学院','prize',8.7,1,1,82,'FAO profile; Xinhua obituary; World Food Prize biography','Package B: agriculture-local knowledge scaled to Global South food security.'),
++('B','黄道婆','Huang Daopo','こう どうば',1245,1330,'中国上海松江付近','all','craft','textile_technology','海南で学んだ綿織技術を江南に伝え、紡績・織布工程の改良で地域手工業を発展させた。','["綿紡績技術の改良"]','working_class','海南での織物技術習得','historical_record',6.2,0,1,64,'Shanghai local gazetteers; Chinese textile history references','Package B: premodern craft technology transmission.'),
++('B','顧景舟','Gu Jingzhou','こ けいしゅう',1915,1996,'中国江蘇省宜興','showa_post','craft','zisha_teapot','宜興紫砂壺の名工として伝統陶芸を現代工芸へ継承し、地域クラフトの評価を高めた。','["宜興紫砂壺"]','artisan','家業と宜興陶芸実務','museum_profile',6.9,0,1,74,'Yixing Zisha Museum materials; Chinese ceramics references','Package B: craft lineage and local excellence.'),
++('B','イワン・ゴリコフ','Ivan Golikov','いわん ごりこふ',1886,1937,'ロシア帝国パレフ','taisho','craft','palekh_miniature','ロシアのパレフ細密画をイコン絵師の技術から世俗的漆器工芸へ転換し、地域工芸の基盤を作った。','["パレフ細密画"]','artisan','イコン工房での徒弟修業','museum_profile',6.0,0,1,67,'State Museum of Palekh Art; Russian Academy art-history references','Package B: Russian local craft modernization.'),
++('B','王石','Wang Shi','おう せき',1951,NULL,'中国広西チワン族自治区','heisei','local_excellent_business','real_estate_governance','万科企業を共同創業し、中国都市化期の住宅開発企業にガバナンス改革を導入した。','["万科企業"]','other','蘭州交通大学','company_history',6.8,0,1,70,'Vanke corporate history; Harvard Business School case materials','Package B: Chinese urbanization business institution.'),
++('B','張瑞敏','Zhang Ruimin','ちょう ずいびん',1949,NULL,'中国山東省青島','heisei','local_excellent_business','manufacturing_management','青島の冷蔵庫工場を海爾集団へ発展させ、品質管理と組織改革で中国製造業の国際化を進めた。','["海爾集団の経営改革"]','working_class','青島市企業管理実務','case_study',7.4,0,1,76,'Haier corporate history; Harvard Business School cases','Package B: management innovation from China manufacturing.'),
++('B','馬化騰','Pony Ma Huateng','ば かとう',1971,NULL,'中国広東省汕頭','heisei','local_excellent_business','digital_platform','深圳でテンセントを共同創業し、QQ・微信を通じて中国語圏のデジタル生活基盤を形成した。','["Tencent QQ","WeChat"]','other','深圳大学計算機科学','company_history',7.8,0,1,77,'Tencent corporate history; Forbes profile','Package B: non-Western digital platform growth.'),
++('B','馬明哲','Ma Mingzhe','ば めいてつ',1955,NULL,'中国吉林省','heisei','local_excellent_business','insurance_finance','平安保険を育て、中国の保険・金融サービスに統合型グループ経営を定着させた。','["中国平安保険"]','working_class','金融実務','company_history',6.7,0,1,70,'Ping An corporate history; company annual reports','Package B: Chinese finance institution building.'),
++('B','モハメド・ユヌス','Muhammad Yunus','もはめど ゆぬす',1940,NULL,'バングラデシュ・チッタゴン','showa_post','local_excellent_business','microfinance','グラミン銀行を創設し、貧困層向け小口金融を制度化してグローバルサウスの社会的事業モデルを広めた。','["グラミン銀行"]','middle_class','ダッカ大学、ヴァンダービルト大学','nobel_prize',8.1,1,1,82,'Nobel Prize biography; Grameen Bank history','Package B: local finance model with Global South diffusion.'),
++('C','ワレンチナ・テレシコワ','Valentina Tereshkova','われんちな てれしこわ',1937,NULL,'ソビエト連邦ヤロスラヴリ州','showa_post','women_pioneers','spaceflight','女性宇宙飛行士として世界で初めて単独宇宙飛行を行い、冷戦期科学技術における女性参加を可視化した。','["ボストーク6号"]','working_class','工場労働、航空クラブ、宇宙飛行士訓練','space_agency',8.0,1,0,78,'Roscosmos biography; Encyclopaedia Britannica','Package C: woman pioneer in Soviet space program.'),
++('C','陳薇','Chen Wei','ちん び',1966,NULL,'中国浙江省','heisei','women_pioneers','biomedical_defense','女性軍事医学者としてエボラ・COVID-19ワクチン研究を主導し、中国の感染症対応能力を高めた。','["Ad5-nCoV vaccine research"]','other','浙江大学、清華大学','academy_profile',7.1,0,0,72,'Chinese Academy of Engineering profile; WHO-linked vaccine publications','Package C: woman biomedical researcher in China.'),
++('C','王貞儀','Wang Zhenyi','おう ていぎ',1768,1797,'清朝江寧','all','women_pioneers','astronomy_mathematics','清代の女性学者として天文学・数学を学び、月食説明などで女性の科学知を示した。','["月食の説明","数学著述"]','scholar_official','家学による天文・数学学習','historical_record',6.8,0,0,66,'Biographical Dictionary of Chinese Women; Chinese astronomy histories','Package C: woman scientist in Qing China.'),
++('C','向警予','Xiang Jingyu','こう けいよ',1895,1928,'中国湖南省','taisho','women_pioneers','labor_feminism','中国共産党初期の女性指導者として女性労働者組織化と女子教育に取り組んだ。','["女性労働運動の組織化"]','other','フランス勤工倹学、女子教育実務','historical_record',6.4,0,0,68,'CPC historical materials; Biographical Dictionary of Chinese Women','Package C: woman labor and feminist organizer.'),
++('C','宋慶齢','Soong Ching-ling','そう けいれい',1893,1981,'清朝上海','showa_pre','women_pioneers','social_welfare_politics','女性政治家・社会事業家として児童福祉と対外平和運動を担い、中華人民共和国名誉主席も務めた。','["中国福利会"]','elite','ウェスリアン大学','official_biography',7.5,1,0,78,'Encyclopaedia Britannica; China Welfare Institute history','Package C: woman statesperson and welfare organizer.'),
++('C','アレクサンドラ・コロンタイ','Alexandra Kollontai','あれくさんどら ころんたい',1872,1952,'ロシア帝国サンクトペテルブルク','taisho','women_pioneers','socialist_feminism_diplomacy','女性革命家・外交官として女性解放政策と世界初期の女性大使級外交実務を担った。','["女性労働者部","外交官活動"]','aristocrat','チューリヒ大学聴講、社会主義運動','biography',7.2,0,0,74,'Marxists Internet Archive writings; Encyclopaedia Britannica','Package C: woman socialist theorist and diplomat.'),
++('C','アンナ・アフマートワ','Anna Akhmatova','あんな あふまとわ',1889,1966,'ロシア帝国オデッサ近郊','showa_pre','women_pioneers','poetry_memory','女性詩人としてスターリン期抑圧と家族の収監経験を詩に刻み、ロシア文学の記憶文化を支えた。','["レクイエム"]','middle_class','ツァールスコエ・セローの教育、文学サークル','literary_history',7.7,1,0,76,'Poetry Foundation biography; Encyclopaedia Britannica','Package C: woman poet under Soviet repression.'),
++('C','リュドミラ・パヴリチェンコ','Lyudmila Pavlichenko','りゅどみら ぱゔりちぇんこ',1916,1974,'ロシア帝国ベーラヤ・ツェールコフ','showa_pre','women_pioneers','military_history','女性狙撃兵として第二次世界大戦で従軍し、戦時動員における女性軍務の象徴となった。','["第二次世界大戦での狙撃兵活動"]','working_class','キエフ大学、射撃訓練','military_record',6.9,0,0,69,'Smithsonian profile; Soviet military records references','Package C: woman combatant and public diplomacy figure.'),
++('C','ナジェージダ・マンデリシュターム','Nadezhda Mandelstam','なじぇーじだ まんでりしゅたーむ',1899,1980,'ロシア帝国サラトフ','showa_post','women_pioneers','memoir_memory','女性回想録作家として夫オシップ・マンデリシュタームの詩とスターリン期弾圧の記憶を保存した。','["Hope Against Hope"]','middle_class','キエフの美術教育','memoir',6.8,0,0,70,'New York Review Books biography; Russian literary histories','Package C: woman guardian of cultural memory.'),
++('C','ファティマ・メルニーシー','Fatema Mernissi','ふぁてぃま めるにーしー',1940,2015,'モロッコ・フェズ','heisei','women_pioneers','gender_sociology','女性社会学者としてイスラーム社会のジェンダー秩序を批判的に分析し、ポストコロニアル・フェミニズムに貢献した。','["Beyond the Veil","The Veil and the Male Elite"]','middle_class','ムハンマド5世大学、ブランダイス大学','academic_citation',7.0,0,0,74,'Encyclopaedia Britannica; academic publisher biographies','Package C: woman sociologist from Morocco.'),
++('C','ドロレス・カクアンゴ','Dolores Cacuango','どろれす かくあんご',1881,1971,'エクアドル・カヤンベ','showa_pre','women_pioneers','indigenous_education','先住民女性指導者として土地権利運動とケチュア語教育を推進し、エクアドル先住民運動の基盤を作った。','["先住民学校の設立"]','farmer','農村共同体での実践知','movement_history',6.5,0,0,68,'Ecuador Ministry of Culture materials; Latin American indigenous movement histories','Package C: Indigenous woman organizer.'),
++('C','ベルタ・カセレス','Berta Caceres','べるた かせれす',1971,2016,'ホンジュラス・ラ・エスペランサ','heisei','women_pioneers','environmental_justice','レンカ人女性環境運動家として水力発電計画に反対し、先住民権利と環境正義を国際的に訴えた。','["COPINH","Goldman Environmental Prize"]','other','社会運動実務','prize',7.2,0,0,72,'Goldman Environmental Prize biography; COPINH materials','Package C: Indigenous woman environmental defender.'),
++('C','アスマ・ジャハンギール','Asma Jahangir','あすま じゃはんぎーる',1952,2018,'パキスタン・ラホール','heisei','women_pioneers','human_rights_law','女性弁護士としてパキスタンの人権訴訟、女性・宗教的少数者の権利擁護、国連特別報告者を担った。','["Human Rights Commission of Pakistan"]','elite','パンジャーブ大学法学部','un_profile',7.3,0,0,75,'UN OHCHR profile; HRCP history','Package C: woman human-rights lawyer.'),
++('C','バンダナ・シヴァ','Vandana Shiva','ばんだな しゔぁ',1952,NULL,'インド・デヘラードゥーン','heisei','women_pioneers','eco_feminism','女性環境思想家として種子主権、農業生物多様性、エコフェミニズムをグローバルサウスの視点から論じた。','["Staying Alive","Navdanya"]','middle_class','パンジャーブ大学、ウェスタンオンタリオ大学','academic_citation',7.0,0,0,73,'Navdanya biography; publisher biographies','Package C: woman ecofeminist public intellectual.'),
++('C','メドハ・パートカル','Medha Patkar','めどは ぱーとかる',1954,NULL,'インド・ムンバイ','heisei','women_pioneers','social_movement','女性社会運動家としてナルマダー川流域の住民移転問題を訴え、開発と権利の関係を問い直した。','["Narmada Bachao Andolan"]','middle_class','タタ社会科学研究所','movement_history',6.6,0,0,70,'Right Livelihood profile; Narmada movement histories','Package C: woman anti-displacement organizer.'),
++('C','林巧稚','Lin Qiaozhi','りん こうち',1901,1983,'清朝福建省厦門','showa_post','women_pioneers','medicine_obstetrics','女性産婦人科医として北京協和医院で多数の出産・婦人科医療を担い、中国近代医学の女性専門職モデルとなった。','["産婦人科臨床と医学教育"]','middle_class','北京協和医学院','academy_profile',7.1,0,0,74,'Peking Union Medical College Hospital history; Chinese Academy biographical materials','Package C: woman physician in modern China.'),
++('C','何沢慧','He Zehui','か たくけい',1914,2011,'中国江蘇省蘇州','showa_post','women_pioneers','nuclear_physics','女性核物理学者として原子核分裂・宇宙線研究に携わり、中国科学院で物理学研究を進めた。','["核物理研究"]','scholar_official','清華大学、ベルリン工科大学','academy_profile',6.8,0,0,72,'Chinese Academy of Sciences biography; physics history references','Package C: woman physicist in China.'),
++('C','郭建梅','Guo Jianmei','かく けんばい',1961,NULL,'中国河南省','heisei','women_pioneers','public_interest_law','女性弁護士として中国の女性法律扶助と公益訴訟を開拓し、女性権利保護の制度化に取り組んだ。','["北京大学女性法律研究・サービスセンター"]','other','北京大学法学部','award',6.7,0,0,70,'Right Livelihood profile; public interest law reports','Package C: woman public-interest lawyer in China.'),
++('C','シリン・エバディ','Shirin Ebadi','しりん えばでぃ',1947,NULL,'イラン・ハマダーン','heisei','women_pioneers','human_rights_law','女性裁判官・弁護士としてイランの人権と子ども・女性の権利を擁護し、ノーベル平和賞を受賞した。','["Defenders of Human Rights Center"]','middle_class','テヘラン大学法学部','nobel_prize',7.8,1,0,78,'Nobel Prize biography; Encyclopaedia Britannica','Package C: woman human-rights lawyer from Iran.'),
++('C','アルンダティ・ロイ','Arundhati Roy','あるんだてぃ ろい',1961,NULL,'インド・シロン','heisei','women_pioneers','literature_activism','女性作家として小説と反核・反ダム・少数者権利の論考を通じ、インドの開発政治を批判した。','["The God of Small Things","The Algebra of Infinite Justice"]','middle_class','デリー建築学校','literary_prize',7.0,0,0,73,'Booker Prize biography; publisher biographies','Package C: woman writer and public intellectual.'),
++('D','ネルー','Jawaharlal Nehru','ねるー',1889,1964,'英領インド・アラーハーバード','showa_post','politics','postcolonial_state_building','インド初代首相として非同盟と計画経済を主導したが、対中戦争や中央集権的開発への批判も受けた。','["The Discovery of India","非同盟外交"]','elite','ハロウ校、ケンブリッジ大学、インナー・テンプル','historical_biography',7.8,1,0,78,'','Package D critical sources: Sarvepalli Gopal, Jawaharlal Nehru: A Biography; Judith M. Brown, Nehru.'),
++('D','スカルノ','Sukarno','すかるの',1901,1970,'オランダ領東インド・スラバヤ','showa_post','politics','anti_colonial_nationalism','インドネシア独立の象徴となったが、指導された民主主義と経済混乱、権威主義化が批判された。','["パンチャシラ","バンドン会議"]','middle_class','バンドン工科大学','historical_biography',7.3,1,0,75,'','Package D critical sources: John D. Legge, Sukarno; George McTurnan Kahin, Nationalism and Revolution in Indonesia.'),
++('D','ナーセル','Gamal Abdel Nasser','なーせる',1918,1970,'エジプト・アレクサンドリア','showa_post','politics','arab_socialism','エジプト大統領としてスエズ運河国有化とアラブ民族主義を推進したが、政治的抑圧と1967年敗戦への批判も大きい。','["スエズ運河国有化","アラブ社会主義"]','working_class','エジプト王立陸軍士官学校','historical_biography',7.4,1,0,76,'','Package D critical sources: P. J. Vatikiotis, Nasser and His Generation; Said K. Aburish, Nasser.'),
++('D','クワメ・ンクルマ','Kwame Nkrumah','くわめ んくるま',1909,1972,'英領ゴールドコースト','showa_post','politics','pan_africanism','ガーナ独立とパン・アフリカ主義を主導したが、一党化・個人崇拝・財政運営への批判も残した。','["アフリカ統一思想","ガーナ独立"]','working_class','リンカーン大学、ロンドン政治経済学院','historical_biography',7.2,1,0,75,'','Package D critical sources: David Birmingham, Kwame Nkrumah; Ali A. Mazrui, Nkrumah: The Leninist Czar.'),
++('D','パトリス・ルムンバ','Patrice Lumumba','ぱとりす るむんば',1925,1961,'ベルギー領コンゴ・カサイ','showa_post','politics','decolonization','コンゴ独立政府の初代首相として反植民地主義の象徴となったが、政権運営の混乱と冷戦下の孤立も研究対象となった。','["コンゴ独立演説"]','working_class','宣教師学校、郵便局勤務','historical_biography',7.0,1,0,72,'','Package D critical sources: Ludo De Witte, The Assassination of Lumumba; Georges Nzongola-Ntalaja, The Congo.'),
++('D','フランツ・ファノン','Frantz Fanon','ふらんつ ふぁのん',1925,1961,'マルティニーク・フォール＝ド＝フランス','showa_post','social_movement','postcolonial_psychiatry','精神科医・思想家として植民地主義の心理的暴力を分析したが、暴力論の解釈をめぐる批判的研究も多い。','["Black Skin, White Masks","The Wretched of the Earth"]','middle_class','リヨン大学医学部','academic_citation',7.7,1,0,78,'','Package D critical sources: David Macey, Frantz Fanon: A Biography; Alice Cherki, Frantz Fanon.'),
++('D','サルバドール・アジェンデ','Salvador Allende','さるばどーる あじぇんで',1908,1973,'チリ・バルパライソ','showa_post','politics','democratic_socialism','チリ大統領として選挙による社会主義改革を進めたが、経済危機・政治分極化への評価は分かれる。','["人民連合政権"]','middle_class','チリ大学医学部','historical_biography',7.1,1,0,74,'','Package D critical sources: Tanya Harmer, Allende''s Chile and the Inter-American Cold War; Peter Winn, Weavers of Revolution.'),
++('D','ホセ・リサール','Jose Rizal','ほせ りさーる',1861,1896,'スペイン領フィリピン・カランバ','meiji','social_movement','anti_colonial_literature','フィリピン独立運動の知識人として小説で植民地支配を批判したが、革命路線との距離をめぐり評価が分かれた。','["Noli Me Tangere","El Filibusterismo"]','middle_class','サント・トマス大学、マドリード中央大学','historical_biography',7.4,1,0,76,'','Package D critical sources: John N. Schumacher, The Propaganda Movement; Benedict Anderson, Under Three Flags.');
++
++-- Required duplicate check before INSERT.
++SELECT 'duplicate_before_insert' AS check_name, n.name_ja, n.birth_year
++FROM new_achievers_6e n
++WHERE EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++INSERT INTO achievers (
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  source_team, source_url, notes, correction_phase
++)
++SELECT
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  'codex_correction_l4_postwest', source_url, notes, '6.E'
++FROM new_achievers_6e n
++WHERE NOT EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++DROP TABLE IF EXISTS temp.package_caps_6e;
++CREATE TEMP TABLE package_caps_6e (
++  package TEXT,
++  capability_id TEXT,
++  score INTEGER,
++  notes TEXT
++);
++
++INSERT INTO package_caps_6e VALUES
++('B','age_entrepreneur',8,'Package B: regional enterprise or craft/agricultural initiative.'),
++('B','cog_systems',7,'Package B: local production, finance, or craft systems.'),
++('B','val_collective',7,'Package B: community and collective capability.'),
++('C','age_social_change',8,'Package C: woman pioneer changing institutional participation.'),
++('C','cog_critical',7,'Package C: critical knowledge or advocacy by women.'),
++('C','age_resilience',6,'Package C: persistence under gendered institutional constraints.'),
++('D','age_social_change',8,'Package D: postcolonial political or intellectual transformation.'),
++('D','cog_math',3,'Package D low score: limited evidence that mathematical literacy was a central capability.'),
++('D','cog_info',4,'Package D low score: information management was uneven or contested in critical biographies.');
++
++INSERT INTO achiever_capabilities (
++  achiever_id, capability_id, score, evidence_quote, evidence_source, notes
++)
++SELECT
++  a.id,
++  pc.capability_id,
++  pc.score,
++  CASE
++    WHEN n.package = 'D' THEN '批判的研究を含む根拠: ' || n.achievement_summary
++    ELSE '根拠: ' || n.achievement_summary
++  END,
++  CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END,
++  pc.notes || ' source_team=codex_correction_l4_postwest; correction_phase=6.E'
++FROM new_achievers_6e n
++JOIN achievers a
++  ON a.name_ja = n.name_ja
++ AND a.birth_year IS n.birth_year
++ AND a.source_team = 'codex_correction_l4_postwest'
++ AND a.correction_phase = '6.E'
++JOIN package_caps_6e pc
++  ON pc.package = n.package
++WHERE NOT EXISTS (
++  SELECT 1 FROM achiever_capabilities ac
++  WHERE ac.achiever_id = a.id
++    AND ac.capability_id = pc.capability_id
++    AND ac.evidence_source = CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END
++);
++
++COMMIT;
+
+codex
+SQLファイルを作成しました。次に実行して、重複チェック出力、追加件数、能力行数、Package D の低スコア条件を確認します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db < data/phase6e_l4_postwest_insert.sql' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+diff --git a/data/phase6e_l4_postwest_insert.sql b/data/phase6e_l4_postwest_insert.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..879dffc59556bea9d3d4f2ade9f9f6e7d035fe27
+--- /dev/null
++++ b/data/phase6e_l4_postwest_insert.sql
+@@ -0,0 +1,144 @@
++BEGIN;
++
++DROP TABLE IF EXISTS temp.new_achievers_6e;
++CREATE TEMP TABLE new_achievers_6e (
++  package TEXT,
++  name_ja TEXT,
++  name_en TEXT,
++  name_kana TEXT,
++  birth_year INTEGER,
++  death_year INTEGER,
++  birth_place TEXT,
++  primary_era_id TEXT,
++  domain TEXT,
++  sub_domain TEXT,
++  achievement_summary TEXT,
++  notable_works TEXT,
++  family_class TEXT,
++  education_path TEXT,
++  fame_source TEXT,
++  fame_score REAL,
++  is_traditional_great INTEGER,
++  is_local_excellent INTEGER,
++  data_completeness INTEGER,
++  source_url TEXT,
++  notes TEXT
++);
++
++INSERT INTO new_achievers_6e VALUES
++('B','呉仁宝','Wu Renbao','ご じんぽう',1928,2013,'中国江蘇省','showa_post','local_excellent_business','village_enterprise','江蘇省華西村で集団経済と郷鎮企業を組織し、農村工業化の象徴的事例を作った。','["華西村の郷鎮企業運営"]','farmer','地域党組織・農村実務','official_history',6.8,0,1,72,'China Daily obituary; Xinhua profile; Jiangsu local histories','Package B: China rural industrialization case.'),
++('B','魯冠球','Lu Guanqiu','ろ かんきゅう',1945,2017,'中国浙江省','heisei','local_excellent_business','township_enterprise','浙江省の小工場から万向集団を育て、中国民営製造業と自動車部品産業の拡大を牽引した。','["万向集団"]','farmer','職業学校中退後に工場経営','company_history',7.1,0,1,73,'Wanxiang Group history; Xinhua obituary','Package B: Chinese private manufacturing and township enterprise.'),
++('B','褚時健','Chu Shijian','ちょ じけん',1928,2019,'中国雲南省','heisei','agriculture_local','citrus_agriculture','たばこ企業経営後、雲南省で高齢期に柑橘ブランド「褚橙」を作り、農産物流通の地域モデルを示した。','["褚橙"]','farmer','雲南地方行政・企業経営','biography',6.5,0,1,70,'Caixin obituary; South China Morning Post profile','Package B: local agriculture and late-career entrepreneurship.'),
++('B','袁隆平','Yuan Longping','えん りゅうへい',1930,2021,'中国湖南省','showa_post','agriculture_local','hybrid_rice','中国でハイブリッド米研究を主導し、アジア・アフリカの食料安全保障に大きな影響を与えた。','["ハイブリッド米"]','farmer','西南農学院','prize',8.7,1,1,82,'FAO profile; Xinhua obituary; World Food Prize biography','Package B: agriculture-local knowledge scaled to Global South food security.'),
++('B','黄道婆','Huang Daopo','こう どうば',1245,1330,'中国上海松江付近','all','craft','textile_technology','海南で学んだ綿織技術を江南に伝え、紡績・織布工程の改良で地域手工業を発展させた。','["綿紡績技術の改良"]','working_class','海南での織物技術習得','historical_record',6.2,0,1,64,'Shanghai local gazetteers; Chinese textile history references','Package B: premodern craft technology transmission.'),
++('B','顧景舟','Gu Jingzhou','こ けいしゅう',1915,1996,'中国江蘇省宜興','showa_post','craft','zisha_teapot','宜興紫砂壺の名工として伝統陶芸を現代工芸へ継承し、地域クラフトの評価を高めた。','["宜興紫砂壺"]','artisan','家業と宜興陶芸実務','museum_profile',6.9,0,1,74,'Yixing Zisha Museum materials; Chinese ceramics references','Package B: craft lineage and local excellence.'),
++('B','イワン・ゴリコフ','Ivan Golikov','いわん ごりこふ',1886,1937,'ロシア帝国パレフ','taisho','craft','palekh_miniature','ロシアのパレフ細密画をイコン絵師の技術から世俗的漆器工芸へ転換し、地域工芸の基盤を作った。','["パレフ細密画"]','artisan','イコン工房での徒弟修業','museum_profile',6.0,0,1,67,'State Museum of Palekh Art; Russian Academy art-history references','Package B: Russian local craft modernization.'),
++('B','王石','Wang Shi','おう せき',1951,NULL,'中国広西チワン族自治区','heisei','local_excellent_business','real_estate_governance','万科企業を共同創業し、中国都市化期の住宅開発企業にガバナンス改革を導入した。','["万科企業"]','other','蘭州交通大学','company_history',6.8,0,1,70,'Vanke corporate history; Harvard Business School case materials','Package B: Chinese urbanization business institution.'),
++('B','張瑞敏','Zhang Ruimin','ちょう ずいびん',1949,NULL,'中国山東省青島','heisei','local_excellent_business','manufacturing_management','青島の冷蔵庫工場を海爾集団へ発展させ、品質管理と組織改革で中国製造業の国際化を進めた。','["海爾集団の経営改革"]','working_class','青島市企業管理実務','case_study',7.4,0,1,76,'Haier corporate history; Harvard Business School cases','Package B: management innovation from China manufacturing.'),
++('B','馬化騰','Pony Ma Huateng','ば かとう',1971,NULL,'中国広東省汕頭','heisei','local_excellent_business','digital_platform','深圳でテンセントを共同創業し、QQ・微信を通じて中国語圏のデジタル生活基盤を形成した。','["Tencent QQ","WeChat"]','other','深圳大学計算機科学','company_history',7.8,0,1,77,'Tencent corporate history; Forbes profile','Package B: non-Western digital platform growth.'),
++('B','馬明哲','Ma Mingzhe','ば めいてつ',1955,NULL,'中国吉林省','heisei','local_excellent_business','insurance_finance','平安保険を育て、中国の保険・金融サービスに統合型グループ経営を定着させた。','["中国平安保険"]','working_class','金融実務','company_history',6.7,0,1,70,'Ping An corporate history; company annual reports','Package B: Chinese finance institution building.'),
++('B','モハメド・ユヌス','Muhammad Yunus','もはめど ゆぬす',1940,NULL,'バングラデシュ・チッタゴン','showa_post','local_excellent_business','microfinance','グラミン銀行を創設し、貧困層向け小口金融を制度化してグローバルサウスの社会的事業モデルを広めた。','["グラミン銀行"]','middle_class','ダッカ大学、ヴァンダービルト大学','nobel_prize',8.1,1,1,82,'Nobel Prize biography; Grameen Bank history','Package B: local finance model with Global South diffusion.'),
++('C','ワレンチナ・テレシコワ','Valentina Tereshkova','われんちな てれしこわ',1937,NULL,'ソビエト連邦ヤロスラヴリ州','showa_post','women_pioneers','spaceflight','女性宇宙飛行士として世界で初めて単独宇宙飛行を行い、冷戦期科学技術における女性参加を可視化した。','["ボストーク6号"]','working_class','工場労働、航空クラブ、宇宙飛行士訓練','space_agency',8.0,1,0,78,'Roscosmos biography; Encyclopaedia Britannica','Package C: woman pioneer in Soviet space program.'),
++('C','陳薇','Chen Wei','ちん び',1966,NULL,'中国浙江省','heisei','women_pioneers','biomedical_defense','女性軍事医学者としてエボラ・COVID-19ワクチン研究を主導し、中国の感染症対応能力を高めた。','["Ad5-nCoV vaccine research"]','other','浙江大学、清華大学','academy_profile',7.1,0,0,72,'Chinese Academy of Engineering profile; WHO-linked vaccine publications','Package C: woman biomedical researcher in China.'),
++('C','王貞儀','Wang Zhenyi','おう ていぎ',1768,1797,'清朝江寧','all','women_pioneers','astronomy_mathematics','清代の女性学者として天文学・数学を学び、月食説明などで女性の科学知を示した。','["月食の説明","数学著述"]','scholar_official','家学による天文・数学学習','historical_record',6.8,0,0,66,'Biographical Dictionary of Chinese Women; Chinese astronomy histories','Package C: woman scientist in Qing China.'),
++('C','向警予','Xiang Jingyu','こう けいよ',1895,1928,'中国湖南省','taisho','women_pioneers','labor_feminism','中国共産党初期の女性指導者として女性労働者組織化と女子教育に取り組んだ。','["女性労働運動の組織化"]','other','フランス勤工倹学、女子教育実務','historical_record',6.4,0,0,68,'CPC historical materials; Biographical Dictionary of Chinese Women','Package C: woman labor and feminist organizer.'),
++('C','宋慶齢','Soong Ching-ling','そう けいれい',1893,1981,'清朝上海','showa_pre','women_pioneers','social_welfare_politics','女性政治家・社会事業家として児童福祉と対外平和運動を担い、中華人民共和国名誉主席も務めた。','["中国福利会"]','elite','ウェスリアン大学','official_biography',7.5,1,0,78,'Encyclopaedia Britannica; China Welfare Institute history','Package C: woman statesperson and welfare organizer.'),
++('C','アレクサンドラ・コロンタイ','Alexandra Kollontai','あれくさんどら ころんたい',1872,1952,'ロシア帝国サンクトペテルブルク','taisho','women_pioneers','socialist_feminism_diplomacy','女性革命家・外交官として女性解放政策と世界初期の女性大使級外交実務を担った。','["女性労働者部","外交官活動"]','aristocrat','チューリヒ大学聴講、社会主義運動','biography',7.2,0,0,74,'Marxists Internet Archive writings; Encyclopaedia Britannica','Package C: woman socialist theorist and diplomat.'),
++('C','アンナ・アフマートワ','Anna Akhmatova','あんな あふまとわ',1889,1966,'ロシア帝国オデッサ近郊','showa_pre','women_pioneers','poetry_memory','女性詩人としてスターリン期抑圧と家族の収監経験を詩に刻み、ロシア文学の記憶文化を支えた。','["レクイエム"]','middle_class','ツァールスコエ・セローの教育、文学サークル','literary_history',7.7,1,0,76,'Poetry Foundation biography; Encyclopaedia Britannica','Package C: woman poet under Soviet repression.'),
++('C','リュドミラ・パヴリチェンコ','Lyudmila Pavlichenko','りゅどみら ぱゔりちぇんこ',1916,1974,'ロシア帝国ベーラヤ・ツェールコフ','showa_pre','women_pioneers','military_history','女性狙撃兵として第二次世界大戦で従軍し、戦時動員における女性軍務の象徴となった。','["第二次世界大戦での狙撃兵活動"]','working_class','キエフ大学、射撃訓練','military_record',6.9,0,0,69,'Smithsonian profile; Soviet military records references','Package C: woman combatant and public diplomacy figure.'),
++('C','ナジェージダ・マンデリシュターム','Nadezhda Mandelstam','なじぇーじだ まんでりしゅたーむ',1899,1980,'ロシア帝国サラトフ','showa_post','women_pioneers','memoir_memory','女性回想録作家として夫オシップ・マンデリシュタームの詩とスターリン期弾圧の記憶を保存した。','["Hope Against Hope"]','middle_class','キエフの美術教育','memoir',6.8,0,0,70,'New York Review Books biography; Russian literary histories','Package C: woman guardian of cultural memory.'),
++('C','ファティマ・メルニーシー','Fatema Mernissi','ふぁてぃま めるにーしー',1940,2015,'モロッコ・フェズ','heisei','women_pioneers','gender_sociology','女性社会学者としてイスラーム社会のジェンダー秩序を批判的に分析し、ポストコロニアル・フェミニズムに貢献した。','["Beyond the Veil","The Veil and the Male Elite"]','middle_class','ムハンマド5世大学、ブランダイス大学','academic_citation',7.0,0,0,74,'Encyclopaedia Britannica; academic publisher biographies','Package C: woman sociologist from Morocco.'),
++('C','ドロレス・カクアンゴ','Dolores Cacuango','どろれす かくあんご',1881,1971,'エクアドル・カヤンベ','showa_pre','women_pioneers','indigenous_education','先住民女性指導者として土地権利運動とケチュア語教育を推進し、エクアドル先住民運動の基盤を作った。','["先住民学校の設立"]','farmer','農村共同体での実践知','movement_history',6.5,0,0,68,'Ecuador Ministry of Culture materials; Latin American indigenous movement histories','Package C: Indigenous woman organizer.'),
++('C','ベルタ・カセレス','Berta Caceres','べるた かせれす',1971,2016,'ホンジュラス・ラ・エスペランサ','heisei','women_pioneers','environmental_justice','レンカ人女性環境運動家として水力発電計画に反対し、先住民権利と環境正義を国際的に訴えた。','["COPINH","Goldman Environmental Prize"]','other','社会運動実務','prize',7.2,0,0,72,'Goldman Environmental Prize biography; COPINH materials','Package C: Indigenous woman environmental defender.'),
++('C','アスマ・ジャハンギール','Asma Jahangir','あすま じゃはんぎーる',1952,2018,'パキスタン・ラホール','heisei','women_pioneers','human_rights_law','女性弁護士としてパキスタンの人権訴訟、女性・宗教的少数者の権利擁護、国連特別報告者を担った。','["Human Rights Commission of Pakistan"]','elite','パンジャーブ大学法学部','un_profile',7.3,0,0,75,'UN OHCHR profile; HRCP history','Package C: woman human-rights lawyer.'),
++('C','バンダナ・シヴァ','Vandana Shiva','ばんだな しゔぁ',1952,NULL,'インド・デヘラードゥーン','heisei','women_pioneers','eco_feminism','女性環境思想家として種子主権、農業生物多様性、エコフェミニズムをグローバルサウスの視点から論じた。','["Staying Alive","Navdanya"]','middle_class','パンジャーブ大学、ウェスタンオンタリオ大学','academic_citation',7.0,0,0,73,'Navdanya biography; publisher biographies','Package C: woman ecofeminist public intellectual.'),
++('C','メドハ・パートカル','Medha Patkar','めどは ぱーとかる',1954,NULL,'インド・ムンバイ','heisei','women_pioneers','social_movement','女性社会運動家としてナルマダー川流域の住民移転問題を訴え、開発と権利の関係を問い直した。','["Narmada Bachao Andolan"]','middle_class','タタ社会科学研究所','movement_history',6.6,0,0,70,'Right Livelihood profile; Narmada movement histories','Package C: woman anti-displacement organizer.'),
++('C','林巧稚','Lin Qiaozhi','りん こうち',1901,1983,'清朝福建省厦門','showa_post','women_pioneers','medicine_obstetrics','女性産婦人科医として北京協和医院で多数の出産・婦人科医療を担い、中国近代医学の女性専門職モデルとなった。','["産婦人科臨床と医学教育"]','middle_class','北京協和医学院','academy_profile',7.1,0,0,74,'Peking Union Medical College Hospital history; Chinese Academy biographical materials','Package C: woman physician in modern China.'),
++('C','何沢慧','He Zehui','か たくけい',1914,2011,'中国江蘇省蘇州','showa_post','women_pioneers','nuclear_physics','女性核物理学者として原子核分裂・宇宙線研究に携わり、中国科学院で物理学研究を進めた。','["核物理研究"]','scholar_official','清華大学、ベルリン工科大学','academy_profile',6.8,0,0,72,'Chinese Academy of Sciences biography; physics history references','Package C: woman physicist in China.'),
++('C','郭建梅','Guo Jianmei','かく けんばい',1961,NULL,'中国河南省','heisei','women_pioneers','public_interest_law','女性弁護士として中国の女性法律扶助と公益訴訟を開拓し、女性権利保護の制度化に取り組んだ。','["北京大学女性法律研究・サービスセンター"]','other','北京大学法学部','award',6.7,0,0,70,'Right Livelihood profile; public interest law reports','Package C: woman public-interest lawyer in China.'),
++('C','シリン・エバディ','Shirin Ebadi','しりん えばでぃ',1947,NULL,'イラン・ハマダーン','heisei','women_pioneers','human_rights_law','女性裁判官・弁護士としてイランの人権と子ども・女性の権利を擁護し、ノーベル平和賞を受賞した。','["Defenders of Human Rights Center"]','middle_class','テヘラン大学法学部','nobel_prize',7.8,1,0,78,'Nobel Prize biography; Encyclopaedia Britannica','Package C: woman human-rights lawyer from Iran.'),
++('C','アルンダティ・ロイ','Arundhati Roy','あるんだてぃ ろい',1961,NULL,'インド・シロン','heisei','women_pioneers','literature_activism','女性作家として小説と反核・反ダム・少数者権利の論考を通じ、インドの開発政治を批判した。','["The God of Small Things","The Algebra of Infinite Justice"]','middle_class','デリー建築学校','literary_prize',7.0,0,0,73,'Booker Prize biography; publisher biographies','Package C: woman writer and public intellectual.'),
++('D','ネルー','Jawaharlal Nehru','ねるー',1889,1964,'英領インド・アラーハーバード','showa_post','politics','postcolonial_state_building','インド初代首相として非同盟と計画経済を主導したが、対中戦争や中央集権的開発への批判も受けた。','["The Discovery of India","非同盟外交"]','elite','ハロウ校、ケンブリッジ大学、インナー・テンプル','historical_biography',7.8,1,0,78,'','Package D critical sources: Sarvepalli Gopal, Jawaharlal Nehru: A Biography; Judith M. Brown, Nehru.'),
++('D','スカルノ','Sukarno','すかるの',1901,1970,'オランダ領東インド・スラバヤ','showa_post','politics','anti_colonial_nationalism','インドネシア独立の象徴となったが、指導された民主主義と経済混乱、権威主義化が批判された。','["パンチャシラ","バンドン会議"]','middle_class','バンドン工科大学','historical_biography',7.3,1,0,75,'','Package D critical sources: John D. Legge, Sukarno; George McTurnan Kahin, Nationalism and Revolution in Indonesia.'),
++('D','ナーセル','Gamal Abdel Nasser','なーせる',1918,1970,'エジプト・アレクサンドリア','showa_post','politics','arab_socialism','エジプト大統領としてスエズ運河国有化とアラブ民族主義を推進したが、政治的抑圧と1967年敗戦への批判も大きい。','["スエズ運河国有化","アラブ社会主義"]','working_class','エジプト王立陸軍士官学校','historical_biography',7.4,1,0,76,'','Package D critical sources: P. J. Vatikiotis, Nasser and His Generation; Said K. Aburish, Nasser.'),
++('D','クワメ・ンクルマ','Kwame Nkrumah','くわめ んくるま',1909,1972,'英領ゴールドコースト','showa_post','politics','pan_africanism','ガーナ独立とパン・アフリカ主義を主導したが、一党化・個人崇拝・財政運営への批判も残した。','["アフリカ統一思想","ガーナ独立"]','working_class','リンカーン大学、ロンドン政治経済学院','historical_biography',7.2,1,0,75,'','Package D critical sources: David Birmingham, Kwame Nkrumah; Ali A. Mazrui, Nkrumah: The Leninist Czar.'),
++('D','パトリス・ルムンバ','Patrice Lumumba','ぱとりす るむんば',1925,1961,'ベルギー領コンゴ・カサイ','showa_post','politics','decolonization','コンゴ独立政府の初代首相として反植民地主義の象徴となったが、政権運営の混乱と冷戦下の孤立も研究対象となった。','["コンゴ独立演説"]','working_class','宣教師学校、郵便局勤務','historical_biography',7.0,1,0,72,'','Package D critical sources: Ludo De Witte, The Assassination of Lumumba; Georges Nzongola-Ntalaja, The Congo.'),
++('D','フランツ・ファノン','Frantz Fanon','ふらんつ ふぁのん',1925,1961,'マルティニーク・フォール＝ド＝フランス','showa_post','social_movement','postcolonial_psychiatry','精神科医・思想家として植民地主義の心理的暴力を分析したが、暴力論の解釈をめぐる批判的研究も多い。','["Black Skin, White Masks","The Wretched of the Earth"]','middle_class','リヨン大学医学部','academic_citation',7.7,1,0,78,'','Package D critical sources: David Macey, Frantz Fanon: A Biography; Alice Cherki, Frantz Fanon.'),
++('D','サルバドール・アジェンデ','Salvador Allende','さるばどーる あじぇんで',1908,1973,'チリ・バルパライソ','showa_post','politics','democratic_socialism','チリ大統領として選挙による社会主義改革を進めたが、経済危機・政治分極化への評価は分かれる。','["人民連合政権"]','middle_class','チリ大学医学部','historical_biography',7.1,1,0,74,'','Package D critical sources: Tanya Harmer, Allende''s Chile and the Inter-American Cold War; Peter Winn, Weavers of Revolution.'),
++('D','ホセ・リサール','Jose Rizal','ほせ りさーる',1861,1896,'スペイン領フィリピン・カランバ','meiji','social_movement','anti_colonial_literature','フィリピン独立運動の知識人として小説で植民地支配を批判したが、革命路線との距離をめぐり評価が分かれた。','["Noli Me Tangere","El Filibusterismo"]','middle_class','サント・トマス大学、マドリード中央大学','historical_biography',7.4,1,0,76,'','Package D critical sources: John N. Schumacher, The Propaganda Movement; Benedict Anderson, Under Three Flags.');
++
++-- Required duplicate check before INSERT.
++SELECT 'duplicate_before_insert' AS check_name, n.name_ja, n.birth_year
++FROM new_achievers_6e n
++WHERE EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++INSERT INTO achievers (
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  source_team, source_url, notes, correction_phase
++)
++SELECT
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  'codex_correction_l4_postwest', source_url, notes, '6.E'
++FROM new_achievers_6e n
++WHERE NOT EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++DROP TABLE IF EXISTS temp.package_caps_6e;
++CREATE TEMP TABLE package_caps_6e (
++  package TEXT,
++  capability_id TEXT,
++  score INTEGER,
++  notes TEXT
++);
++
++INSERT INTO package_caps_6e VALUES
++('B','age_entrepreneur',8,'Package B: regional enterprise or craft/agricultural initiative.'),
++('B','cog_systems',7,'Package B: local production, finance, or craft systems.'),
++('B','val_collective',7,'Package B: community and collective capability.'),
++('C','age_social_change',8,'Package C: woman pioneer changing institutional participation.'),
++('C','cog_critical',7,'Package C: critical knowledge or advocacy by women.'),
++('C','age_resilience',6,'Package C: persistence under gendered institutional constraints.'),
++('D','age_social_change',8,'Package D: postcolonial political or intellectual transformation.'),
++('D','cog_math',3,'Package D low score: limited evidence that mathematical literacy was a central capability.'),
++('D','cog_info',4,'Package D low score: information management was uneven or contested in critical biographies.');
++
++INSERT INTO achiever_capabilities (
++  achiever_id, capability_id, score, evidence_quote, evidence_source, notes
++)
++SELECT
++  a.id,
++  pc.capability_id,
++  pc.score,
++  CASE
++    WHEN n.package = 'D' THEN '批判的研究を含む根拠: ' || n.achievement_summary
++    ELSE '根拠: ' || n.achievement_summary
++  END,
++  CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END,
++  pc.notes || ' source_team=codex_correction_l4_postwest; correction_phase=6.E'
++FROM new_achievers_6e n
++JOIN achievers a
++  ON a.name_ja = n.name_ja
++ AND a.birth_year IS n.birth_year
++ AND a.source_team = 'codex_correction_l4_postwest'
++ AND a.correction_phase = '6.E'
++JOIN package_caps_6e pc
++  ON pc.package = n.package
++WHERE NOT EXISTS (
++  SELECT 1 FROM achiever_capabilities ac
++  WHERE ac.achiever_id = a.id
++    AND ac.capability_id = pc.capability_id
++    AND ac.evidence_source = CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END
++);
++
++COMMIT;
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT domain, COUNT(*) FROM achievers WHERE correction_phase='6.E' AND source_team='codex_correction_l4_postwest' GROUP BY domain ORDER BY domain;\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.E' AND source_team='codex_correction_l4_postwest';\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+agriculture_local|2
+craft|3
+local_excellent_business|7
+politics|6
+social_movement|2
+women_pioneers|20
+
+ succeeded in 0ms:
+40
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT a.name_ja, MIN(ac.score), GROUP_CONCAT(ac.capability_id||':'||ac.score) FROM achievers a JOIN achiever_capabilities ac ON ac.achiever_id=a.id WHERE a.correction_phase='6.E' AND a.source_team='codex_correction_l4_postwest' AND a.notes LIKE 'Package D%' GROUP BY a.id ORDER BY a.name_ja;\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achiever_capabilities ac JOIN achievers a ON a.id=ac.achiever_id WHERE a.correction_phase='6.E' AND a.source_team='codex_correction_l4_postwest';\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+120
+
+ succeeded in 0ms:
+クワメ・ンクルマ|3|age_social_change:8,cog_info:4,cog_math:3
+サルバドール・アジェンデ|3|age_social_change:8,cog_info:4,cog_math:3
+スカルノ|3|age_social_change:8,cog_info:4,cog_math:3
+ナーセル|3|age_social_change:8,cog_info:4,cog_math:3
+ネルー|3|age_social_change:8,cog_info:4,cog_math:3
+パトリス・ルムンバ|3|age_social_change:8,cog_info:4,cog_math:3
+フランツ・ファノン|3|age_social_change:8,cog_info:4,cog_math:3
+ホセ・リサール|3|age_social_change:8,cog_info:4,cog_math:3
+
+diff --git a/data/phase6e_l4_postwest_insert.sql b/data/phase6e_l4_postwest_insert.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..879dffc59556bea9d3d4f2ade9f9f6e7d035fe27
+--- /dev/null
++++ b/data/phase6e_l4_postwest_insert.sql
+@@ -0,0 +1,144 @@
++BEGIN;
++
++DROP TABLE IF EXISTS temp.new_achievers_6e;
++CREATE TEMP TABLE new_achievers_6e (
++  package TEXT,
++  name_ja TEXT,
++  name_en TEXT,
++  name_kana TEXT,
++  birth_year INTEGER,
++  death_year INTEGER,
++  birth_place TEXT,
++  primary_era_id TEXT,
++  domain TEXT,
++  sub_domain TEXT,
++  achievement_summary TEXT,
++  notable_works TEXT,
++  family_class TEXT,
++  education_path TEXT,
++  fame_source TEXT,
++  fame_score REAL,
++  is_traditional_great INTEGER,
++  is_local_excellent INTEGER,
++  data_completeness INTEGER,
++  source_url TEXT,
++  notes TEXT
++);
++
++INSERT INTO new_achievers_6e VALUES
++('B','呉仁宝','Wu Renbao','ご じんぽう',1928,2013,'中国江蘇省','showa_post','local_excellent_business','village_enterprise','江蘇省華西村で集団経済と郷鎮企業を組織し、農村工業化の象徴的事例を作った。','["華西村の郷鎮企業運営"]','farmer','地域党組織・農村実務','official_history',6.8,0,1,72,'China Daily obituary; Xinhua profile; Jiangsu local histories','Package B: China rural industrialization case.'),
++('B','魯冠球','Lu Guanqiu','ろ かんきゅう',1945,2017,'中国浙江省','heisei','local_excellent_business','township_enterprise','浙江省の小工場から万向集団を育て、中国民営製造業と自動車部品産業の拡大を牽引した。','["万向集団"]','farmer','職業学校中退後に工場経営','company_history',7.1,0,1,73,'Wanxiang Group history; Xinhua obituary','Package B: Chinese private manufacturing and township enterprise.'),
++('B','褚時健','Chu Shijian','ちょ じけん',1928,2019,'中国雲南省','heisei','agriculture_local','citrus_agriculture','たばこ企業経営後、雲南省で高齢期に柑橘ブランド「褚橙」を作り、農産物流通の地域モデルを示した。','["褚橙"]','farmer','雲南地方行政・企業経営','biography',6.5,0,1,70,'Caixin obituary; South China Morning Post profile','Package B: local agriculture and late-career entrepreneurship.'),
++('B','袁隆平','Yuan Longping','えん りゅうへい',1930,2021,'中国湖南省','showa_post','agriculture_local','hybrid_rice','中国でハイブリッド米研究を主導し、アジア・アフリカの食料安全保障に大きな影響を与えた。','["ハイブリッド米"]','farmer','西南農学院','prize',8.7,1,1,82,'FAO profile; Xinhua obituary; World Food Prize biography','Package B: agriculture-local knowledge scaled to Global South food security.'),
++('B','黄道婆','Huang Daopo','こう どうば',1245,1330,'中国上海松江付近','all','craft','textile_technology','海南で学んだ綿織技術を江南に伝え、紡績・織布工程の改良で地域手工業を発展させた。','["綿紡績技術の改良"]','working_class','海南での織物技術習得','historical_record',6.2,0,1,64,'Shanghai local gazetteers; Chinese textile history references','Package B: premodern craft technology transmission.'),
++('B','顧景舟','Gu Jingzhou','こ けいしゅう',1915,1996,'中国江蘇省宜興','showa_post','craft','zisha_teapot','宜興紫砂壺の名工として伝統陶芸を現代工芸へ継承し、地域クラフトの評価を高めた。','["宜興紫砂壺"]','artisan','家業と宜興陶芸実務','museum_profile',6.9,0,1,74,'Yixing Zisha Museum materials; Chinese ceramics references','Package B: craft lineage and local excellence.'),
++('B','イワン・ゴリコフ','Ivan Golikov','いわん ごりこふ',1886,1937,'ロシア帝国パレフ','taisho','craft','palekh_miniature','ロシアのパレフ細密画をイコン絵師の技術から世俗的漆器工芸へ転換し、地域工芸の基盤を作った。','["パレフ細密画"]','artisan','イコン工房での徒弟修業','museum_profile',6.0,0,1,67,'State Museum of Palekh Art; Russian Academy art-history references','Package B: Russian local craft modernization.'),
++('B','王石','Wang Shi','おう せき',1951,NULL,'中国広西チワン族自治区','heisei','local_excellent_business','real_estate_governance','万科企業を共同創業し、中国都市化期の住宅開発企業にガバナンス改革を導入した。','["万科企業"]','other','蘭州交通大学','company_history',6.8,0,1,70,'Vanke corporate history; Harvard Business School case materials','Package B: Chinese urbanization business institution.'),
++('B','張瑞敏','Zhang Ruimin','ちょう ずいびん',1949,NULL,'中国山東省青島','heisei','local_excellent_business','manufacturing_management','青島の冷蔵庫工場を海爾集団へ発展させ、品質管理と組織改革で中国製造業の国際化を進めた。','["海爾集団の経営改革"]','working_class','青島市企業管理実務','case_study',7.4,0,1,76,'Haier corporate history; Harvard Business School cases','Package B: management innovation from China manufacturing.'),
++('B','馬化騰','Pony Ma Huateng','ば かとう',1971,NULL,'中国広東省汕頭','heisei','local_excellent_business','digital_platform','深圳でテンセントを共同創業し、QQ・微信を通じて中国語圏のデジタル生活基盤を形成した。','["Tencent QQ","WeChat"]','other','深圳大学計算機科学','company_history',7.8,0,1,77,'Tencent corporate history; Forbes profile','Package B: non-Western digital platform growth.'),
++('B','馬明哲','Ma Mingzhe','ば めいてつ',1955,NULL,'中国吉林省','heisei','local_excellent_business','insurance_finance','平安保険を育て、中国の保険・金融サービスに統合型グループ経営を定着させた。','["中国平安保険"]','working_class','金融実務','company_history',6.7,0,1,70,'Ping An corporate history; company annual reports','Package B: Chinese finance institution building.'),
++('B','モハメド・ユヌス','Muhammad Yunus','もはめど ゆぬす',1940,NULL,'バングラデシュ・チッタゴン','showa_post','local_excellent_business','microfinance','グラミン銀行を創設し、貧困層向け小口金融を制度化してグローバルサウスの社会的事業モデルを広めた。','["グラミン銀行"]','middle_class','ダッカ大学、ヴァンダービルト大学','nobel_prize',8.1,1,1,82,'Nobel Prize biography; Grameen Bank history','Package B: local finance model with Global South diffusion.'),
++('C','ワレンチナ・テレシコワ','Valentina Tereshkova','われんちな てれしこわ',1937,NULL,'ソビエト連邦ヤロスラヴリ州','showa_post','women_pioneers','spaceflight','女性宇宙飛行士として世界で初めて単独宇宙飛行を行い、冷戦期科学技術における女性参加を可視化した。','["ボストーク6号"]','working_class','工場労働、航空クラブ、宇宙飛行士訓練','space_agency',8.0,1,0,78,'Roscosmos biography; Encyclopaedia Britannica','Package C: woman pioneer in Soviet space program.'),
++('C','陳薇','Chen Wei','ちん び',1966,NULL,'中国浙江省','heisei','women_pioneers','biomedical_defense','女性軍事医学者としてエボラ・COVID-19ワクチン研究を主導し、中国の感染症対応能力を高めた。','["Ad5-nCoV vaccine research"]','other','浙江大学、清華大学','academy_profile',7.1,0,0,72,'Chinese Academy of Engineering profile; WHO-linked vaccine publications','Package C: woman biomedical researcher in China.'),
++('C','王貞儀','Wang Zhenyi','おう ていぎ',1768,1797,'清朝江寧','all','women_pioneers','astronomy_mathematics','清代の女性学者として天文学・数学を学び、月食説明などで女性の科学知を示した。','["月食の説明","数学著述"]','scholar_official','家学による天文・数学学習','historical_record',6.8,0,0,66,'Biographical Dictionary of Chinese Women; Chinese astronomy histories','Package C: woman scientist in Qing China.'),
++('C','向警予','Xiang Jingyu','こう けいよ',1895,1928,'中国湖南省','taisho','women_pioneers','labor_feminism','中国共産党初期の女性指導者として女性労働者組織化と女子教育に取り組んだ。','["女性労働運動の組織化"]','other','フランス勤工倹学、女子教育実務','historical_record',6.4,0,0,68,'CPC historical materials; Biographical Dictionary of Chinese Women','Package C: woman labor and feminist organizer.'),
++('C','宋慶齢','Soong Ching-ling','そう けいれい',1893,1981,'清朝上海','showa_pre','women_pioneers','social_welfare_politics','女性政治家・社会事業家として児童福祉と対外平和運動を担い、中華人民共和国名誉主席も務めた。','["中国福利会"]','elite','ウェスリアン大学','official_biography',7.5,1,0,78,'Encyclopaedia Britannica; China Welfare Institute history','Package C: woman statesperson and welfare organizer.'),
++('C','アレクサンドラ・コロンタイ','Alexandra Kollontai','あれくさんどら ころんたい',1872,1952,'ロシア帝国サンクトペテルブルク','taisho','women_pioneers','socialist_feminism_diplomacy','女性革命家・外交官として女性解放政策と世界初期の女性大使級外交実務を担った。','["女性労働者部","外交官活動"]','aristocrat','チューリヒ大学聴講、社会主義運動','biography',7.2,0,0,74,'Marxists Internet Archive writings; Encyclopaedia Britannica','Package C: woman socialist theorist and diplomat.'),
++('C','アンナ・アフマートワ','Anna Akhmatova','あんな あふまとわ',1889,1966,'ロシア帝国オデッサ近郊','showa_pre','women_pioneers','poetry_memory','女性詩人としてスターリン期抑圧と家族の収監経験を詩に刻み、ロシア文学の記憶文化を支えた。','["レクイエム"]','middle_class','ツァールスコエ・セローの教育、文学サークル','literary_history',7.7,1,0,76,'Poetry Foundation biography; Encyclopaedia Britannica','Package C: woman poet under Soviet repression.'),
++('C','リュドミラ・パヴリチェンコ','Lyudmila Pavlichenko','りゅどみら ぱゔりちぇんこ',1916,1974,'ロシア帝国ベーラヤ・ツェールコフ','showa_pre','women_pioneers','military_history','女性狙撃兵として第二次世界大戦で従軍し、戦時動員における女性軍務の象徴となった。','["第二次世界大戦での狙撃兵活動"]','working_class','キエフ大学、射撃訓練','military_record',6.9,0,0,69,'Smithsonian profile; Soviet military records references','Package C: woman combatant and public diplomacy figure.'),
++('C','ナジェージダ・マンデリシュターム','Nadezhda Mandelstam','なじぇーじだ まんでりしゅたーむ',1899,1980,'ロシア帝国サラトフ','showa_post','women_pioneers','memoir_memory','女性回想録作家として夫オシップ・マンデリシュタームの詩とスターリン期弾圧の記憶を保存した。','["Hope Against Hope"]','middle_class','キエフの美術教育','memoir',6.8,0,0,70,'New York Review Books biography; Russian literary histories','Package C: woman guardian of cultural memory.'),
++('C','ファティマ・メルニーシー','Fatema Mernissi','ふぁてぃま めるにーしー',1940,2015,'モロッコ・フェズ','heisei','women_pioneers','gender_sociology','女性社会学者としてイスラーム社会のジェンダー秩序を批判的に分析し、ポストコロニアル・フェミニズムに貢献した。','["Beyond the Veil","The Veil and the Male Elite"]','middle_class','ムハンマド5世大学、ブランダイス大学','academic_citation',7.0,0,0,74,'Encyclopaedia Britannica; academic publisher biographies','Package C: woman sociologist from Morocco.'),
++('C','ドロレス・カクアンゴ','Dolores Cacuango','どろれす かくあんご',1881,1971,'エクアドル・カヤンベ','showa_pre','women_pioneers','indigenous_education','先住民女性指導者として土地権利運動とケチュア語教育を推進し、エクアドル先住民運動の基盤を作った。','["先住民学校の設立"]','farmer','農村共同体での実践知','movement_history',6.5,0,0,68,'Ecuador Ministry of Culture materials; Latin American indigenous movement histories','Package C: Indigenous woman organizer.'),
++('C','ベルタ・カセレス','Berta Caceres','べるた かせれす',1971,2016,'ホンジュラス・ラ・エスペランサ','heisei','women_pioneers','environmental_justice','レンカ人女性環境運動家として水力発電計画に反対し、先住民権利と環境正義を国際的に訴えた。','["COPINH","Goldman Environmental Prize"]','other','社会運動実務','prize',7.2,0,0,72,'Goldman Environmental Prize biography; COPINH materials','Package C: Indigenous woman environmental defender.'),
++('C','アスマ・ジャハンギール','Asma Jahangir','あすま じゃはんぎーる',1952,2018,'パキスタン・ラホール','heisei','women_pioneers','human_rights_law','女性弁護士としてパキスタンの人権訴訟、女性・宗教的少数者の権利擁護、国連特別報告者を担った。','["Human Rights Commission of Pakistan"]','elite','パンジャーブ大学法学部','un_profile',7.3,0,0,75,'UN OHCHR profile; HRCP history','Package C: woman human-rights lawyer.'),
++('C','バンダナ・シヴァ','Vandana Shiva','ばんだな しゔぁ',1952,NULL,'インド・デヘラードゥーン','heisei','women_pioneers','eco_feminism','女性環境思想家として種子主権、農業生物多様性、エコフェミニズムをグローバルサウスの視点から論じた。','["Staying Alive","Navdanya"]','middle_class','パンジャーブ大学、ウェスタンオンタリオ大学','academic_citation',7.0,0,0,73,'Navdanya biography; publisher biographies','Package C: woman ecofeminist public intellectual.'),
++('C','メドハ・パートカル','Medha Patkar','めどは ぱーとかる',1954,NULL,'インド・ムンバイ','heisei','women_pioneers','social_movement','女性社会運動家としてナルマダー川流域の住民移転問題を訴え、開発と権利の関係を問い直した。','["Narmada Bachao Andolan"]','middle_class','タタ社会科学研究所','movement_history',6.6,0,0,70,'Right Livelihood profile; Narmada movement histories','Package C: woman anti-displacement organizer.'),
++('C','林巧稚','Lin Qiaozhi','りん こうち',1901,1983,'清朝福建省厦門','showa_post','women_pioneers','medicine_obstetrics','女性産婦人科医として北京協和医院で多数の出産・婦人科医療を担い、中国近代医学の女性専門職モデルとなった。','["産婦人科臨床と医学教育"]','middle_class','北京協和医学院','academy_profile',7.1,0,0,74,'Peking Union Medical College Hospital history; Chinese Academy biographical materials','Package C: woman physician in modern China.'),
++('C','何沢慧','He Zehui','か たくけい',1914,2011,'中国江蘇省蘇州','showa_post','women_pioneers','nuclear_physics','女性核物理学者として原子核分裂・宇宙線研究に携わり、中国科学院で物理学研究を進めた。','["核物理研究"]','scholar_official','清華大学、ベルリン工科大学','academy_profile',6.8,0,0,72,'Chinese Academy of Sciences biography; physics history references','Package C: woman physicist in China.'),
++('C','郭建梅','Guo Jianmei','かく けんばい',1961,NULL,'中国河南省','heisei','women_pioneers','public_interest_law','女性弁護士として中国の女性法律扶助と公益訴訟を開拓し、女性権利保護の制度化に取り組んだ。','["北京大学女性法律研究・サービスセンター"]','other','北京大学法学部','award',6.7,0,0,70,'Right Livelihood profile; public interest law reports','Package C: woman public-interest lawyer in China.'),
++('C','シリン・エバディ','Shirin Ebadi','しりん えばでぃ',1947,NULL,'イラン・ハマダーン','heisei','women_pioneers','human_rights_law','女性裁判官・弁護士としてイランの人権と子ども・女性の権利を擁護し、ノーベル平和賞を受賞した。','["Defenders of Human Rights Center"]','middle_class','テヘラン大学法学部','nobel_prize',7.8,1,0,78,'Nobel Prize biography; Encyclopaedia Britannica','Package C: woman human-rights lawyer from Iran.'),
++('C','アルンダティ・ロイ','Arundhati Roy','あるんだてぃ ろい',1961,NULL,'インド・シロン','heisei','women_pioneers','literature_activism','女性作家として小説と反核・反ダム・少数者権利の論考を通じ、インドの開発政治を批判した。','["The God of Small Things","The Algebra of Infinite Justice"]','middle_class','デリー建築学校','literary_prize',7.0,0,0,73,'Booker Prize biography; publisher biographies','Package C: woman writer and public intellectual.'),
++('D','ネルー','Jawaharlal Nehru','ねるー',1889,1964,'英領インド・アラーハーバード','showa_post','politics','postcolonial_state_building','インド初代首相として非同盟と計画経済を主導したが、対中戦争や中央集権的開発への批判も受けた。','["The Discovery of India","非同盟外交"]','elite','ハロウ校、ケンブリッジ大学、インナー・テンプル','historical_biography',7.8,1,0,78,'','Package D critical sources: Sarvepalli Gopal, Jawaharlal Nehru: A Biography; Judith M. Brown, Nehru.'),
++('D','スカルノ','Sukarno','すかるの',1901,1970,'オランダ領東インド・スラバヤ','showa_post','politics','anti_colonial_nationalism','インドネシア独立の象徴となったが、指導された民主主義と経済混乱、権威主義化が批判された。','["パンチャシラ","バンドン会議"]','middle_class','バンドン工科大学','historical_biography',7.3,1,0,75,'','Package D critical sources: John D. Legge, Sukarno; George McTurnan Kahin, Nationalism and Revolution in Indonesia.'),
++('D','ナーセル','Gamal Abdel Nasser','なーせる',1918,1970,'エジプト・アレクサンドリア','showa_post','politics','arab_socialism','エジプト大統領としてスエズ運河国有化とアラブ民族主義を推進したが、政治的抑圧と1967年敗戦への批判も大きい。','["スエズ運河国有化","アラブ社会主義"]','working_class','エジプト王立陸軍士官学校','historical_biography',7.4,1,0,76,'','Package D critical sources: P. J. Vatikiotis, Nasser and His Generation; Said K. Aburish, Nasser.'),
++('D','クワメ・ンクルマ','Kwame Nkrumah','くわめ んくるま',1909,1972,'英領ゴールドコースト','showa_post','politics','pan_africanism','ガーナ独立とパン・アフリカ主義を主導したが、一党化・個人崇拝・財政運営への批判も残した。','["アフリカ統一思想","ガーナ独立"]','working_class','リンカーン大学、ロンドン政治経済学院','historical_biography',7.2,1,0,75,'','Package D critical sources: David Birmingham, Kwame Nkrumah; Ali A. Mazrui, Nkrumah: The Leninist Czar.'),
++('D','パトリス・ルムンバ','Patrice Lumumba','ぱとりす るむんば',1925,1961,'ベルギー領コンゴ・カサイ','showa_post','politics','decolonization','コンゴ独立政府の初代首相として反植民地主義の象徴となったが、政権運営の混乱と冷戦下の孤立も研究対象となった。','["コンゴ独立演説"]','working_class','宣教師学校、郵便局勤務','historical_biography',7.0,1,0,72,'','Package D critical sources: Ludo De Witte, The Assassination of Lumumba; Georges Nzongola-Ntalaja, The Congo.'),
++('D','フランツ・ファノン','Frantz Fanon','ふらんつ ふぁのん',1925,1961,'マルティニーク・フォール＝ド＝フランス','showa_post','social_movement','postcolonial_psychiatry','精神科医・思想家として植民地主義の心理的暴力を分析したが、暴力論の解釈をめぐる批判的研究も多い。','["Black Skin, White Masks","The Wretched of the Earth"]','middle_class','リヨン大学医学部','academic_citation',7.7,1,0,78,'','Package D critical sources: David Macey, Frantz Fanon: A Biography; Alice Cherki, Frantz Fanon.'),
++('D','サルバドール・アジェンデ','Salvador Allende','さるばどーる あじぇんで',1908,1973,'チリ・バルパライソ','showa_post','politics','democratic_socialism','チリ大統領として選挙による社会主義改革を進めたが、経済危機・政治分極化への評価は分かれる。','["人民連合政権"]','middle_class','チリ大学医学部','historical_biography',7.1,1,0,74,'','Package D critical sources: Tanya Harmer, Allende''s Chile and the Inter-American Cold War; Peter Winn, Weavers of Revolution.'),
++('D','ホセ・リサール','Jose Rizal','ほせ りさーる',1861,1896,'スペイン領フィリピン・カランバ','meiji','social_movement','anti_colonial_literature','フィリピン独立運動の知識人として小説で植民地支配を批判したが、革命路線との距離をめぐり評価が分かれた。','["Noli Me Tangere","El Filibusterismo"]','middle_class','サント・トマス大学、マドリード中央大学','historical_biography',7.4,1,0,76,'','Package D critical sources: John N. Schumacher, The Propaganda Movement; Benedict Anderson, Under Three Flags.');
++
++-- Required duplicate check before INSERT.
++SELECT 'duplicate_before_insert' AS check_name, n.name_ja, n.birth_year
++FROM new_achievers_6e n
++WHERE EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++INSERT INTO achievers (
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  source_team, source_url, notes, correction_phase
++)
++SELECT
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  'codex_correction_l4_postwest', source_url, notes, '6.E'
++FROM new_achievers_6e n
++WHERE NOT EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++DROP TABLE IF EXISTS temp.package_caps_6e;
++CREATE TEMP TABLE package_caps_6e (
++  package TEXT,
++  capability_id TEXT,
++  score INTEGER,
++  notes TEXT
++);
++
++INSERT INTO package_caps_6e VALUES
++('B','age_entrepreneur',8,'Package B: regional enterprise or craft/agricultural initiative.'),
++('B','cog_systems',7,'Package B: local production, finance, or craft systems.'),
++('B','val_collective',7,'Package B: community and collective capability.'),
++('C','age_social_change',8,'Package C: woman pioneer changing institutional participation.'),
++('C','cog_critical',7,'Package C: critical knowledge or advocacy by women.'),
++('C','age_resilience',6,'Package C: persistence under gendered institutional constraints.'),
++('D','age_social_change',8,'Package D: postcolonial political or intellectual transformation.'),
++('D','cog_math',3,'Package D low score: limited evidence that mathematical literacy was a central capability.'),
++('D','cog_info',4,'Package D low score: information management was uneven or contested in critical biographies.');
++
++INSERT INTO achiever_capabilities (
++  achiever_id, capability_id, score, evidence_quote, evidence_source, notes
++)
++SELECT
++  a.id,
++  pc.capability_id,
++  pc.score,
++  CASE
++    WHEN n.package = 'D' THEN '批判的研究を含む根拠: ' || n.achievement_summary
++    ELSE '根拠: ' || n.achievement_summary
++  END,
++  CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END,
++  pc.notes || ' source_team=codex_correction_l4_postwest; correction_phase=6.E'
++FROM new_achievers_6e n
++JOIN achievers a
++  ON a.name_ja = n.name_ja
++ AND a.birth_year IS n.birth_year
++ AND a.source_team = 'codex_correction_l4_postwest'
++ AND a.correction_phase = '6.E'
++JOIN package_caps_6e pc
++  ON pc.package = n.package
++WHERE NOT EXISTS (
++  SELECT 1 FROM achiever_capabilities ac
++  WHERE ac.achiever_id = a.id
++    AND ac.capability_id = pc.capability_id
++    AND ac.evidence_source = CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END
++);
++
++COMMIT;
+
+codex
+投入は成功し、Phase 6.E の achievers は40件、能力行は120件になっています。最後に必須フラグ、Package B の local 指定、Package C の女性明示、重複有無を横断確認します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.E' AND source_team='codex_correction_l4_postwest' AND (correction_phase"'!='"'6.E' OR source_team"'!='"'codex_correction_l4_postwest');\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.E' AND source_team='codex_correction_l4_postwest' AND domain IN ('craft','local_excellent_business','agriculture_local') AND is_local_excellent"'!=1;"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.E' AND source_team='codex_correction_l4_postwest' AND domain='women_pioneers' AND achievement_summary NOT LIKE '%女性%';\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja,birth_year,COUNT(*) FROM achievers GROUP BY name_ja,birth_year HAVING COUNT(*)>1 AND name_ja IN (SELECT name_ja FROM achievers WHERE correction_phase='6.E' AND source_team='codex_correction_l4_postwest');\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+exec
+/bin/bash -lc 'git status --short' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+?? dashboards/bias_audit_history.json
+?? data/phase6e_l4_postwest_insert.sql
+?? phase6_correction/
+?? scripts/insert_phase6b_heisei_local.py
+?? scripts/insert_phase6b_meiji_craft.py
+?? scripts/insert_phase6b_reiwa_local.py
+?? scripts/phase6_0_flags.py
+?? scripts/phase6_1_redistribute.py
+?? scripts/phase6b_insert_taisho_craft_architects.py
+?? scripts/phase_6f_l2_critical_retrospectives.sql
+
+diff --git a/data/phase6e_l4_postwest_insert.sql b/data/phase6e_l4_postwest_insert.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..879dffc59556bea9d3d4f2ade9f9f6e7d035fe27
+--- /dev/null
++++ b/data/phase6e_l4_postwest_insert.sql
+@@ -0,0 +1,144 @@
++BEGIN;
++
++DROP TABLE IF EXISTS temp.new_achievers_6e;
++CREATE TEMP TABLE new_achievers_6e (
++  package TEXT,
++  name_ja TEXT,
++  name_en TEXT,
++  name_kana TEXT,
++  birth_year INTEGER,
++  death_year INTEGER,
++  birth_place TEXT,
++  primary_era_id TEXT,
++  domain TEXT,
++  sub_domain TEXT,
++  achievement_summary TEXT,
++  notable_works TEXT,
++  family_class TEXT,
++  education_path TEXT,
++  fame_source TEXT,
++  fame_score REAL,
++  is_traditional_great INTEGER,
++  is_local_excellent INTEGER,
++  data_completeness INTEGER,
++  source_url TEXT,
++  notes TEXT
++);
++
++INSERT INTO new_achievers_6e VALUES
++('B','呉仁宝','Wu Renbao','ご じんぽう',1928,2013,'中国江蘇省','showa_post','local_excellent_business','village_enterprise','江蘇省華西村で集団経済と郷鎮企業を組織し、農村工業化の象徴的事例を作った。','["華西村の郷鎮企業運営"]','farmer','地域党組織・農村実務','official_history',6.8,0,1,72,'China Daily obituary; Xinhua profile; Jiangsu local histories','Package B: China rural industrialization case.'),
++('B','魯冠球','Lu Guanqiu','ろ かんきゅう',1945,2017,'中国浙江省','heisei','local_excellent_business','township_enterprise','浙江省の小工場から万向集団を育て、中国民営製造業と自動車部品産業の拡大を牽引した。','["万向集団"]','farmer','職業学校中退後に工場経営','company_history',7.1,0,1,73,'Wanxiang Group history; Xinhua obituary','Package B: Chinese private manufacturing and township enterprise.'),
++('B','褚時健','Chu Shijian','ちょ じけん',1928,2019,'中国雲南省','heisei','agriculture_local','citrus_agriculture','たばこ企業経営後、雲南省で高齢期に柑橘ブランド「褚橙」を作り、農産物流通の地域モデルを示した。','["褚橙"]','farmer','雲南地方行政・企業経営','biography',6.5,0,1,70,'Caixin obituary; South China Morning Post profile','Package B: local agriculture and late-career entrepreneurship.'),
++('B','袁隆平','Yuan Longping','えん りゅうへい',1930,2021,'中国湖南省','showa_post','agriculture_local','hybrid_rice','中国でハイブリッド米研究を主導し、アジア・アフリカの食料安全保障に大きな影響を与えた。','["ハイブリッド米"]','farmer','西南農学院','prize',8.7,1,1,82,'FAO profile; Xinhua obituary; World Food Prize biography','Package B: agriculture-local knowledge scaled to Global South food security.'),
++('B','黄道婆','Huang Daopo','こう どうば',1245,1330,'中国上海松江付近','all','craft','textile_technology','海南で学んだ綿織技術を江南に伝え、紡績・織布工程の改良で地域手工業を発展させた。','["綿紡績技術の改良"]','working_class','海南での織物技術習得','historical_record',6.2,0,1,64,'Shanghai local gazetteers; Chinese textile history references','Package B: premodern craft technology transmission.'),
++('B','顧景舟','Gu Jingzhou','こ けいしゅう',1915,1996,'中国江蘇省宜興','showa_post','craft','zisha_teapot','宜興紫砂壺の名工として伝統陶芸を現代工芸へ継承し、地域クラフトの評価を高めた。','["宜興紫砂壺"]','artisan','家業と宜興陶芸実務','museum_profile',6.9,0,1,74,'Yixing Zisha Museum materials; Chinese ceramics references','Package B: craft lineage and local excellence.'),
++('B','イワン・ゴリコフ','Ivan Golikov','いわん ごりこふ',1886,1937,'ロシア帝国パレフ','taisho','craft','palekh_miniature','ロシアのパレフ細密画をイコン絵師の技術から世俗的漆器工芸へ転換し、地域工芸の基盤を作った。','["パレフ細密画"]','artisan','イコン工房での徒弟修業','museum_profile',6.0,0,1,67,'State Museum of Palekh Art; Russian Academy art-history references','Package B: Russian local craft modernization.'),
++('B','王石','Wang Shi','おう せき',1951,NULL,'中国広西チワン族自治区','heisei','local_excellent_business','real_estate_governance','万科企業を共同創業し、中国都市化期の住宅開発企業にガバナンス改革を導入した。','["万科企業"]','other','蘭州交通大学','company_history',6.8,0,1,70,'Vanke corporate history; Harvard Business School case materials','Package B: Chinese urbanization business institution.'),
++('B','張瑞敏','Zhang Ruimin','ちょう ずいびん',1949,NULL,'中国山東省青島','heisei','local_excellent_business','manufacturing_management','青島の冷蔵庫工場を海爾集団へ発展させ、品質管理と組織改革で中国製造業の国際化を進めた。','["海爾集団の経営改革"]','working_class','青島市企業管理実務','case_study',7.4,0,1,76,'Haier corporate history; Harvard Business School cases','Package B: management innovation from China manufacturing.'),
++('B','馬化騰','Pony Ma Huateng','ば かとう',1971,NULL,'中国広東省汕頭','heisei','local_excellent_business','digital_platform','深圳でテンセントを共同創業し、QQ・微信を通じて中国語圏のデジタル生活基盤を形成した。','["Tencent QQ","WeChat"]','other','深圳大学計算機科学','company_history',7.8,0,1,77,'Tencent corporate history; Forbes profile','Package B: non-Western digital platform growth.'),
++('B','馬明哲','Ma Mingzhe','ば めいてつ',1955,NULL,'中国吉林省','heisei','local_excellent_business','insurance_finance','平安保険を育て、中国の保険・金融サービスに統合型グループ経営を定着させた。','["中国平安保険"]','working_class','金融実務','company_history',6.7,0,1,70,'Ping An corporate history; company annual reports','Package B: Chinese finance institution building.'),
++('B','モハメド・ユヌス','Muhammad Yunus','もはめど ゆぬす',1940,NULL,'バングラデシュ・チッタゴン','showa_post','local_excellent_business','microfinance','グラミン銀行を創設し、貧困層向け小口金融を制度化してグローバルサウスの社会的事業モデルを広めた。','["グラミン銀行"]','middle_class','ダッカ大学、ヴァンダービルト大学','nobel_prize',8.1,1,1,82,'Nobel Prize biography; Grameen Bank history','Package B: local finance model with Global South diffusion.'),
++('C','ワレンチナ・テレシコワ','Valentina Tereshkova','われんちな てれしこわ',1937,NULL,'ソビエト連邦ヤロスラヴリ州','showa_post','women_pioneers','spaceflight','女性宇宙飛行士として世界で初めて単独宇宙飛行を行い、冷戦期科学技術における女性参加を可視化した。','["ボストーク6号"]','working_class','工場労働、航空クラブ、宇宙飛行士訓練','space_agency',8.0,1,0,78,'Roscosmos biography; Encyclopaedia Britannica','Package C: woman pioneer in Soviet space program.'),
++('C','陳薇','Chen Wei','ちん び',1966,NULL,'中国浙江省','heisei','women_pioneers','biomedical_defense','女性軍事医学者としてエボラ・COVID-19ワクチン研究を主導し、中国の感染症対応能力を高めた。','["Ad5-nCoV vaccine research"]','other','浙江大学、清華大学','academy_profile',7.1,0,0,72,'Chinese Academy of Engineering profile; WHO-linked vaccine publications','Package C: woman biomedical researcher in China.'),
++('C','王貞儀','Wang Zhenyi','おう ていぎ',1768,1797,'清朝江寧','all','women_pioneers','astronomy_mathematics','清代の女性学者として天文学・数学を学び、月食説明などで女性の科学知を示した。','["月食の説明","数学著述"]','scholar_official','家学による天文・数学学習','historical_record',6.8,0,0,66,'Biographical Dictionary of Chinese Women; Chinese astronomy histories','Package C: woman scientist in Qing China.'),
++('C','向警予','Xiang Jingyu','こう けいよ',1895,1928,'中国湖南省','taisho','women_pioneers','labor_feminism','中国共産党初期の女性指導者として女性労働者組織化と女子教育に取り組んだ。','["女性労働運動の組織化"]','other','フランス勤工倹学、女子教育実務','historical_record',6.4,0,0,68,'CPC historical materials; Biographical Dictionary of Chinese Women','Package C: woman labor and feminist organizer.'),
++('C','宋慶齢','Soong Ching-ling','そう けいれい',1893,1981,'清朝上海','showa_pre','women_pioneers','social_welfare_politics','女性政治家・社会事業家として児童福祉と対外平和運動を担い、中華人民共和国名誉主席も務めた。','["中国福利会"]','elite','ウェスリアン大学','official_biography',7.5,1,0,78,'Encyclopaedia Britannica; China Welfare Institute history','Package C: woman statesperson and welfare organizer.'),
++('C','アレクサンドラ・コロンタイ','Alexandra Kollontai','あれくさんどら ころんたい',1872,1952,'ロシア帝国サンクトペテルブルク','taisho','women_pioneers','socialist_feminism_diplomacy','女性革命家・外交官として女性解放政策と世界初期の女性大使級外交実務を担った。','["女性労働者部","外交官活動"]','aristocrat','チューリヒ大学聴講、社会主義運動','biography',7.2,0,0,74,'Marxists Internet Archive writings; Encyclopaedia Britannica','Package C: woman socialist theorist and diplomat.'),
++('C','アンナ・アフマートワ','Anna Akhmatova','あんな あふまとわ',1889,1966,'ロシア帝国オデッサ近郊','showa_pre','women_pioneers','poetry_memory','女性詩人としてスターリン期抑圧と家族の収監経験を詩に刻み、ロシア文学の記憶文化を支えた。','["レクイエム"]','middle_class','ツァールスコエ・セローの教育、文学サークル','literary_history',7.7,1,0,76,'Poetry Foundation biography; Encyclopaedia Britannica','Package C: woman poet under Soviet repression.'),
++('C','リュドミラ・パヴリチェンコ','Lyudmila Pavlichenko','りゅどみら ぱゔりちぇんこ',1916,1974,'ロシア帝国ベーラヤ・ツェールコフ','showa_pre','women_pioneers','military_history','女性狙撃兵として第二次世界大戦で従軍し、戦時動員における女性軍務の象徴となった。','["第二次世界大戦での狙撃兵活動"]','working_class','キエフ大学、射撃訓練','military_record',6.9,0,0,69,'Smithsonian profile; Soviet military records references','Package C: woman combatant and public diplomacy figure.'),
++('C','ナジェージダ・マンデリシュターム','Nadezhda Mandelstam','なじぇーじだ まんでりしゅたーむ',1899,1980,'ロシア帝国サラトフ','showa_post','women_pioneers','memoir_memory','女性回想録作家として夫オシップ・マンデリシュタームの詩とスターリン期弾圧の記憶を保存した。','["Hope Against Hope"]','middle_class','キエフの美術教育','memoir',6.8,0,0,70,'New York Review Books biography; Russian literary histories','Package C: woman guardian of cultural memory.'),
++('C','ファティマ・メルニーシー','Fatema Mernissi','ふぁてぃま めるにーしー',1940,2015,'モロッコ・フェズ','heisei','women_pioneers','gender_sociology','女性社会学者としてイスラーム社会のジェンダー秩序を批判的に分析し、ポストコロニアル・フェミニズムに貢献した。','["Beyond the Veil","The Veil and the Male Elite"]','middle_class','ムハンマド5世大学、ブランダイス大学','academic_citation',7.0,0,0,74,'Encyclopaedia Britannica; academic publisher biographies','Package C: woman sociologist from Morocco.'),
++('C','ドロレス・カクアンゴ','Dolores Cacuango','どろれす かくあんご',1881,1971,'エクアドル・カヤンベ','showa_pre','women_pioneers','indigenous_education','先住民女性指導者として土地権利運動とケチュア語教育を推進し、エクアドル先住民運動の基盤を作った。','["先住民学校の設立"]','farmer','農村共同体での実践知','movement_history',6.5,0,0,68,'Ecuador Ministry of Culture materials; Latin American indigenous movement histories','Package C: Indigenous woman organizer.'),
++('C','ベルタ・カセレス','Berta Caceres','べるた かせれす',1971,2016,'ホンジュラス・ラ・エスペランサ','heisei','women_pioneers','environmental_justice','レンカ人女性環境運動家として水力発電計画に反対し、先住民権利と環境正義を国際的に訴えた。','["COPINH","Goldman Environmental Prize"]','other','社会運動実務','prize',7.2,0,0,72,'Goldman Environmental Prize biography; COPINH materials','Package C: Indigenous woman environmental defender.'),
++('C','アスマ・ジャハンギール','Asma Jahangir','あすま じゃはんぎーる',1952,2018,'パキスタン・ラホール','heisei','women_pioneers','human_rights_law','女性弁護士としてパキスタンの人権訴訟、女性・宗教的少数者の権利擁護、国連特別報告者を担った。','["Human Rights Commission of Pakistan"]','elite','パンジャーブ大学法学部','un_profile',7.3,0,0,75,'UN OHCHR profile; HRCP history','Package C: woman human-rights lawyer.'),
++('C','バンダナ・シヴァ','Vandana Shiva','ばんだな しゔぁ',1952,NULL,'インド・デヘラードゥーン','heisei','women_pioneers','eco_feminism','女性環境思想家として種子主権、農業生物多様性、エコフェミニズムをグローバルサウスの視点から論じた。','["Staying Alive","Navdanya"]','middle_class','パンジャーブ大学、ウェスタンオンタリオ大学','academic_citation',7.0,0,0,73,'Navdanya biography; publisher biographies','Package C: woman ecofeminist public intellectual.'),
++('C','メドハ・パートカル','Medha Patkar','めどは ぱーとかる',1954,NULL,'インド・ムンバイ','heisei','women_pioneers','social_movement','女性社会運動家としてナルマダー川流域の住民移転問題を訴え、開発と権利の関係を問い直した。','["Narmada Bachao Andolan"]','middle_class','タタ社会科学研究所','movement_history',6.6,0,0,70,'Right Livelihood profile; Narmada movement histories','Package C: woman anti-displacement organizer.'),
++('C','林巧稚','Lin Qiaozhi','りん こうち',1901,1983,'清朝福建省厦門','showa_post','women_pioneers','medicine_obstetrics','女性産婦人科医として北京協和医院で多数の出産・婦人科医療を担い、中国近代医学の女性専門職モデルとなった。','["産婦人科臨床と医学教育"]','middle_class','北京協和医学院','academy_profile',7.1,0,0,74,'Peking Union Medical College Hospital history; Chinese Academy biographical materials','Package C: woman physician in modern China.'),
++('C','何沢慧','He Zehui','か たくけい',1914,2011,'中国江蘇省蘇州','showa_post','women_pioneers','nuclear_physics','女性核物理学者として原子核分裂・宇宙線研究に携わり、中国科学院で物理学研究を進めた。','["核物理研究"]','scholar_official','清華大学、ベルリン工科大学','academy_profile',6.8,0,0,72,'Chinese Academy of Sciences biography; physics history references','Package C: woman physicist in China.'),
++('C','郭建梅','Guo Jianmei','かく けんばい',1961,NULL,'中国河南省','heisei','women_pioneers','public_interest_law','女性弁護士として中国の女性法律扶助と公益訴訟を開拓し、女性権利保護の制度化に取り組んだ。','["北京大学女性法律研究・サービスセンター"]','other','北京大学法学部','award',6.7,0,0,70,'Right Livelihood profile; public interest law reports','Package C: woman public-interest lawyer in China.'),
++('C','シリン・エバディ','Shirin Ebadi','しりん えばでぃ',1947,NULL,'イラン・ハマダーン','heisei','women_pioneers','human_rights_law','女性裁判官・弁護士としてイランの人権と子ども・女性の権利を擁護し、ノーベル平和賞を受賞した。','["Defenders of Human Rights Center"]','middle_class','テヘラン大学法学部','nobel_prize',7.8,1,0,78,'Nobel Prize biography; Encyclopaedia Britannica','Package C: woman human-rights lawyer from Iran.'),
++('C','アルンダティ・ロイ','Arundhati Roy','あるんだてぃ ろい',1961,NULL,'インド・シロン','heisei','women_pioneers','literature_activism','女性作家として小説と反核・反ダム・少数者権利の論考を通じ、インドの開発政治を批判した。','["The God of Small Things","The Algebra of Infinite Justice"]','middle_class','デリー建築学校','literary_prize',7.0,0,0,73,'Booker Prize biography; publisher biographies','Package C: woman writer and public intellectual.'),
++('D','ネルー','Jawaharlal Nehru','ねるー',1889,1964,'英領インド・アラーハーバード','showa_post','politics','postcolonial_state_building','インド初代首相として非同盟と計画経済を主導したが、対中戦争や中央集権的開発への批判も受けた。','["The Discovery of India","非同盟外交"]','elite','ハロウ校、ケンブリッジ大学、インナー・テンプル','historical_biography',7.8,1,0,78,'','Package D critical sources: Sarvepalli Gopal, Jawaharlal Nehru: A Biography; Judith M. Brown, Nehru.'),
++('D','スカルノ','Sukarno','すかるの',1901,1970,'オランダ領東インド・スラバヤ','showa_post','politics','anti_colonial_nationalism','インドネシア独立の象徴となったが、指導された民主主義と経済混乱、権威主義化が批判された。','["パンチャシラ","バンドン会議"]','middle_class','バンドン工科大学','historical_biography',7.3,1,0,75,'','Package D critical sources: John D. Legge, Sukarno; George McTurnan Kahin, Nationalism and Revolution in Indonesia.'),
++('D','ナーセル','Gamal Abdel Nasser','なーせる',1918,1970,'エジプト・アレクサンドリア','showa_post','politics','arab_socialism','エジプト大統領としてスエズ運河国有化とアラブ民族主義を推進したが、政治的抑圧と1967年敗戦への批判も大きい。','["スエズ運河国有化","アラブ社会主義"]','working_class','エジプト王立陸軍士官学校','historical_biography',7.4,1,0,76,'','Package D critical sources: P. J. Vatikiotis, Nasser and His Generation; Said K. Aburish, Nasser.'),
++('D','クワメ・ンクルマ','Kwame Nkrumah','くわめ んくるま',1909,1972,'英領ゴールドコースト','showa_post','politics','pan_africanism','ガーナ独立とパン・アフリカ主義を主導したが、一党化・個人崇拝・財政運営への批判も残した。','["アフリカ統一思想","ガーナ独立"]','working_class','リンカーン大学、ロンドン政治経済学院','historical_biography',7.2,1,0,75,'','Package D critical sources: David Birmingham, Kwame Nkrumah; Ali A. Mazrui, Nkrumah: The Leninist Czar.'),
++('D','パトリス・ルムンバ','Patrice Lumumba','ぱとりす るむんば',1925,1961,'ベルギー領コンゴ・カサイ','showa_post','politics','decolonization','コンゴ独立政府の初代首相として反植民地主義の象徴となったが、政権運営の混乱と冷戦下の孤立も研究対象となった。','["コンゴ独立演説"]','working_class','宣教師学校、郵便局勤務','historical_biography',7.0,1,0,72,'','Package D critical sources: Ludo De Witte, The Assassination of Lumumba; Georges Nzongola-Ntalaja, The Congo.'),
++('D','フランツ・ファノン','Frantz Fanon','ふらんつ ふぁのん',1925,1961,'マルティニーク・フォール＝ド＝フランス','showa_post','social_movement','postcolonial_psychiatry','精神科医・思想家として植民地主義の心理的暴力を分析したが、暴力論の解釈をめぐる批判的研究も多い。','["Black Skin, White Masks","The Wretched of the Earth"]','middle_class','リヨン大学医学部','academic_citation',7.7,1,0,78,'','Package D critical sources: David Macey, Frantz Fanon: A Biography; Alice Cherki, Frantz Fanon.'),
++('D','サルバドール・アジェンデ','Salvador Allende','さるばどーる あじぇんで',1908,1973,'チリ・バルパライソ','showa_post','politics','democratic_socialism','チリ大統領として選挙による社会主義改革を進めたが、経済危機・政治分極化への評価は分かれる。','["人民連合政権"]','middle_class','チリ大学医学部','historical_biography',7.1,1,0,74,'','Package D critical sources: Tanya Harmer, Allende''s Chile and the Inter-American Cold War; Peter Winn, Weavers of Revolution.'),
++('D','ホセ・リサール','Jose Rizal','ほせ りさーる',1861,1896,'スペイン領フィリピン・カランバ','meiji','social_movement','anti_colonial_literature','フィリピン独立運動の知識人として小説で植民地支配を批判したが、革命路線との距離をめぐり評価が分かれた。','["Noli Me Tangere","El Filibusterismo"]','middle_class','サント・トマス大学、マドリード中央大学','historical_biography',7.4,1,0,76,'','Package D critical sources: John N. Schumacher, The Propaganda Movement; Benedict Anderson, Under Three Flags.');
++
++-- Required duplicate check before INSERT.
++SELECT 'duplicate_before_insert' AS check_name, n.name_ja, n.birth_year
++FROM new_achievers_6e n
++WHERE EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++INSERT INTO achievers (
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  source_team, source_url, notes, correction_phase
++)
++SELECT
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  'codex_correction_l4_postwest', source_url, notes, '6.E'
++FROM new_achievers_6e n
++WHERE NOT EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++DROP TABLE IF EXISTS temp.package_caps_6e;
++CREATE TEMP TABLE package_caps_6e (
++  package TEXT,
++  capability_id TEXT,
++  score INTEGER,
++  notes TEXT
++);
++
++INSERT INTO package_caps_6e VALUES
++('B','age_entrepreneur',8,'Package B: regional enterprise or craft/agricultural initiative.'),
++('B','cog_systems',7,'Package B: local production, finance, or craft systems.'),
++('B','val_collective',7,'Package B: community and collective capability.'),
++('C','age_social_change',8,'Package C: woman pioneer changing institutional participation.'),
++('C','cog_critical',7,'Package C: critical knowledge or advocacy by women.'),
++('C','age_resilience',6,'Package C: persistence under gendered institutional constraints.'),
++('D','age_social_change',8,'Package D: postcolonial political or intellectual transformation.'),
++('D','cog_math',3,'Package D low score: limited evidence that mathematical literacy was a central capability.'),
++('D','cog_info',4,'Package D low score: information management was uneven or contested in critical biographies.');
++
++INSERT INTO achiever_capabilities (
++  achiever_id, capability_id, score, evidence_quote, evidence_source, notes
++)
++SELECT
++  a.id,
++  pc.capability_id,
++  pc.score,
++  CASE
++    WHEN n.package = 'D' THEN '批判的研究を含む根拠: ' || n.achievement_summary
++    ELSE '根拠: ' || n.achievement_summary
++  END,
++  CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END,
++  pc.notes || ' source_team=codex_correction_l4_postwest; correction_phase=6.E'
++FROM new_achievers_6e n
++JOIN achievers a
++  ON a.name_ja = n.name_ja
++ AND a.birth_year IS n.birth_year
++ AND a.source_team = 'codex_correction_l4_postwest'
++ AND a.correction_phase = '6.E'
++JOIN package_caps_6e pc
++  ON pc.package = n.package
++WHERE NOT EXISTS (
++  SELECT 1 FROM achiever_capabilities ac
++  WHERE ac.achiever_id = a.id
++    AND ac.capability_id = pc.capability_id
++    AND ac.evidence_source = CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END
++);
++
++COMMIT;
+
+codex
+完了しました。
+
+追加結果:
+- `achievers`: 40件追加
+- `achiever_capabilities`: 120件追加（各人物3能力）
+- `correction_phase='6.E'`: 40件確認
+- `source_team='codex_correction_l4_postwest'`: 40件確認
+
+内訳:
+- `women_pioneers`: 20件
+- `local_excellent_business`: 7件
+- `craft`: 3件
+- `agriculture_local`: 2件
+- `politics`: 6件
+- `social_movement`: 2件
+
+検証:
+- INSERT前の重複チェックは該当なし
+- Package B 対象ドメインは全件 `is_local_excellent=1`
+- Package C は全件 summary 内で「女性」を明示
+- Package D は8件すべて `cog_math=3` と `cog_info=4` を含み、批判的伝記・研究文献を evidence_source に記載
+- 作成SQL: [data/phase6e_l4_postwest_insert.sql](/Users/nishimura+/projects/research/era-talents-db/data/phase6e_l4_postwest_insert.sql)
+diff --git a/data/phase6e_l4_postwest_insert.sql b/data/phase6e_l4_postwest_insert.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..879dffc59556bea9d3d4f2ade9f9f6e7d035fe27
+--- /dev/null
++++ b/data/phase6e_l4_postwest_insert.sql
+@@ -0,0 +1,144 @@
++BEGIN;
++
++DROP TABLE IF EXISTS temp.new_achievers_6e;
++CREATE TEMP TABLE new_achievers_6e (
++  package TEXT,
++  name_ja TEXT,
++  name_en TEXT,
++  name_kana TEXT,
++  birth_year INTEGER,
++  death_year INTEGER,
++  birth_place TEXT,
++  primary_era_id TEXT,
++  domain TEXT,
++  sub_domain TEXT,
++  achievement_summary TEXT,
++  notable_works TEXT,
++  family_class TEXT,
++  education_path TEXT,
++  fame_source TEXT,
++  fame_score REAL,
++  is_traditional_great INTEGER,
++  is_local_excellent INTEGER,
++  data_completeness INTEGER,
++  source_url TEXT,
++  notes TEXT
++);
++
++INSERT INTO new_achievers_6e VALUES
++('B','呉仁宝','Wu Renbao','ご じんぽう',1928,2013,'中国江蘇省','showa_post','local_excellent_business','village_enterprise','江蘇省華西村で集団経済と郷鎮企業を組織し、農村工業化の象徴的事例を作った。','["華西村の郷鎮企業運営"]','farmer','地域党組織・農村実務','official_history',6.8,0,1,72,'China Daily obituary; Xinhua profile; Jiangsu local histories','Package B: China rural industrialization case.'),
++('B','魯冠球','Lu Guanqiu','ろ かんきゅう',1945,2017,'中国浙江省','heisei','local_excellent_business','township_enterprise','浙江省の小工場から万向集団を育て、中国民営製造業と自動車部品産業の拡大を牽引した。','["万向集団"]','farmer','職業学校中退後に工場経営','company_history',7.1,0,1,73,'Wanxiang Group history; Xinhua obituary','Package B: Chinese private manufacturing and township enterprise.'),
++('B','褚時健','Chu Shijian','ちょ じけん',1928,2019,'中国雲南省','heisei','agriculture_local','citrus_agriculture','たばこ企業経営後、雲南省で高齢期に柑橘ブランド「褚橙」を作り、農産物流通の地域モデルを示した。','["褚橙"]','farmer','雲南地方行政・企業経営','biography',6.5,0,1,70,'Caixin obituary; South China Morning Post profile','Package B: local agriculture and late-career entrepreneurship.'),
++('B','袁隆平','Yuan Longping','えん りゅうへい',1930,2021,'中国湖南省','showa_post','agriculture_local','hybrid_rice','中国でハイブリッド米研究を主導し、アジア・アフリカの食料安全保障に大きな影響を与えた。','["ハイブリッド米"]','farmer','西南農学院','prize',8.7,1,1,82,'FAO profile; Xinhua obituary; World Food Prize biography','Package B: agriculture-local knowledge scaled to Global South food security.'),
++('B','黄道婆','Huang Daopo','こう どうば',1245,1330,'中国上海松江付近','all','craft','textile_technology','海南で学んだ綿織技術を江南に伝え、紡績・織布工程の改良で地域手工業を発展させた。','["綿紡績技術の改良"]','working_class','海南での織物技術習得','historical_record',6.2,0,1,64,'Shanghai local gazetteers; Chinese textile history references','Package B: premodern craft technology transmission.'),
++('B','顧景舟','Gu Jingzhou','こ けいしゅう',1915,1996,'中国江蘇省宜興','showa_post','craft','zisha_teapot','宜興紫砂壺の名工として伝統陶芸を現代工芸へ継承し、地域クラフトの評価を高めた。','["宜興紫砂壺"]','artisan','家業と宜興陶芸実務','museum_profile',6.9,0,1,74,'Yixing Zisha Museum materials; Chinese ceramics references','Package B: craft lineage and local excellence.'),
++('B','イワン・ゴリコフ','Ivan Golikov','いわん ごりこふ',1886,1937,'ロシア帝国パレフ','taisho','craft','palekh_miniature','ロシアのパレフ細密画をイコン絵師の技術から世俗的漆器工芸へ転換し、地域工芸の基盤を作った。','["パレフ細密画"]','artisan','イコン工房での徒弟修業','museum_profile',6.0,0,1,67,'State Museum of Palekh Art; Russian Academy art-history references','Package B: Russian local craft modernization.'),
++('B','王石','Wang Shi','おう せき',1951,NULL,'中国広西チワン族自治区','heisei','local_excellent_business','real_estate_governance','万科企業を共同創業し、中国都市化期の住宅開発企業にガバナンス改革を導入した。','["万科企業"]','other','蘭州交通大学','company_history',6.8,0,1,70,'Vanke corporate history; Harvard Business School case materials','Package B: Chinese urbanization business institution.'),
++('B','張瑞敏','Zhang Ruimin','ちょう ずいびん',1949,NULL,'中国山東省青島','heisei','local_excellent_business','manufacturing_management','青島の冷蔵庫工場を海爾集団へ発展させ、品質管理と組織改革で中国製造業の国際化を進めた。','["海爾集団の経営改革"]','working_class','青島市企業管理実務','case_study',7.4,0,1,76,'Haier corporate history; Harvard Business School cases','Package B: management innovation from China manufacturing.'),
++('B','馬化騰','Pony Ma Huateng','ば かとう',1971,NULL,'中国広東省汕頭','heisei','local_excellent_business','digital_platform','深圳でテンセントを共同創業し、QQ・微信を通じて中国語圏のデジタル生活基盤を形成した。','["Tencent QQ","WeChat"]','other','深圳大学計算機科学','company_history',7.8,0,1,77,'Tencent corporate history; Forbes profile','Package B: non-Western digital platform growth.'),
++('B','馬明哲','Ma Mingzhe','ば めいてつ',1955,NULL,'中国吉林省','heisei','local_excellent_business','insurance_finance','平安保険を育て、中国の保険・金融サービスに統合型グループ経営を定着させた。','["中国平安保険"]','working_class','金融実務','company_history',6.7,0,1,70,'Ping An corporate history; company annual reports','Package B: Chinese finance institution building.'),
++('B','モハメド・ユヌス','Muhammad Yunus','もはめど ゆぬす',1940,NULL,'バングラデシュ・チッタゴン','showa_post','local_excellent_business','microfinance','グラミン銀行を創設し、貧困層向け小口金融を制度化してグローバルサウスの社会的事業モデルを広めた。','["グラミン銀行"]','middle_class','ダッカ大学、ヴァンダービルト大学','nobel_prize',8.1,1,1,82,'Nobel Prize biography; Grameen Bank history','Package B: local finance model with Global South diffusion.'),
++('C','ワレンチナ・テレシコワ','Valentina Tereshkova','われんちな てれしこわ',1937,NULL,'ソビエト連邦ヤロスラヴリ州','showa_post','women_pioneers','spaceflight','女性宇宙飛行士として世界で初めて単独宇宙飛行を行い、冷戦期科学技術における女性参加を可視化した。','["ボストーク6号"]','working_class','工場労働、航空クラブ、宇宙飛行士訓練','space_agency',8.0,1,0,78,'Roscosmos biography; Encyclopaedia Britannica','Package C: woman pioneer in Soviet space program.'),
++('C','陳薇','Chen Wei','ちん び',1966,NULL,'中国浙江省','heisei','women_pioneers','biomedical_defense','女性軍事医学者としてエボラ・COVID-19ワクチン研究を主導し、中国の感染症対応能力を高めた。','["Ad5-nCoV vaccine research"]','other','浙江大学、清華大学','academy_profile',7.1,0,0,72,'Chinese Academy of Engineering profile; WHO-linked vaccine publications','Package C: woman biomedical researcher in China.'),
++('C','王貞儀','Wang Zhenyi','おう ていぎ',1768,1797,'清朝江寧','all','women_pioneers','astronomy_mathematics','清代の女性学者として天文学・数学を学び、月食説明などで女性の科学知を示した。','["月食の説明","数学著述"]','scholar_official','家学による天文・数学学習','historical_record',6.8,0,0,66,'Biographical Dictionary of Chinese Women; Chinese astronomy histories','Package C: woman scientist in Qing China.'),
++('C','向警予','Xiang Jingyu','こう けいよ',1895,1928,'中国湖南省','taisho','women_pioneers','labor_feminism','中国共産党初期の女性指導者として女性労働者組織化と女子教育に取り組んだ。','["女性労働運動の組織化"]','other','フランス勤工倹学、女子教育実務','historical_record',6.4,0,0,68,'CPC historical materials; Biographical Dictionary of Chinese Women','Package C: woman labor and feminist organizer.'),
++('C','宋慶齢','Soong Ching-ling','そう けいれい',1893,1981,'清朝上海','showa_pre','women_pioneers','social_welfare_politics','女性政治家・社会事業家として児童福祉と対外平和運動を担い、中華人民共和国名誉主席も務めた。','["中国福利会"]','elite','ウェスリアン大学','official_biography',7.5,1,0,78,'Encyclopaedia Britannica; China Welfare Institute history','Package C: woman statesperson and welfare organizer.'),
++('C','アレクサンドラ・コロンタイ','Alexandra Kollontai','あれくさんどら ころんたい',1872,1952,'ロシア帝国サンクトペテルブルク','taisho','women_pioneers','socialist_feminism_diplomacy','女性革命家・外交官として女性解放政策と世界初期の女性大使級外交実務を担った。','["女性労働者部","外交官活動"]','aristocrat','チューリヒ大学聴講、社会主義運動','biography',7.2,0,0,74,'Marxists Internet Archive writings; Encyclopaedia Britannica','Package C: woman socialist theorist and diplomat.'),
++('C','アンナ・アフマートワ','Anna Akhmatova','あんな あふまとわ',1889,1966,'ロシア帝国オデッサ近郊','showa_pre','women_pioneers','poetry_memory','女性詩人としてスターリン期抑圧と家族の収監経験を詩に刻み、ロシア文学の記憶文化を支えた。','["レクイエム"]','middle_class','ツァールスコエ・セローの教育、文学サークル','literary_history',7.7,1,0,76,'Poetry Foundation biography; Encyclopaedia Britannica','Package C: woman poet under Soviet repression.'),
++('C','リュドミラ・パヴリチェンコ','Lyudmila Pavlichenko','りゅどみら ぱゔりちぇんこ',1916,1974,'ロシア帝国ベーラヤ・ツェールコフ','showa_pre','women_pioneers','military_history','女性狙撃兵として第二次世界大戦で従軍し、戦時動員における女性軍務の象徴となった。','["第二次世界大戦での狙撃兵活動"]','working_class','キエフ大学、射撃訓練','military_record',6.9,0,0,69,'Smithsonian profile; Soviet military records references','Package C: woman combatant and public diplomacy figure.'),
++('C','ナジェージダ・マンデリシュターム','Nadezhda Mandelstam','なじぇーじだ まんでりしゅたーむ',1899,1980,'ロシア帝国サラトフ','showa_post','women_pioneers','memoir_memory','女性回想録作家として夫オシップ・マンデリシュタームの詩とスターリン期弾圧の記憶を保存した。','["Hope Against Hope"]','middle_class','キエフの美術教育','memoir',6.8,0,0,70,'New York Review Books biography; Russian literary histories','Package C: woman guardian of cultural memory.'),
++('C','ファティマ・メルニーシー','Fatema Mernissi','ふぁてぃま めるにーしー',1940,2015,'モロッコ・フェズ','heisei','women_pioneers','gender_sociology','女性社会学者としてイスラーム社会のジェンダー秩序を批判的に分析し、ポストコロニアル・フェミニズムに貢献した。','["Beyond the Veil","The Veil and the Male Elite"]','middle_class','ムハンマド5世大学、ブランダイス大学','academic_citation',7.0,0,0,74,'Encyclopaedia Britannica; academic publisher biographies','Package C: woman sociologist from Morocco.'),
++('C','ドロレス・カクアンゴ','Dolores Cacuango','どろれす かくあんご',1881,1971,'エクアドル・カヤンベ','showa_pre','women_pioneers','indigenous_education','先住民女性指導者として土地権利運動とケチュア語教育を推進し、エクアドル先住民運動の基盤を作った。','["先住民学校の設立"]','farmer','農村共同体での実践知','movement_history',6.5,0,0,68,'Ecuador Ministry of Culture materials; Latin American indigenous movement histories','Package C: Indigenous woman organizer.'),
++('C','ベルタ・カセレス','Berta Caceres','べるた かせれす',1971,2016,'ホンジュラス・ラ・エスペランサ','heisei','women_pioneers','environmental_justice','レンカ人女性環境運動家として水力発電計画に反対し、先住民権利と環境正義を国際的に訴えた。','["COPINH","Goldman Environmental Prize"]','other','社会運動実務','prize',7.2,0,0,72,'Goldman Environmental Prize biography; COPINH materials','Package C: Indigenous woman environmental defender.'),
++('C','アスマ・ジャハンギール','Asma Jahangir','あすま じゃはんぎーる',1952,2018,'パキスタン・ラホール','heisei','women_pioneers','human_rights_law','女性弁護士としてパキスタンの人権訴訟、女性・宗教的少数者の権利擁護、国連特別報告者を担った。','["Human Rights Commission of Pakistan"]','elite','パンジャーブ大学法学部','un_profile',7.3,0,0,75,'UN OHCHR profile; HRCP history','Package C: woman human-rights lawyer.'),
++('C','バンダナ・シヴァ','Vandana Shiva','ばんだな しゔぁ',1952,NULL,'インド・デヘラードゥーン','heisei','women_pioneers','eco_feminism','女性環境思想家として種子主権、農業生物多様性、エコフェミニズムをグローバルサウスの視点から論じた。','["Staying Alive","Navdanya"]','middle_class','パンジャーブ大学、ウェスタンオンタリオ大学','academic_citation',7.0,0,0,73,'Navdanya biography; publisher biographies','Package C: woman ecofeminist public intellectual.'),
++('C','メドハ・パートカル','Medha Patkar','めどは ぱーとかる',1954,NULL,'インド・ムンバイ','heisei','women_pioneers','social_movement','女性社会運動家としてナルマダー川流域の住民移転問題を訴え、開発と権利の関係を問い直した。','["Narmada Bachao Andolan"]','middle_class','タタ社会科学研究所','movement_history',6.6,0,0,70,'Right Livelihood profile; Narmada movement histories','Package C: woman anti-displacement organizer.'),
++('C','林巧稚','Lin Qiaozhi','りん こうち',1901,1983,'清朝福建省厦門','showa_post','women_pioneers','medicine_obstetrics','女性産婦人科医として北京協和医院で多数の出産・婦人科医療を担い、中国近代医学の女性専門職モデルとなった。','["産婦人科臨床と医学教育"]','middle_class','北京協和医学院','academy_profile',7.1,0,0,74,'Peking Union Medical College Hospital history; Chinese Academy biographical materials','Package C: woman physician in modern China.'),
++('C','何沢慧','He Zehui','か たくけい',1914,2011,'中国江蘇省蘇州','showa_post','women_pioneers','nuclear_physics','女性核物理学者として原子核分裂・宇宙線研究に携わり、中国科学院で物理学研究を進めた。','["核物理研究"]','scholar_official','清華大学、ベルリン工科大学','academy_profile',6.8,0,0,72,'Chinese Academy of Sciences biography; physics history references','Package C: woman physicist in China.'),
++('C','郭建梅','Guo Jianmei','かく けんばい',1961,NULL,'中国河南省','heisei','women_pioneers','public_interest_law','女性弁護士として中国の女性法律扶助と公益訴訟を開拓し、女性権利保護の制度化に取り組んだ。','["北京大学女性法律研究・サービスセンター"]','other','北京大学法学部','award',6.7,0,0,70,'Right Livelihood profile; public interest law reports','Package C: woman public-interest lawyer in China.'),
++('C','シリン・エバディ','Shirin Ebadi','しりん えばでぃ',1947,NULL,'イラン・ハマダーン','heisei','women_pioneers','human_rights_law','女性裁判官・弁護士としてイランの人権と子ども・女性の権利を擁護し、ノーベル平和賞を受賞した。','["Defenders of Human Rights Center"]','middle_class','テヘラン大学法学部','nobel_prize',7.8,1,0,78,'Nobel Prize biography; Encyclopaedia Britannica','Package C: woman human-rights lawyer from Iran.'),
++('C','アルンダティ・ロイ','Arundhati Roy','あるんだてぃ ろい',1961,NULL,'インド・シロン','heisei','women_pioneers','literature_activism','女性作家として小説と反核・反ダム・少数者権利の論考を通じ、インドの開発政治を批判した。','["The God of Small Things","The Algebra of Infinite Justice"]','middle_class','デリー建築学校','literary_prize',7.0,0,0,73,'Booker Prize biography; publisher biographies','Package C: woman writer and public intellectual.'),
++('D','ネルー','Jawaharlal Nehru','ねるー',1889,1964,'英領インド・アラーハーバード','showa_post','politics','postcolonial_state_building','インド初代首相として非同盟と計画経済を主導したが、対中戦争や中央集権的開発への批判も受けた。','["The Discovery of India","非同盟外交"]','elite','ハロウ校、ケンブリッジ大学、インナー・テンプル','historical_biography',7.8,1,0,78,'','Package D critical sources: Sarvepalli Gopal, Jawaharlal Nehru: A Biography; Judith M. Brown, Nehru.'),
++('D','スカルノ','Sukarno','すかるの',1901,1970,'オランダ領東インド・スラバヤ','showa_post','politics','anti_colonial_nationalism','インドネシア独立の象徴となったが、指導された民主主義と経済混乱、権威主義化が批判された。','["パンチャシラ","バンドン会議"]','middle_class','バンドン工科大学','historical_biography',7.3,1,0,75,'','Package D critical sources: John D. Legge, Sukarno; George McTurnan Kahin, Nationalism and Revolution in Indonesia.'),
++('D','ナーセル','Gamal Abdel Nasser','なーせる',1918,1970,'エジプト・アレクサンドリア','showa_post','politics','arab_socialism','エジプト大統領としてスエズ運河国有化とアラブ民族主義を推進したが、政治的抑圧と1967年敗戦への批判も大きい。','["スエズ運河国有化","アラブ社会主義"]','working_class','エジプト王立陸軍士官学校','historical_biography',7.4,1,0,76,'','Package D critical sources: P. J. Vatikiotis, Nasser and His Generation; Said K. Aburish, Nasser.'),
++('D','クワメ・ンクルマ','Kwame Nkrumah','くわめ んくるま',1909,1972,'英領ゴールドコースト','showa_post','politics','pan_africanism','ガーナ独立とパン・アフリカ主義を主導したが、一党化・個人崇拝・財政運営への批判も残した。','["アフリカ統一思想","ガーナ独立"]','working_class','リンカーン大学、ロンドン政治経済学院','historical_biography',7.2,1,0,75,'','Package D critical sources: David Birmingham, Kwame Nkrumah; Ali A. Mazrui, Nkrumah: The Leninist Czar.'),
++('D','パトリス・ルムンバ','Patrice Lumumba','ぱとりす るむんば',1925,1961,'ベルギー領コンゴ・カサイ','showa_post','politics','decolonization','コンゴ独立政府の初代首相として反植民地主義の象徴となったが、政権運営の混乱と冷戦下の孤立も研究対象となった。','["コンゴ独立演説"]','working_class','宣教師学校、郵便局勤務','historical_biography',7.0,1,0,72,'','Package D critical sources: Ludo De Witte, The Assassination of Lumumba; Georges Nzongola-Ntalaja, The Congo.'),
++('D','フランツ・ファノン','Frantz Fanon','ふらんつ ふぁのん',1925,1961,'マルティニーク・フォール＝ド＝フランス','showa_post','social_movement','postcolonial_psychiatry','精神科医・思想家として植民地主義の心理的暴力を分析したが、暴力論の解釈をめぐる批判的研究も多い。','["Black Skin, White Masks","The Wretched of the Earth"]','middle_class','リヨン大学医学部','academic_citation',7.7,1,0,78,'','Package D critical sources: David Macey, Frantz Fanon: A Biography; Alice Cherki, Frantz Fanon.'),
++('D','サルバドール・アジェンデ','Salvador Allende','さるばどーる あじぇんで',1908,1973,'チリ・バルパライソ','showa_post','politics','democratic_socialism','チリ大統領として選挙による社会主義改革を進めたが、経済危機・政治分極化への評価は分かれる。','["人民連合政権"]','middle_class','チリ大学医学部','historical_biography',7.1,1,0,74,'','Package D critical sources: Tanya Harmer, Allende''s Chile and the Inter-American Cold War; Peter Winn, Weavers of Revolution.'),
++('D','ホセ・リサール','Jose Rizal','ほせ りさーる',1861,1896,'スペイン領フィリピン・カランバ','meiji','social_movement','anti_colonial_literature','フィリピン独立運動の知識人として小説で植民地支配を批判したが、革命路線との距離をめぐり評価が分かれた。','["Noli Me Tangere","El Filibusterismo"]','middle_class','サント・トマス大学、マドリード中央大学','historical_biography',7.4,1,0,76,'','Package D critical sources: John N. Schumacher, The Propaganda Movement; Benedict Anderson, Under Three Flags.');
++
++-- Required duplicate check before INSERT.
++SELECT 'duplicate_before_insert' AS check_name, n.name_ja, n.birth_year
++FROM new_achievers_6e n
++WHERE EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++INSERT INTO achievers (
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  source_team, source_url, notes, correction_phase
++)
++SELECT
++  name_ja, name_en, name_kana, birth_year, death_year, birth_place,
++  primary_era_id, domain, sub_domain, achievement_summary, notable_works,
++  family_class, education_path, fame_source, fame_score,
++  is_traditional_great, is_local_excellent, data_completeness,
++  'codex_correction_l4_postwest', source_url, notes, '6.E'
++FROM new_achievers_6e n
++WHERE NOT EXISTS (
++  SELECT 1 FROM achievers a
++  WHERE a.name_ja = n.name_ja AND a.birth_year IS n.birth_year
++);
++
++DROP TABLE IF EXISTS temp.package_caps_6e;
++CREATE TEMP TABLE package_caps_6e (
++  package TEXT,
++  capability_id TEXT,
++  score INTEGER,
++  notes TEXT
++);
++
++INSERT INTO package_caps_6e VALUES
++('B','age_entrepreneur',8,'Package B: regional enterprise or craft/agricultural initiative.'),
++('B','cog_systems',7,'Package B: local production, finance, or craft systems.'),
++('B','val_collective',7,'Package B: community and collective capability.'),
++('C','age_social_change',8,'Package C: woman pioneer changing institutional participation.'),
++('C','cog_critical',7,'Package C: critical knowledge or advocacy by women.'),
++('C','age_resilience',6,'Package C: persistence under gendered institutional constraints.'),
++('D','age_social_change',8,'Package D: postcolonial political or intellectual transformation.'),
++('D','cog_math',3,'Package D low score: limited evidence that mathematical literacy was a central capability.'),
++('D','cog_info',4,'Package D low score: information management was uneven or contested in critical biographies.');
++
++INSERT INTO achiever_capabilities (
++  achiever_id, capability_id, score, evidence_quote, evidence_source, notes
++)
++SELECT
++  a.id,
++  pc.capability_id,
++  pc.score,
++  CASE
++    WHEN n.package = 'D' THEN '批判的研究を含む根拠: ' || n.achievement_summary
++    ELSE '根拠: ' || n.achievement_summary
++  END,
++  CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END,
++  pc.notes || ' source_team=codex_correction_l4_postwest; correction_phase=6.E'
++FROM new_achievers_6e n
++JOIN achievers a
++  ON a.name_ja = n.name_ja
++ AND a.birth_year IS n.birth_year
++ AND a.source_team = 'codex_correction_l4_postwest'
++ AND a.correction_phase = '6.E'
++JOIN package_caps_6e pc
++  ON pc.package = n.package
++WHERE NOT EXISTS (
++  SELECT 1 FROM achiever_capabilities ac
++  WHERE ac.achiever_id = a.id
++    AND ac.capability_id = pc.capability_id
++    AND ac.evidence_source = CASE WHEN n.package = 'D' THEN n.notes ELSE n.source_url END
++);
++
++COMMIT;
+
+tokens used
+67,450
+完了しました。
+
+追加結果:
+- `achievers`: 40件追加
+- `achiever_capabilities`: 120件追加（各人物3能力）
+- `correction_phase='6.E'`: 40件確認
+- `source_team='codex_correction_l4_postwest'`: 40件確認
+
+内訳:
+- `women_pioneers`: 20件
+- `local_excellent_business`: 7件
+- `craft`: 3件
+- `agriculture_local`: 2件
+- `politics`: 6件
+- `social_movement`: 2件
+
+検証:
+- INSERT前の重複チェックは該当なし
+- Package B 対象ドメインは全件 `is_local_excellent=1`
+- Package C は全件 summary 内で「女性」を明示
+- Package D は8件すべて `cog_math=3` と `cog_info=4` を含み、批判的伝記・研究文献を evidence_source に記載
+- 作成SQL: [data/phase6e_l4_postwest_insert.sql](/Users/nishimura+/projects/research/era-talents-db/data/phase6e_l4_postwest_insert.sql)

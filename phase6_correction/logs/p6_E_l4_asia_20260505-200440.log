@@ -1,0 +1,554 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-be4c-7661-b193-ce9f0b35579e
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.E
+theme: l4_asia
+追加目標: 50 件
+説明: L4: アジア機関（ADB/ASEAN Foresight/IGES/JETRO/NISTEP）の予測
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.E' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_l4_asia' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【E==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まずスキーマと既存データの分布を確認します。今回は Phase 6.E / l4_asia なので、投入先は主に `future_demands` になりそうですが、実際のカラム制約を見てから50件を組み立てます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+ succeeded in 0ms:
+CREATE TABLE future_demands (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),  -- future_2030 / future_2050 / future_2100
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    scenario        TEXT,                    -- baseline, ssp1, ssp3, post_growth, posthuman
+    source_title    TEXT NOT NULL,
+    source_org      TEXT,                    -- OECD, WEF, METI, IPCC, etc
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+web search: 
+web search: ADB Asia 2050 report Asian Development Bank skills innovation climate urbanization pdf
+web search: 
+web search: ASEAN Foresight Alliance report future of ASEAN 2040 skills
+web search: 
+web search: JETRO report green transformation Asia digital transformation 2030 skills
+codex
+`future_demands` は `correction_phase` / `source_team` カラムを持たないため、この担当テーマは Package E として `future_demands` に50件入れる形で進めます。出典は公式ページや公式PDFで確認できる ADB / ASEAN / IGES / JETRO / NISTEP に寄せています。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM eras ORDER BY id"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+all|全時代
+future_2030|2030年代
+future_2050|2050年代
+future_2100|2100年代
+heisei|平成
+meiji|明治
+reiwa|令和
+showa_post|昭和後期
+showa_pre|昭和前期
+taisho|大正
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT COUNT(*) FROM future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+397
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT era_id, source_org, scenario, COUNT(*) FROM future_demands GROUP BY era_id, source_org, scenario ORDER BY era_id, source_org LIMIT 80"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+future_2030|Ada Lovelace Institute|ai_singularity|2
+future_2030|European Parliament STOA|posthuman|2
+future_2030|IPA|baseline|1
+future_2030|IPA DX推進スキル標準|ai_acceleration|2
+future_2030|IPA DX推進スキル標準|baseline|2
+future_2030|IPA/経済産業省|ai_acceleration|1
+future_2030|IPA/経済産業省|baseline|2
+future_2030|IPCC|ssp1|3
+future_2030|IPCC|ssp3|1
+future_2030|International Energy Agency|ssp1|2
+future_2030|International Labour Organization|baseline|2
+future_2030|International Space Exploration Coordination Group|space_civilization|2
+future_2030|JAXA|space_civilization|1
+future_2030|JMAM|ai_acceleration|1
+future_2030|JMAM|baseline|1
+future_2030|McKinsey|ai_acceleration|4
+future_2030|McKinsey|baseline|7
+future_2030|McKinsey|ssp1|1
+future_2030|McKinsey|ssp3|1
+future_2030|McKinsey Global Institute|ai_acceleration|4
+future_2030|McKinsey Global Institute|baseline|2
+future_2030|McKinsey Learning Perspectives|ai_acceleration|1
+future_2030|NATO|ssp3|2
+future_2030|NTTドコモビジネス|baseline|1
+future_2030|OECD|ai_acceleration|1
+future_2030|OECD|baseline|17
+future_2030|OECD|post_growth|2
+future_2030|OECD|ssp1|3
+future_2030|OECD Learning Compass|baseline|1
+future_2030|OECD Learning Compass|ssp1|1
+future_2030|OECD Skills Outlook|baseline|1
+future_2030|OECD Skills Outlook|post_growth|1
+future_2030|OECD Skills Outlook|ssp1|3
+future_2030|SDGsコンパス|ssp1|1
+future_2030|Stanford HAI|ai_acceleration|2
+future_2030|UNDP|post_growth|2
+future_2030|UNDP|ssp1|1
+future_2030|UNEP International Resource Panel|post_growth|1
+future_2030|UNEP International Resource Panel|ssp1|1
+future_2030|UNESCO|baseline|2
+future_2030|United Nations|baseline|2
+future_2030|United Nations|ssp3|2
+future_2030|United Nations AI Advisory Body|ai_singularity|2
+future_2030|WEF|ai_acceleration|2
+future_2030|WEF|baseline|1
+future_2030|WEF|post_growth|1
+future_2030|WEF|ssp1|1
+future_2030|WEF Four Futures|ssp3|1
+future_2030|WEF New Economy Skills|baseline|2
+future_2030|White House OSTP|ai_singularity|1
+future_2030|World Economic Forum|ai_acceleration|6
+future_2030|World Economic Forum|baseline|4
+future_2030|World Economic Forum|ssp1|1
+future_2030|World Economic Forum|ssp3|5
+future_2030|World Health Organization|posthuman|2
+future_2030|インソース|baseline|1
+future_2030|デロイト トーマツ|baseline|1
+future_2030|データのじかん|baseline|1
+future_2030|パーソル総合研究所|baseline|1
+future_2030|ビジネスキャリア・コンサルティング|baseline|1
+future_2030|マッキンゼー|ai_acceleration|1
+future_2030|文部科学省|baseline|2
+future_2030|文部科学省|ssp1|1
+future_2030|日本の人事部|baseline|1
+future_2030|日本経済新聞|baseline|1
+future_2030|早稲田大学|baseline|1
+future_2030|株式会社デジタルグロース|baseline|1
+future_2030|経団連|baseline|2
+future_2030|経団連|ssp1|1
+future_2030|経済産業省|ai_acceleration|2
+future_2030|経済産業省|baseline|3
+future_2030|経済産業省|ssp1|1
+future_2030|経済産業省|ssp3|1
+future_2030|野村総合研究所|ai_acceleration|2
+future_2030|野村総合研究所|baseline|2
+future_2050|Cabinet Office Japan|post_industrial|2
+future_2050|Circle Economy Foundation|post_growth|2
+future_2050|Commons Transition/MIT Media Lab|bio_planetary|1
+future_2050|Degrowth Research Network|post_growth|1
+future_2050|Degrowth Research/OECD|ssp1|1
+
+codex
+これから50件を1トランザクションで投入します。再実行で増殖しないよう、`source_org + source_title + finding_ja` の既存確認を各 `INSERT ... SELECT ... WHERE NOT EXISTS` に入れます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db <<'SQL'
+BEGIN;
+INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT 'future_2050','val_eco','asia_centric','Asia 2050: Realizing the Asian Century','ADB',2011,'https://www.adb.org/sites/default/files/publication/28608/asia2050-executive-summary.pdf','アジアの成長制約としてエネルギー・資源利用の急増が明示され、再生可能エネルギー転換と資源効率を設計できるエコロジカルリテラシーが中核能力になる。',8,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia' WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ADB' AND source_title='Asia 2050: Realizing the Asian Century' AND finding_ja='アジアの成長制約としてエネルギー・資源利用の急増が明示され、再生可能エネルギー転換と資源効率を設計できるエコロジカルリテラシーが中核能力になる。');
+INSERT INTO future_demands SELECT NULL,'future_2050','cog_systems','asia_centric','Asia 2050: Realizing the Asian Century','ADB',2011,'https://www.adb.org/sites/default/files/publication/28608/asia2050-executive-summary.pdf','中所得の罠、都市化、気候変動、制度改革を同時に扱うため、部門別最適ではなく成長・包摂・環境を結ぶシステム思考が求められる。',8,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ADB' AND source_title='Asia 2050: Realizing the Asian Century' AND finding_ja='中所得の罠、都市化、気候変動、制度改革を同時に扱うため、部門別最適ではなく成長・包摂・環境を結ぶシステム思考が求められる。');
+INSERT INTO future_demands SELECT NULL,'future_2050','age_social_change','multipolar','Asia 2050: Realizing the Asian Century','ADB',2011,'https://www.adb.org/sites/default/files/publication/28608/asia2050-executive-summary.pdf','拡大する中間層が説明責任と参加を要求するとされ、制度の透明性を高める社会変革志向がアジアの人材需要として強まる。',7,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ADB' AND source_title='Asia 2050: Realizing the Asian Century' AND finding_ja='拡大する中間層が説明責任と参加を要求するとされ、制度の透明性を高める社会変革志向がアジアの人材需要として強まる。');
+INSERT INTO future_demands SELECT NULL,'future_2030','cog_info','asia_centric','Reaping the Benefits of Industry 4.0 through Skills Development in High-Growth Industries in Southeast Asia','ADB',2021,'https://seads.adb.org/publication/reaping-benefits-industry-40-through-skills-development-high-growth-industries','東南アジアの高成長産業で4IRを活用するには、データ、IoT、自動化を業務に接続する情報リテラシーが職業横断の基礎になる。',8,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ADB' AND source_title='Reaping the Benefits of Industry 4.0 through Skills Development in High-Growth Industries in Southeast Asia' AND finding_ja='東南アジアの高成長産業で4IRを活用するには、データ、IoT、自動化を業務に接続する情報リテラシーが職業横断の基礎になる。');
+INSERT INTO future_demands SELECT NULL,'future_2030','age_meta_learning','asia_centric','Reaping the Benefits of Industry 4.0 through Skills Development in High-Growth Industries in Southeast Asia','ADB',2021,'https://seads.adb.org/publication/reaping-benefits-industry-40-through-skills-development-high-growth-industries','産業技術の更新速度に訓練制度が追随する必要があり、初期教育よりも継続的な再訓練と学習戦略の能力が重視される。',8,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ADB' AND source_title='Reaping the Benefits of Industry 4.0 through Skills Development in High-Growth Industries in Southeast Asia' AND finding_ja='産業技術の更新速度に訓練制度が追随する必要があり、初期教育よりも継続的な再訓練と学習戦略の能力が重視される。');
+INSERT INTO future_demands SELECT NULL,'future_2030','age_entrepreneur','asia_centric','Reaping the Benefits of Industry 4.0 through Skills Development in High-Growth Industries in Southeast Asia','ADB',2021,'https://seads.adb.org/publication/reaping-benefits-industry-40-through-skills-development-high-growth-industries','MSMEと地域産業がデジタル化の便益を得るには、技術導入を新サービスや工程改善へ変える起業家精神が必要になる。',7,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ADB' AND source_title='Reaping the Benefits of Industry 4.0 through Skills Development in High-Growth Industries in Southeast Asia' AND finding_ja='MSMEと地域産業がデジタル化の便益を得るには、技術導入を新サービスや工程改善へ変える起業家精神が必要になる。');
+INSERT INTO future_demands SELECT NULL,'future_2050','cog_critical','multipolar','Asian Economic Integration Report 2024: Decarbonizing Global Value Chains','ADB',2024,'https://seads.adb.org/publication/asian-economic-integration-report-2024-decarbonizing-global-value-chains','脱炭素化と保護主義が同時に進むグローバル・バリューチェーンでは、政策効果と副作用を評価する批判的思考が需要化する。',8,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ADB' AND source_title='Asian Economic Integration Report 2024: Decarbonizing Global Value Chains' AND finding_ja='脱炭素化と保護主義が同時に進むグローバル・バリューチェーンでは、政策効果と副作用を評価する批判的思考が需要化する。');
+INSERT INTO future_demands SELECT NULL,'future_2050','cre_cross_domain','asia_centric','Asian Economic Integration Report 2024: Decarbonizing Global Value Chains','ADB',2024,'https://seads.adb.org/publication/asian-economic-integration-report-2024-decarbonizing-global-value-chains','炭素価格、貿易政策、技術投資を組み合わせる必要があり、環境政策と産業・通商を接続する異分野統合能力が高まる。',8,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ADB' AND source_title='Asian Economic Integration Report 2024: Decarbonizing Global Value Chains' AND finding_ja='炭素価格、貿易政策、技術投資を組み合わせる必要があり、環境政策と産業・通商を接続する異分野統合能力が高まる。');
+INSERT INTO future_demands SELECT NULL,'future_2030','age_resilience','multipolar','Asian Economic Integration Report 2024: Decarbonizing Global Value Chains','ADB',2024,'https://seads.adb.org/publication/asian-economic-integration-report-2024-decarbonizing-global-value-chains','供給網ショックと分断リスクへの対応として、地域協力を通じた回復力ある調達・生産設計の能力が重視される。',8,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ADB' AND source_title='Asian Economic Integration Report 2024: Decarbonizing Global Value Chains' AND finding_ja='供給網ショックと分断リスクへの対応として、地域協力を通じた回復力ある調達・生産設計の能力が重視される。');
+INSERT INTO future_demands SELECT NULL,'future_2030','val_collective','global_south','Asia 2050: Realizing the Asian Century','ADB',2011,'https://www.adb.org/sites/default/files/publication/28608/asia2050-executive-summary.pdf','アジア域内の格差と越境課題を扱うには、個別企業や国家を超えた協調的意思決定を支える集団協調性が重要になる。',7,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ADB' AND source_title='Asia 2050: Realizing the Asian Century' AND finding_ja='アジア域内の格差と越境課題を扱うには、個別企業や国家を超えた協調的意思決定を支える集団協調性が重要になる。');
+
+INSERT INTO future_demands SELECT NULL,'future_2030','cog_info','asia_centric','ASEAN Digital Masterplan 2025','ASEAN Secretariat',2021,'https://asean.org/wp-content/uploads/2021/08/ASEAN-Digital-Masterplan-2025.pdf','ASEANのデジタル経済圏化では、市民・企業・政府がデジタルサービスを使いこなす情報リテラシーが包摂の前提になる。',8,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ASEAN Secretariat' AND source_title='ASEAN Digital Masterplan 2025' AND finding_ja='ASEANのデジタル経済圏化では、市民・企業・政府がデジタルサービスを使いこなす情報リテラシーが包摂の前提になる。');
+INSERT INTO future_demands SELECT NULL,'future_2030','cog_ai_collab','asia_centric','ASEAN Digital Masterplan 2030','ASEAN Secretariat',2026,'https://nsp.nanet.go.kr/plan/main/detail.do?nationalPlanControlNo=PLAN0000060127','ADM 2030がAI駆動のデジタル変革と未来スキルを掲げるため、AIを業務改善・公共サービス・産業転換に使う協働リテラシーが必要になる。',7,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ASEAN Secretariat' AND source_title='ASEAN Digital Masterplan 2030' AND finding_ja='ADM 2030がAI駆動のデジタル変革と未来スキルを掲げるため、AIを業務改善・公共サービス・産業転換に使う協働リテラシーが必要になる。');
+INSERT INTO future_demands SELECT NULL,'future_2030','val_tolerance','asia_centric','ASEAN Digital Masterplan 2025','ASEAN Secretariat',2021,'https://asean.org/wp-content/uploads/2021/08/ASEAN-Digital-Masterplan-2025.pdf','障害、所得、技能差によるデジタル排除が課題とされ、異なる利用条件を前提に制度を設計する寛容性が求められる。',8,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ASEAN Secretariat' AND source_title='ASEAN Digital Masterplan 2025' AND finding_ja='障害、所得、技能差によるデジタル排除が課題とされ、異なる利用条件を前提に制度を設計する寛容性が求められる。');
+INSERT INTO future_demands SELECT NULL,'future_2030','soc_interpersonal','asia_centric','ASEAN Digital Masterplan 2025','ASEAN Secretariat',2021,'https://asean.org/wp-content/uploads/2021/08/ASEAN-Digital-Masterplan-2025.pdf','越境デジタルサービスと電子政府の普及には、利用者、事業者、行政間の信頼形成を扱う対人関係スキルが重要になる。',7,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ASEAN Secretariat' AND source_title='ASEAN Digital Masterplan 2025' AND finding_ja='越境デジタルサービスと電子政府の普及には、利用者、事業者、行政間の信頼形成を扱う対人関係スキルが重要になる。');
+INSERT INTO future_demands SELECT NULL,'future_2040','age_social_change','multipolar','ASEAN Community Vision 2045: Our Shared Future','ASEAN Secretariat',2025,'https://theaseanmagazine.asean.org/article/asean-community-vision-2025-our-shared-future/','ASEAN 2045は人間中心で強靭な共同体を掲げ、メガトレンドを地域制度へ翻訳する社会変革志向を必要とする。',7,1,'Phase 6.E l4_asia source_team=codex_correction_l4_asia',datetime('now') WHERE NOT EXISTS (SELECT 1 FROM future_demands WHERE source_org='ASEAN Secretariat' AND source_title='ASEAN Community Vision 2045: Our Shared Future' AND finding_ja='ASEAN 2045は人間中心で強靭な共同体を掲げ、メガトレンドを地域制度へ翻訳する社会変革志向を必要とする。');
+SQL" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+codex
+先ほどのSQLは途中で `future_2040` という未定義 era を見つけたため、コミットせずに閉じています。投入ロジックをパラメータ化して、定義済みの `future_2030` / `future_2050` / `future_2100` だけに直して実行します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT COUNT(*) FROM future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands WHERE notes LIKE '%Phase 6.E l4_asia%'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+416
+
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, era_id, source_org, source_title, notes FROM future_demands ORDER BY id DESC LIMIT 25"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+427|future_2050|NISTEP|NISTEP S&T Foresight 2019|
+426|future_2030|ADB|ADB Strategy 2030|
+425|future_2030|AMRO|ASEAN+3 Regional Economic Outlook 2025|
+424|future_2050|ERIA|Economic Research Institute for ASEAN and East Asia|
+423|future_2030|ERIA|ASEAN Digital Economy Framework Agreement|
+422|future_2030|ERIA|ASEAN Regional Economic Outlook|
+421|future_2050|ADB|Asian Development Outlook Long-term Growth|
+420|future_2030|NISTEP|NISTEP 第12回科学技術予測調査 デルファイ調査|
+419|future_2030|NISTEP|NISTEP 第12回科学技術予測調査 デルファイ調査|
+418|future_2050|NISTEP|NISTEP 第12回科学技術予測調査 2050未来シナリオ|
+417|future_2050|NISTEP|NISTEP 第12回科学技術予測調査 2050未来シナリオ|
+416|future_2050|NISTEP|NISTEP 第12回科学技術予測調査 2050未来シナリオ|
+415|future_2030|IGES|IGES Sustainable Future Outlook|
+414|future_2030|IGES|IGES Sustainable Future Outlook|
+413|future_2030|ASEAN|Regional mapping of labour market information for skills and employment policies in ASEAN Member States|
+412|future_2030|ASEAN|ASEAN Year of Skills 2025|
+411|future_2030|ASEAN|ASEAN Economic Community Strategic Plan 2026-2030|
+410|future_2030|ADB|Asian Development Outlook December 2024|
+409|future_2030|ADB|Asian Development Outlook December 2024|
+408|future_2100|Apollo Research / ARC Evals|Model Evaluation for Extreme Risks|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=extreme_risk_eval
+407|future_2100|UK Government|Bletchley Declaration by Countries Attending the AI Safety Summit|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=ai_multilateralism
+406|future_2100|National Institute of Standards and Technology|NIST AI Risk Management Framework 1.0|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=ai_risk_management
+405|future_2100|AI Seoul Summit / UK DSIT|International Scientific Report on the Safety of Advanced AI 2024|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=advanced_ai_evaluation
+404|future_2100|UK Department for Science, Innovation and Technology|Frontier AI Safety Commitments 2024|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=frontier_ai_safety
+402|future_2100|Elinor Ostrom|Governing the Commons|domain=scenarios_2100; source_team=codex_future_scenarios_2100; theme=commons_governance
+
+exec
+/bin/bash -lc "python3 - <<'PY'
+import sqlite3
+DB='data/era_talents.db'
+NOTE='Phase 6.E l4_asia; source_team=codex_correction_l4_asia; package=E'
+rows=[]
+def add(era,cap,scen,title,org,year,url,finding,conf=8,uniq=1):
+    rows.append((era,cap,scen,title,org,year,url,finding,conf,uniq,NOTE))
+# ADB
+adb2050='https://www.adb.org/sites/default/files/publication/28608/asia2050-executive-summary.pdf'
+adb4ir='https://seads.adb.org/publication/reaping-benefits-industry-40-through-skills-development-high-growth-industries'
+adbgvc='https://seads.adb.org/publication/asian-economic-integration-report-2024-decarbonizing-global-value-chains'
+add('future_2050','val_eco','asia_centric','Asia 2050: Realizing the Asian Century','ADB',2011,adb2050,'アジアの成長制約として資源・エネルギー利用の急増が示され、再生可能エネルギー転換と資源効率を設計するエコロジカルリテラシーが中核能力になる。')
+add('future_2050','cog_systems','asia_centric','Asia 2050: Realizing the Asian Century','ADB',2011,adb2050,'中所得の罠、都市化、気候変動、制度改革を同時に扱うため、成長・包摂・環境を結ぶシステム思考が求められる。')
+add('future_2050','age_social_change','multipolar','Asia 2050: Realizing the Asian Century','ADB',2011,adb2050,'拡大する中間層が説明責任と参加を要求するとされ、制度の透明性を高める社会変革志向が人材需要として強まる。',7)
+add('future_2030','cog_info','asia_centric','Reaping the Benefits of Industry 4.0 through Skills Development in High-Growth Industries in Southeast Asia','ADB',2021,adb4ir,'東南アジアの高成長産業で4IRを活用するには、データ、IoT、自動化を業務に接続する情報リテラシーが職業横断の基礎になる。')
+add('future_2030','age_meta_learning','asia_centric','Reaping the Benefits of Industry 4.0 through Skills Development in High-Growth Industries in Southeast Asia','ADB',2021,adb4ir,'産業技術の更新速度に訓練制度が追随する必要があり、初期教育よりも継続的な再訓練と学習戦略が重視される。')
+add('future_2030','age_entrepreneur','asia_centric','Reaping the Benefits of Industry 4.0 through Skills Development in High-Growth Industries in Southeast Asia','ADB',2021,adb4ir,'MSMEと地域産業がデジタル化の便益を得るには、技術導入を新サービスや工程改善へ変える起業家精神が必要になる。',7)
+add('future_2050','cog_critical','multipolar','Asian Economic Integration Report 2024: Decarbonizing Global Value Chains','ADB',2024,adbgvc,'脱炭素化と保護主義が同時に進むバリューチェーンでは、政策効果と副作用を評価する批判的思考が需要化する。')
+add('future_2050','cre_cross_domain','asia_centric','Asian Economic Integration Report 2024: Decarbonizing Global Value Chains','ADB',2024,adbgvc,'炭素価格、貿易政策、技術投資を組み合わせる必要があり、環境政策と産業・通商を接続する異分野統合能力が高まる。')
+add('future_2030','age_resilience','multipolar','Asian Economic Integration Report 2024: Decarbonizing Global Value Chains','ADB',2024,adbgvc,'供給網ショックと分断リスクへの対応として、地域協力を通じた回復力ある調達・生産設計の能力が重視される。')
+add('future_2030','val_collective','global_south','Asia 2050: Realizing the Asian Century','ADB',2011,adb2050,'アジア域内の格差と越境課題を扱うには、個別企業や国家を超えた協調的意思決定を支える集団協調性が重要になる。',7)
+# ASEAN
+adm2025='https://asean.org/wp-content/uploads/2021/08/ASEAN-Digital-Masterplan-2025.pdf'
+adm2030='https://nsp.nanet.go.kr/plan/main/detail.do?nationalPlanControlNo=PLAN0000060127'
+vision2045='https://theaseanmagazine.asean.org/article/asean-community-vision-2025-our-shared-future/'
+add('future_2030','cog_info','asia_centric','ASEAN Digital Masterplan 2025','ASEAN Secretariat',2021,adm2025,'ASEANのデジタル経済圏化では、市民・企業・政府がデジタルサービスを使いこなす情報リテラシーが包摂の前提になる。')
+add('future_2030','cog_ai_collab','asia_centric','ASEAN Digital Masterplan 2030','ASEAN Secretariat',2026,adm2030,'AI駆動のデジタル変革と未来スキルが掲げられ、AIを業務改善・公共サービス・産業転換に使う協働リテラシーが必要になる。',7)
+add('future_2030','val_tolerance','asia_centric','ASEAN Digital Masterplan 2025','ASEAN Secretariat',2021,adm2025,'障害、所得、技能差によるデジタル排除が課題となり、異なる利用条件を前提に制度を設計する寛容性が求められる。')
+add('future_2030','soc_interpersonal','asia_centric','ASEAN Digital Masterplan 2025','ASEAN Secretariat',2021,adm2025,'越境デジタルサービスと電子政府の普及には、利用者、事業者、行政間の信頼形成を扱う対人関係スキルが重要になる。',7)
+add('future_2050','age_social_change','multipolar','ASEAN Community Vision 2045: Our Shared Future','ASEAN Secretariat',2025,vision2045,'ASEAN 2045は人間中心で強靭な共同体を掲げ、メガトレンドを地域制度へ翻訳する社会変革志向を必要とする。',7)
+add('future_2050','age_resilience','multipolar','ASEAN Community Vision 2045: Our Shared Future','ASEAN Secretariat',2025,vision2045,'インド太平洋の成長中心として不確実性に備える構想から、危機後も共同体機能を保つレジリエンスが重要能力になる。')
+add('future_2030','age_entrepreneur','asia_centric','ASEAN Digital Masterplan 2030','ASEAN Secretariat',2026,adm2030,'イノベーションとスタートアップ・エコシステムの強化が示され、地域課題を事業化する起業家精神が需要化する。',7)
+add('future_2030','cog_critical','multipolar','ASEAN Digital Masterplan 2025','ASEAN Secretariat',2021,adm2025,'消費者被害、サイバー脅威、オンライン詐欺への対応には、デジタルサービスの便益とリスクを見極める批判的思考が必要になる。')
+add('future_2030','val_collective','asia_centric','ASEAN Digital Masterplan 2025','ASEAN Secretariat',2021,adm2025,'域内デジタル市場の相互接続には、国ごとの制度差を調整し標準化を進める集団協調性が重視される。',7)
+add('future_2030','age_social_autonomy','global_south','ASEAN Digital Masterplan 2025','ASEAN Secretariat',2021,adm2025,'市民がオンライン行政、金融、商取引へ主体的に参加するため、デジタル環境で自分の権利と選択を管理する社会的自立性が必要になる。',7)
+# IGES
+iges2050='https://www.iges.or.jp/en/pub/society-and-lifestyles-2050-insights-global-0/en'
+iges15='https://www.iges.or.jp/en/pub/15-degrees-lifestyles-2019/en'
+add('future_2050','val_eco','global_south','Society and Lifestyles in 2050: Insights from a Global Survey of Experts','IGES',2019,iges2050,'2050年の生活様式は楽観・悲観の幅を持つため、消費、移動、住居を環境制約内で再設計するエコロジカルリテラシーが必要になる。')
+add('future_2050','cog_critical','global_south','Society and Lifestyles in 2050: Insights from a Global Survey of Experts','IGES',2019,iges2050,'専門家調査が複数の未来像を示すため、単一の成長物語を疑い、生活変化の分配影響を評価する批判的思考が求められる。')
+add('future_2050','age_social_change','global_south','Society and Lifestyles in 2050: Insights from a Global Survey of Experts','IGES',2019,iges2050,'持続可能な生活様式への移行は個人行動だけでなく制度・都市・市場の変化を伴うため、社会変革志向が重要になる。')
+add('future_2050','cre_cross_domain','asia_centric','Society and Lifestyles in 2050: Insights from a Global Survey of Experts','IGES',2019,iges2050,'生活、技術、都市、政策を横断して未来像を扱うため、日常実践と制度設計を接続する異分野統合能力が高まる。')
+add('future_2050','val_tolerance','global_south','Society and Lifestyles in 2050: Insights from a Global Survey of Experts','IGES',2019,iges2050,'地域や所得階層によって望ましい生活像が異なるため、多様な価値観を調整する寛容性が持続可能性政策の前提になる。',7)
+add('future_2050','cog_systems','global_south','1.5-Degree Lifestyles: Targets and Options for Reducing Lifestyle Carbon Footprints','IGES',2019,iges15,'1.5度目標に沿う生活カーボンフットプリント削減では、食、住居、移動、消費の連鎖を捉えるシステム思考が必要になる。')
+add('future_2030','age_meta_learning','global_south','1.5-Degree Lifestyles: Targets and Options for Reducing Lifestyle Carbon Footprints','IGES',2019,iges15,'生活転換は技術更新と行動変容を伴うため、個人・組織が新しい選択肢を学び直すメタ学習能力が重要になる。',7)
+add('future_2050','age_resilience','global_south','Society and Lifestyles in 2050: Insights from a Global Survey of Experts','IGES',2019,iges2050,'気候影響と社会変化が生活基盤を揺らすため、地域コミュニティ単位で適応し続けるレジリエンスが求められる。')
+add('future_2030','soc_interpersonal','global_south','1.5-Degree Lifestyles: Targets and Options for Reducing Lifestyle Carbon Footprints','IGES',2019,iges15,'低炭素生活の普及には、説得ではなく共同行動と合意形成を支える対人関係スキルが必要になる。',7)
+add('future_2050','age_oecd_transformative','global_south','Society and Lifestyles in 2050: Insights from a Global Survey of Experts','IGES',2019,iges2050,'不確実な2050年像を踏まえ、価値創造、責任ある行動、緊張関係の調整を含む変革コンピテンシーが重要になる。',8)
+# JETRO
+jetro2024='https://www.jetro.go.jp/ext_images/en/reports/white_paper/trade_invest_2024.pdf'
+jetro_wp='https://www.jetro.go.jp/en/reports/white_paper/'
+jetro_dx='https://www.jetro.go.jp/world/reports/2025/01/f4e1d9742be7da19.html'
+jetro_hr='https://www.jetro.go.jp/biz/areareports/special/2026/0201/27526c523930dde9.html'
+add('future_2030','age_resilience','multipolar','JETRO Global Trade and Investment Report 2024','JETRO',2024,jetro2024,'地政学、経済安全保障、供給網再編が企業課題となり、代替調達と事業継続を設計するレジリエンスが必要になる。')
+add('future_2030','cog_critical','multipolar','JETRO Global Trade and Investment Report 2024','JETRO',2024,jetro2024,'自由貿易の停滞と政策介入の増加により、規制、制裁、補助金の影響を読み解く批判的思考が重視される。')
+add('future_2030','val_eco','asia_centric','JETRO Global Trade and Investment Report 2024','JETRO',2024,jetro2024,'サステナビリティ開示と取引先選定の圧力が強まり、脱炭素と人権を供給網管理に組み込むエコロジカルリテラシーが必要になる。')
+add('future_2030','cog_info','asia_centric','ASEANにおけるデジタル分野の企業動向および日系企業へのヒアリング調査','JETRO',2025,jetro_dx,'ASEANのICT、AI、クラウド市場の拡大により、企業動向と規制情報を収集・分析する情報リテラシーが競争条件になる。')
+add('future_2030','cog_ai_collab','asia_centric','ASEANにおけるデジタル分野の企業動向および日系企業へのヒアリング調査','JETRO',2025,jetro_dx,'AI、ビッグデータ、クラウドを事業運営に組み込むため、人間の判断とAIツールを接続するAI協働リテラシーが求められる。',7)
+add('future_2030','age_meta_learning','asia_centric','ASEANのDX（4）ASEAN日系企業におけるデジタル人材の現状','JETRO',2026,jetro_hr,'日系企業調査でデジタル人材不足が導入課題とされ、現地人材と駐在員双方の継続的な学習戦略が必要になる。')
+add('future_2030','soc_interpersonal','asia_centric','ASEANにおけるデジタル分野の企業動向および日系企業へのヒアリング調査','JETRO',2025,jetro_dx,'欧米・中国・地場企業が混在するASEAN市場では、提携、採用、規制対応を進める対人関係スキルが重要になる。',7)
+add('future_2030','cre_cross_domain','multipolar','JETRO Global Trade and Investment Report 2024','JETRO',2024,jetro2024,'経済安全保障、サステナビリティ、デジタル貿易が重なるため、法務・技術・通商を統合する能力が高まる。')
+add('future_2030','cog_logical','asia_centric','JETRO White Paper and JETRO Global Trade and Investment Report','JETRO',2025,jetro_wp,'貿易・投資統計から地域別のリスクと機会を説明するため、因果関係を整理する論理的思考が必要になる。',7)
+add('future_2030','age_entrepreneur','asia_centric','ASEANにおけるデジタル分野の企業動向および日系企業へのヒアリング調査','JETRO',2025,jetro_dx,'ASEANのデジタル経済の将来展望を踏まえ、現地課題に合わせた新規事業を構想する起業家精神が需要化する。',7)
+# NISTEP
+nistep_en='https://www.nistep.go.jp/en/?page_id=56'
+nistep183='https://www.nistep.go.jp/archives/42863'
+nistep276='https://www.nistep.go.jp/archives/38097'
+nistep41194='https://www.nistep.go.jp/archives/41194/'
+add('future_2050','cre_cross_domain','asia_centric','The 11th Science and Technology Foresight: S&T Foresight 2019','NISTEP',2019,nistep_en,'AI関連技術と専門家判断で分野横断・融合領域が抽出され、科学技術を社会課題へ結びつける異分野統合能力が重要になる。')
+add('future_2050','age_oecd_transformative','asia_centric','第11回科学技術予測調査 S&T Foresight 2019 総合報告書','NISTEP',2019,nistep183,'2040年の基本シナリオが「人間性の再興・再考による柔軟な社会」とされ、価値調整を伴う変革コンピテンシーが求められる。')
+add('future_2050','val_tolerance','asia_centric','第11回科学技術予測調査 S&T Foresight 2019 総合報告書','NISTEP',2019,nistep183,'Humanity、Inclusion、Sustainability、Curiosityが重視価値として示され、多様な人間像を受け止める寛容性が将来能力になる。')
+add('future_2050','cog_ai_collab','asia_centric','The 11th Science and Technology Foresight: Close-up S&T Areas for the Future in 2050','NISTEP',2020,nistep_en,'AI関連技術を用いた自然言語処理と専門家判断で未来領域を探索しており、AIと専門知を協働させる能力が必要になる。',8)
+add('future_2050','cog_systems','asia_centric','The 11th Science and Technology Foresight: Society in 2040 through the Development of S&T','NISTEP',2020,nistep_en,'社会の未来像、科学技術トピック、社会課題を統合するため、技術実装と制度影響を同時に見るシステム思考が求められる。')
+add('future_2050','cog_critical','asia_centric','第11回科学技術予測調査 ST Foresight 2019 速報版','NISTEP',2019,nistep41194,'702件の科学技術トピックの重要度や実現見通しを専門家調査で検討しており、実現可能性を吟味する批判的思考が必要になる。')
+add('future_2050','age_meta_learning','asia_centric','Science and Technology Foresight and Science and Technology Trends','NISTEP',2026,nistep_en,'約5年ごとの予測調査とホライズン・スキャニングにより、将来兆候を継続的に学び直すメタ学習能力が重視される。',7)
+add('future_2050','age_social_change','asia_centric','第11回科学技術予測調査 2040年に目指す社会の検討','NISTEP',2018,nistep276,'望ましい将来社会像をワークショップで作り、実現の鍵となる科学技術要素を抽出しているため、社会変革志向が必要になる。')
+add('future_2050','cog_creativity','asia_centric','第11回科学技術予測調査 2040年に目指す社会の検討','NISTEP',2018,nistep276,'50の将来社会像と16のシナリオを構想しており、不確実な未来を具体的な選択肢として描く創造性が求められる。')
+add('future_2050','val_eco','asia_centric','第11回科学技術予測調査 S&T Foresight 2019 総合報告書','NISTEP',2019,nistep183,'Sustainabilityを重視価値の一つに置くため、科学技術の発展を環境制約と両立させるエコロジカルリテラシーが将来需要になる。')
+assert len(rows)==50, len(rows)
+con=sqlite3.connect(DB)
+con.execute('PRAGMA foreign_keys=ON')
+before=con.execute(\"SELECT COUNT(*) FROM future_demands WHERE notes=?\",(NOTE,)).fetchone()[0]
+inserted=0
+sql='''INSERT INTO future_demands (era_id, capability_id, scenario, source_title, source_org, source_year, source_url, finding_ja, confidence, is_unique_to_era, notes)
+SELECT ?,?,?,?,?,?,?,?,?,?,?
+WHERE NOT EXISTS (
+  SELECT 1 FROM future_demands WHERE source_org=? AND source_title=? AND finding_ja=?
+)'''
+with con:
+    for r in rows:
+        con.execute(sql, r + (r[4], r[3], r[7]))
+        inserted += con.total_changes - inserted
+# total_changes is cumulative for connection; recompute after
+final=con.execute(\"SELECT COUNT(*) FROM future_demands WHERE notes=?\",(NOTE,)).fetchone()[0]
+total=con.execute(\"SELECT COUNT(*) FROM future_demands\").fetchone()[0]
+print(f'phase_rows_before={before}')
+print(f'phase_rows_after={final}')
+print(f'inserted_this_run={final-before}')
+print(f'total_future_demands={total}')
+con.close()
+PY" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+phase_rows_before=0
+phase_rows_after=50
+inserted_this_run=50
+total_future_demands=547
+
+codex
+Phase 6.E の識別用 notes 付きでは50件入りました。総件数が同時に別データ分も増えているため、報告では今回投入した `notes='Phase 6.E l4_asia...'` 条件の件数を基準に確認します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT era_id, scenario, COUNT(*) FROM future_demands WHERE notes='Phase 6.E l4_asia; source_team=codex_correction_l4_asia; package=E' GROUP BY era_id, scenario ORDER BY era_id, scenario\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT source_org, COUNT(*) FROM future_demands WHERE notes='Phase 6.E l4_asia; source_team=codex_correction_l4_asia; package=E' GROUP BY source_org ORDER BY source_org\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+future_2030|asia_centric|16
+future_2030|global_south|4
+future_2030|multipolar|5
+future_2050|asia_centric|14
+future_2050|global_south|7
+future_2050|multipolar|4
+
+ succeeded in 0ms:
+ADB|10
+ASEAN Secretariat|10
+IGES|10
+JETRO|10
+NISTEP|10
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands WHERE notes='Phase 6.E l4_asia; source_team=codex_correction_l4_asia; package=E'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+50
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM future_demands fd LEFT JOIN eras e ON fd.era_id=e.id WHERE fd.notes='Phase 6.E l4_asia; source_team=codex_correction_l4_asia; package=E' AND e.id IS NULL\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+codex
+完了しました。Package E として `future_demands` に 50 件追加しました。
+
+`future_demands` には `correction_phase` / `source_team` カラムがないため、識別情報は `notes` に以下で入れています。
+
+`Phase 6.E l4_asia; source_team=codex_correction_l4_asia; package=E`
+
+確認結果:
+
+```text
+追加件数: 50
+era_id 不整合: 0
+```
+
+機関別:
+
+```text
+ADB              10
+ASEAN Secretariat 10
+IGES             10
+JETRO            10
+NISTEP           10
+```
+
+シナリオ別・時代別:
+
+```text
+future_2030 asia_centric 16
+future_2030 global_south 4
+future_2030 multipolar   5
+future_2050 asia_centric 14
+future_2050 global_south 7
+future_2050 multipolar   4
+```
+
+DB総件数は `future_demands = 547` です。
+tokens used
+71,249
+完了しました。Package E として `future_demands` に 50 件追加しました。
+
+`future_demands` には `correction_phase` / `source_team` カラムがないため、識別情報は `notes` に以下で入れています。
+
+`Phase 6.E l4_asia; source_team=codex_correction_l4_asia; package=E`
+
+確認結果:
+
+```text
+追加件数: 50
+era_id 不整合: 0
+```
+
+機関別:
+
+```text
+ADB              10
+ASEAN Secretariat 10
+IGES             10
+JETRO            10
+NISTEP           10
+```
+
+シナリオ別・時代別:
+
+```text
+future_2030 asia_centric 16
+future_2030 global_south 4
+future_2030 multipolar   5
+future_2050 asia_centric 14
+future_2050 global_south 7
+future_2050 multipolar   4
+```
+
+DB総件数は `future_demands = 547` です。

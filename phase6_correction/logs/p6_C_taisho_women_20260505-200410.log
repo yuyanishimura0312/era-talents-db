@@ -1,0 +1,1718 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-4b87-7922-a74d-77074c513f7c
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.C
+theme: taisho_women
+追加目標: 180 件
+説明: 大正期の女性運動家・芸術家・教育者（平塚らいてう世代）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_taisho_women' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【C==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まずスキーマと既存データの分布を確認します。投入先の制約と既存の重複を見てから、50件単位で安全に入れます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema era_retrospectives"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE era_retrospectives (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    perspective     TEXT,                    -- historical_sociology, education_research, biography_studies
+    source_title    TEXT NOT NULL,
+    source_author   TEXT,
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    relevance_score INTEGER CHECK(relevance_score BETWEEN 1 AND 10),
+    diverges_from_l1 INTEGER DEFAULT 0,      -- L1当時言説とのズレフラグ
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, source_team TEXT);
+CREATE INDEX idx_retrospectives_era ON era_retrospectives(era_id);
+
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE future_demands (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),  -- future_2030 / future_2050 / future_2100
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    scenario        TEXT,                    -- baseline, ssp1, ssp3, post_growth, posthuman
+    source_title    TEXT NOT NULL,
+    source_org      TEXT,                    -- OECD, WEF, METI, IPCC, etc
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema academic_references"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE academic_references (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    citation        TEXT NOT NULL,
+    author          TEXT,
+    year            INTEGER,
+    title           TEXT,
+    framework_tag   TEXT,                    -- simonton, csikszentmihalyi, subotnik, bourdieu, granovetter, merton
+    relevance_to_layer TEXT,                 -- L1, L2, L3, L4, methodology
+    doi             TEXT,
+    notes           TEXT
+);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions ORDER BY id"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+age_entrepreneur|起業家精神
+age_meta_learning|学習戦略・適応性
+age_oecd_transformative|OECD変革コンピテンシー
+age_resilience|レジリエンス
+age_social_autonomy|社会的自立性
+age_social_change|社会変革志向
+cog_ai_collab|AI協働リテラシー
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_info|情報リテラシー
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_systems|システム思考
+cre_cross_domain|異分野統合志向
+soc_interpersonal|対人関係スキル
+val_collective|集団協調性
+val_eco|エコロジカルリテラシー
+val_tolerance|寛容性
+val_traditional|伝統文化尊重
+
+codex
+スキーマはかなり自由度がありますが、能力IDは文字列です。次に既存の同フェーズ・同テーマらしきデータと、時代ID、既存INSERTの品質パターンを確認します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, label_ja FROM eras ORDER BY sort_order"' in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: label_ja
+  SELECT id, label_ja FROM eras ORDER BY sort_order
+             ^--- error here
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT correction_phase, source_team, COUNT(*) FROM achievers GROUP BY correction_phase, source_team ORDER BY COUNT(*) DESC LIMIT 30"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+6.1_experts_year_only|import_experts|2867
+6.1_experts_redistribution|import_experts|833
+|codex_showa_post|671
+|codex_heisei|623
+|codex_meiji|452
+|codex_reiwa|450
+|codex_showa_pre|352
+|codex_taisho|310
+|import_experts|277
+|codex_all_women_pioneers|200
+|codex_heisei_business|200
+|codex_heisei_culture_arts|150
+|codex_showa_post_business|150
+|codex_all_local_excellent|145
+|codex_all_education_practice|100
+|codex_meiji_business|100
+|codex_reiwa_business|100
+|codex_showa_pre_business|100
+|codex_taisho_culture_arts|100
+|codex_heisei_sports|99
+|codex_meiji_culture_arts|99
+|codex_heisei_science_tech|93
+|codex_showa_pre_culture_arts|90
+|codex_all_religion_thought|88
+|codex_meiji_education_thought|80
+|codex_meiji_science_tech|80
+|codex_showa_post_media_journalism|80
+|codex_showa_post_sports|80
+|codex_showa_pre_science_tech|80
+|codex_taisho_business|80
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,domain,achievement_summary,source_url FROM achievers WHERE correction_phase='6.C' OR source_team LIKE '%taisho_women%' LIMIT 20\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+exec
+/bin/bash -lc "rg -n \"codex_correction_taisho_women|Phase 6.C|taisho_women|correction_phase='6.C'|correction_phase\\s*=\\s*'6.C'\" ." in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+./phase6_correction/logs/p6_C_reiwa_women_20260505-200418.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_C_reiwa_women_20260505-200418.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_C_reiwa_women_20260505-200418.log:220:phase6_correction/logs/p6_C_taisho_women_20260505-200410.log
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:252:./phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:253:./phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:254:./phase6_correction/logs/p6_C_meiji_women_20260505-200408.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:255:./phase6_correction/logs/p6_C_meiji_women_20260505-200408.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:263:./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:264:./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:454:./phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:455:./phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:456:./phase6_correction/logs/p6_C_meiji_women_20260505-200408.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:457:./phase6_correction/logs/p6_C_meiji_women_20260505-200408.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_taisho_local_20260505-200353.log:273:phase6_correction/logs/p6_C_taisho_women_20260505-200410.log
+./phase6_correction/logs/p6_B_taisho_craft_20260505-200351.log:295:phase6_correction/logs/p6_C_taisho_women_20260505-200410.log
+./phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.C' OR source_team='codex_correction_showa_pre_women'\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log:153:achievers と capabilities はシンプルな構造で、Phase 6.C は未投入でした。次に既存人物との重複を避けるため、候補名の既存有無と時代IDを確認します。
+./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:284:phase6_correction/logs/p6_C_taisho_women_20260505-200410.log
+./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:544:./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:45:- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:545:./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:103:    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+./phase6_correction/logs/p6_C_meiji_women_20260505-200408.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_C_meiji_women_20260505-200408.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_C_showa_post_women_20260505-200414.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_C_showa_post_women_20260505-200414.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_C_showa_post_women_20260505-200414.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), MIN(id), MAX(id) FROM achievers WHERE correction_phase='6.C' OR source_team='codex_correction_showa_post_women'\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/codex_correction_launch.sh:26:  "C|taisho_women|180|大正期の女性運動家・芸術家・教育者（平塚らいてう世代）"
+./phase6_correction/logs/p6_C_heisei_women_20260505-200416.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_C_heisei_women_20260505-200416.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_C_heisei_women_20260505-200416.log:69:対象DBのスキーマと既存データを確認してから、重複を避けて50件単位で投入します。まずテーブル定義、能力ディメンション、既存のPhase 6.C件数を見ます。
+./phase6_correction/logs/p6_C_heisei_women_20260505-200416.log:148:/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT correction_phase, source_team, COUNT(*) FROM achievers WHERE correction_phase='6.C' OR source_team='codex_correction_heisei_women' GROUP BY correction_phase, source_team\"" in /Users/nishimura+/projects/research/era-talents-db
+./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:19:theme: taisho_women
+./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:39:2. source_team='codex_correction_taisho_women' を必ず設定
+./phase6_correction/logs/p6_B_heisei_local_20260505-200359.log:299:phase6_correction/logs/p6_C_taisho_women_20260505-200410.log
+./phase6_correction/logs/p6_B_heisei_local_20260505-200359.log:458:./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:45:- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+./phase6_correction/logs/p6_B_heisei_local_20260505-200359.log:459:./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:46:  is_local_excellent=1 を必ず設定
+./phase6_correction/logs/p6_B_heisei_local_20260505-200359.log:460:./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:118:    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+./phase6_correction/logs/p6_B_heisei_local_20260505-200359.log:580:./phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log:544:./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:45:- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+meiji|明治|Meiji|1868|1912|0||1
+taisho|大正|Taisho|1912|1926|0||2
+showa_pre|昭和前期|Showa Pre-war|1926|1945|0||3
+showa_post|昭和後期|Showa Post-war|1946|1989|0||4
+heisei|平成|Heisei|1989|2019|0||5
+reiwa|令和|Reiwa|2019|2030|0||6
+future_2030|2030年代|2030s|2030|2040|1||7
+future_2050|2050年代|2050s|2050|2060|1||8
+future_2100|2100年代|2100s|2100|2110|1||9
+all|全時代|All eras|1868|2030|0|横断的収集用の擬似時代ID|0
+
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+exec
+/bin/bash -lc "sed -n '140,260p' phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sed -n '140,260p' phase6_correction/logs/p6_C_taisho_women_20260505-200410.log" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sed -n '140,260p' phase6_correction/logs/p6_C_meiji_women_20260505-200408.log" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.C' OR source_team='codex_correction_showa_pre_women'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+codex
+achievers と capabilities はシンプルな構造で、Phase 6.C は未投入でした。次に既存人物との重複を避けるため、候補名の既存有無と時代IDを確認します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja, start_year, end_year FROM eras ORDER BY start_year"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT name_ja, birth_year FROM achievers WHERE primary_era_id IN ('showa_prewar','showa') AND (domain LIKE '%women%' OR source_team LIKE '%women%' OR achievement_summary LIKE '%女性%') LIMIT 50\"" in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: start_year
+  SELECT id, name_ja, start_year, end_year FROM eras ORDER BY start_year
+                      ^--- error here
+
+ succeeded in 0ms:
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT COUNT(*), primary_era_id, domain FROM achievers GROUP BY primary_era_id, domain ORDER BY primary_era_id, COUNT(*) DESC LIMIT 80"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+885|heisei|politics
+283|heisei|culture_arts
+257|heisei|business
+227|heisei|sports
+93|heisei|science_tech
+59|heisei|science
+52|heisei|women_pioneers
+44|heisei|professional
+39|heisei|agriculture_local
+38|heisei|craft
+33|heisei|social_movement
+32|heisei|diaspora_ainu_okinawa
+23|heisei|media
+22|heisei|education_practice
+22|heisei|education
+20|heisei|local_excellent_craft
+15|heisei|religion_thought
+6|heisei|local_excellent_social
+6|heisei|local_excellent_business
+4|heisei|local_excellent_culture
+194|meiji|culture_arts
+174|meiji|business
+89|meiji|science_tech
+80|meiji|education_thought
+79|meiji|politics
+55|meiji|education
+52|meiji|science
+47|meiji|social_movement
+45|meiji|professional
+15|meiji|women_pioneers
+11|meiji|sports
+11|meiji|education_practice
+10|meiji|religion_thought
+2|meiji|military
+1|meiji|other
+1|meiji|media
+3173|reiwa|politics
+178|reiwa|business
+117|reiwa|culture_arts
+98|reiwa|social_movement
+79|reiwa|science_tech
+50|reiwa|science
+40|reiwa|sports
+38|reiwa|education
+38|reiwa|craft
+33|reiwa|agriculture_local
+28|reiwa|media
+16|reiwa|women_pioneers
+9|reiwa|professional
+8|reiwa|technology
+8|reiwa|religion_thought
+2|reiwa|local_excellent_business
+2|reiwa|education_practice
+1|reiwa|local_excellent_social
+1|reiwa|diaspora_ainu_okinawa
+241|showa_post|business
+140|showa_post|sports
+101|showa_post|culture_arts
+97|showa_post|science_tech
+93|showa_post|politics
+87|showa_post|women_pioneers
+80|showa_post|media_journalism
+72|showa_post|science
+72|showa_post|agriculture_local
+60|showa_post|education
+51|showa_post|social_movement
+49|showa_post|media
+48|showa_post|education_practice
+47|showa_post|local_excellent_craft
+41|showa_post|diaspora_ainu_okinawa
+36|showa_post|local_excellent_culture
+29|showa_post|religion_thought
+29|showa_post|professional
+8|showa_post|local_excellent_business
+3|showa_post|military
+2|showa_post|local_excellent_social
+154|showa_pre|business
+142|showa_pre|culture_arts
+90|showa_pre|science_tech
+81|showa_pre|social_movement
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), primary_era_id, domain FROM achievers WHERE primary_era_id='showa_pre' GROUP BY primary_era_id, domain ORDER BY COUNT(*) DESC\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+
+ succeeded in 0ms:
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema academic_references"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE academic_references (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    citation        TEXT NOT NULL,
+    author          TEXT,
+    year            INTEGER,
+    title           TEXT,
+    framework_tag   TEXT,                    -- simonton, csikszentmihalyi, subotnik, bourdieu, granovetter, merton
+    relevance_to_layer TEXT,                 -- L1, L2, L3, L4, methodology
+    doi             TEXT,
+    notes           TEXT
+);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions ORDER BY id"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+age_entrepreneur|起業家精神
+age_meta_learning|学習戦略・適応性
+age_oecd_transformative|OECD変革コンピテンシー
+age_resilience|レジリエンス
+age_social_autonomy|社会的自立性
+age_social_change|社会変革志向
+cog_ai_collab|AI協働リテラシー
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_info|情報リテラシー
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_systems|システム思考
+cre_cross_domain|異分野統合志向
+soc_interpersonal|対人関係スキル
+val_collective|集団協調性
+val_eco|エコロジカルリテラシー
+val_tolerance|寛容性
+val_traditional|伝統文化尊重
+
+codex
+スキーマはかなり自由度がありますが、能力IDは文字列です。次に既存の同フェーズ・同テーマらしきデータと、時代ID、既存INSERTの品質パターンを確認します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, label_ja FROM eras ORDER BY sort_order"' in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: label_ja
+  SELECT id, label_ja FROM eras ORDER BY sort_order
+             ^--- error here
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT correction_phase, source_team, COUNT(*) FROM achievers GROUP BY correction_phase, source_team ORDER BY COUNT(*) DESC LIMIT 30"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+6.1_experts_year_only|import_experts|2867
+6.1_experts_redistribution|import_experts|833
+|codex_showa_post|671
+|codex_heisei|623
+|codex_meiji|452
+|codex_reiwa|450
+|codex_showa_pre|352
+|codex_taisho|310
+|import_experts|277
+|codex_all_women_pioneers|200
+|codex_heisei_business|200
+|codex_heisei_culture_arts|150
+|codex_showa_post_business|150
+|codex_all_local_excellent|145
+|codex_all_education_practice|100
+|codex_meiji_business|100
+|codex_reiwa_business|100
+|codex_showa_pre_business|100
+|codex_taisho_culture_arts|100
+|codex_heisei_sports|99
+|codex_meiji_culture_arts|99
+|codex_heisei_science_tech|93
+|codex_showa_pre_culture_arts|90
+|codex_all_religion_thought|88
+|codex_meiji_education_thought|80
+|codex_meiji_science_tech|80
+|codex_showa_post_media_journalism|80
+|codex_showa_post_sports|80
+|codex_showa_pre_science_tech|80
+|codex_taisho_business|80
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,domain,achievement_summary,source_url FROM achievers WHERE correction_phase='6.C' OR source_team LIKE '%taisho_women%' LIMIT 20\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+exec
+/bin/bash -lc "rg -n \"codex_correction_taisho_women|Phase 6.C|taisho_women|correction_phase='6.C'|correction_phase\\s*=\\s*'6.C'\" ." in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+./phase6_correction/logs/p6_C_reiwa_women_20260505-200418.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_C_reiwa_women_20260505-200418.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_C_reiwa_women_20260505-200418.log:220:phase6_correction/logs/p6_C_taisho_women_20260505-200410.log
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:252:./phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:253:./phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:254:./phase6_correction/logs/p6_C_meiji_women_20260505-200408.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:255:./phase6_correction/logs/p6_C_meiji_women_20260505-200408.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:263:./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:18:phase: Phase 6.C
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:264:./phase6_correction/logs/p6_C_taisho_women_20260505-200410.log:38:1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+./phase6_correction/logs/p6_B_meiji_local_20260505-200349.log:454:./phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log:18:phase: Phase 6.C
+
+ succeeded in 0ms:
+
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+codex
+`achievers` は `achievement_summary` 列を使う形でした。次に時代ID、既存の明治女性候補、重複しやすい人物名を確認して、投入用SQLを生成します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id,name_ja,start_year,end_year FROM eras"' in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: start_year
+  SELECT id,name_ja,start_year,end_year FROM eras
+                    ^--- error here
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.C' OR source_team='codex_correction_meiji_women'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), domain FROM achievers WHERE primary_era_id='meiji' GROUP BY domain ORDER BY COUNT(*) DESC\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,domain,achievement_summary FROM achievers WHERE primary_era_id='meiji' AND (domain='women_pioneers' OR achievement_summary LIKE '%女性%' OR name_ja IN ('津田梅子','荻野吟子','吉岡彌生')) LIMIT 20\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+194|culture_arts
+174|business
+89|science_tech
+80|education_thought
+79|politics
+55|education
+52|science
+47|social_movement
+45|professional
+15|women_pioneers
+11|sports
+11|education_practice
+10|religion_thought
+2|military
+1|other
+1|media
+
+ succeeded in 0ms:
+1316|津田梅子|1864|education|学校制度、私学、啓蒙思想、人文社会科学、女子教育を担った明治期の教育・思想人材。
+1461|植木枝盛|1857|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1462|中江兆民|1847|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1463|田中正造|1841|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1464|堺利彦|1871|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1465|片山潜|1859|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1466|幸徳秋水|1871|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1467|福田英子|1865|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1468|岸田俊子|1863|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1469|矢嶋楫子|1833|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1470|奥村五百子|1845|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1471|石井十次|1865|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1472|木下尚江|1869|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1473|謝花昇|1865|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1474|宮崎滔天|1871|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1475|宮崎八郎|1851|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1476|安部磯雄|1865|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1477|荒畑寒村|1887|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1478|有馬頼寧|1884|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1479|大山郁夫|1880|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+ succeeded in 0ms:
+meiji|明治|Meiji|1868|1912|0||1
+taisho|大正|Taisho|1912|1926|0||2
+showa_pre|昭和前期|Showa Pre-war|1926|1945|0||3
+showa_post|昭和後期|Showa Post-war|1946|1989|0||4
+heisei|平成|Heisei|1989|2019|0||5
+reiwa|令和|Reiwa|2019|2030|0||6
+future_2030|2030年代|2030s|2030|2040|1||7
+future_2050|2050年代|2050s|2050|2060|1||8
+future_2100|2100年代|2100s|2100|2110|1||9
+all|全時代|All eras|1868|2030|0|横断的収集用の擬似時代ID|0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,death_year,domain,source_url FROM achievers WHERE domain='women_pioneers' OR correction_phase='6.C' ORDER BY birth_year LIMIT 50\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+4705|ヒュパティア|360|415|women_pioneers|https://en.wikipedia.org/wiki/Hypatia
+4785|ヒルデガルト・フォン・ビンゲン|1098|1179|women_pioneers|https://en.wikipedia.org/wiki/Hildegard_of_Bingen
+4786|アルテミジア・ジェンティレスキ|1593|1656|women_pioneers|https://en.wikipedia.org/wiki/Artemisia_Gentileschi
+4706|マリア・ジビーラ・メーリアン|1647|1717|women_pioneers|https://en.wikipedia.org/wiki/Maria_Sibylla_Merian
+4707|カロライン・ハーシェル|1750|1848|women_pioneers|https://en.wikipedia.org/wiki/Caroline_Herschel
+4787|エリザベート＝ルイーズ・ヴィジェ＝ルブラン|1755|1842|women_pioneers|https://en.wikipedia.org/wiki/Elisabeth_Vigee_Le_Brun
+4834|メアリ・ウルストンクラフト|1759|1797|women_pioneers|https://en.wikipedia.org/wiki/Mary_Wollstonecraft
+4788|ジェーン・オースティン|1775|1817|women_pioneers|https://en.wikipedia.org/wiki/Jane_Austen
+4711|メアリー・サマヴィル|1780|1872|women_pioneers|https://en.wikipedia.org/wiki/Mary_Somerville
+4789|メアリー・シェリー|1797|1851|women_pioneers|https://en.wikipedia.org/wiki/Mary_Shelley
+4852|ソジャーナ・トゥルース|1797|1883|women_pioneers|https://en.wikipedia.org/wiki/Sojourner_Truth
+4708|メアリー・アニング|1799|1847|women_pioneers|https://en.wikipedia.org/wiki/Mary_Anning
+4790|ジョルジュ・サンド|1804|1876|women_pioneers|https://en.wikipedia.org/wiki/George_Sand
+4688|メアリー・シーコール|1805|1881|women_pioneers|https://en.wikipedia.org/wiki/Mary_Seacole
+4791|ハリエット・ビーチャー・ストウ|1811|1896|women_pioneers|https://en.wikipedia.org/wiki/Harriet_Beecher_Stowe
+4709|エイダ・ラブレス|1815|1852|women_pioneers|https://en.wikipedia.org/wiki/Ada_Lovelace
+4851|エリザベス・キャディ・スタントン|1815|1902|women_pioneers|https://en.wikipedia.org/wiki/Elizabeth_Cady_Stanton
+4710|ユーニス・ニュートン・フット|1819|1888|women_pioneers|https://en.wikipedia.org/wiki/Eunice_Newton_Foote
+
+codex
+既存ログではこの担当テーマは未投入のままです。同じPhase 6.Cの他テーマも途中で止まっているようなので、ここではDB内に既にある女性横断データを再利用せず、新規候補だけを絞ります。
+exec
+/bin/bash -lc 'rg --files | head -200' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+reports/phase2_initial_status.md
+reports/verification_log.md
+reports/bias_audit_report.md
+reports/phase3_audit_report.md
+reports/full_bias_audit_report.md
+reports/implications_3parts.html
+data/load_showa_post_media_journalism.sql
+data/load_showa_post_media_journalism_batch3.sql
+phase1_scoping/insert_reiwa_social_movement.sql
+phase1_scoping/must_have_checklist.md
+tmp_collection/update_showa_post_core_years.py
+tmp_collection/rebalance_showa_post.py
+tmp_collection/clean_showa_post_names.py
+tmp_collection/seed_showa_post.py
+tmp_collection/ensure_showa_post_checklist.py
+scripts/insert_showa_post_business_supplement.sql
+scripts/import_external_dbs.py
+scripts/import_phase2.py
+scripts/phase6_1_redistribute.py
+scripts/insert_taisho_achievers.py
+scripts/phase4_relations.py
+scripts/insert_diaspora_ainu_okinawa.sql
+scripts/init_schema.sql
+scripts/insert_taisho_culture_arts.sql
+scripts/insert_taisho_culture_arts_supplement.sql
+scripts/supplement_showa_pre_achievers.py
+scripts/insert_heisei_business_200.py
+scripts/insert_all_women_pioneers.py
+scripts/phase6_0_flags.py
+scripts/phase5_full_bias_audit.py
+scripts/insert_meiji_science_tech_achievers.py
+scripts/insert_showa_post_business.sql
+scripts/insert_taisho_social_movement.sql
+scripts/phase3_audit.py
+scripts/insert_taisho_social_movement_supplement.sql
+scripts/insert_showa_post_sports_codex.sql
+scripts/phase5_bias_audit.py
+scripts/seed_showa_pre_achievers.py
+phase0_planning/integrated_foundation_plan.md
+dashboards/bias_audit.json
+dashboards/bias_audit_history.json
+dashboards/data.json
+dashboards/l1l2_matrix_calibrated.json
+dashboards/l1l2_matrix.json
+dashboards/index.html
+phase2_collection/insert_reiwa_achievers.py
+phase2_collection/codex_team35_launch.sh
+phase2_collection/codex_parallel_launch.sh
+phase2_collection/codex_team35_launch.sh.bak
+css/textbook.css
+css/textbook-init.js
+phase6_correction/logs/p6_C_reiwa_women_20260505-200418.log
+phase6_correction/logs/p6_F_l2_anthro_20260505-200428.log
+phase6_correction/logs/active_pids.txt
+phase6_correction/logs/p6_B_showa_pre_craft_20260505-200355.log
+phase6_correction/logs/p6_B_meiji_local_20260505-200349.log
+phase6_correction/logs/p6_B_taisho_local_20260505-200353.log
+phase6_correction/logs/p6_F_l2_sociology_20260505-200424.log
+phase6_correction/logs/p6_F_l2_critical_20260505-200430.log
+phase6_correction/logs/p6_B_showa_post_craft_20260505-200357.log
+phase6_correction/logs/p6_E_l4_asia_20260505-200440.log
+phase6_correction/logs/p6_B_taisho_craft_20260505-200351.log
+phase6_correction/logs/p6_F_l2_history_20260505-200422.log
+phase6_correction/logs/p6_F_l2_edu_socio_20260505-200420.log
+phase6_correction/logs/p6_C_showa_post_women_20260505-200414.log
+phase6_correction/logs/p6_F_l2_gender_20260505-200426.log
+phase6_correction/logs/p6_G_refs_asia_20260505-200448.log
+phase6_correction/logs/p6_B_reiwa_local_20260505-200401.log
+phase6_correction/logs/p6_C_heisei_women_20260505-200416.log
+phase6_correction/logs/p6_C_showa_pre_women_20260505-200412.log
+phase6_correction/logs/p6_D_low_score_pre1945_20260505-200454.log
+phase6_correction/logs/p6_B_meiji_craft_20260505-200347.log
+phase6_correction/logs/p6_B_heisei_local_20260505-200359.log
+phase6_correction/logs/p6_E_l4_latam_20260505-200444.log
+phase6_correction/logs/p6_C_meiji_women_20260505-200408.log
+phase6_correction/logs/p6_E_l4_africa_20260505-200442.log
+phase6_correction/logs/p6_C_taisho_women_20260505-200410.log
+phase6_correction/logs/p6_E_l4_postwest_20260505-200446.log
+phase6_correction/logs/p6_G_refs_africa_20260505-200450.log
+phase6_correction/logs/p6_G_refs_latam_20260505-200452.log
+phase6_correction/codex_correction_launch.sh
+index.html
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), primary_era_id, domain FROM achievers WHERE primary_era_id='taisho' GROUP BY domain ORDER BY COUNT(*) DESC\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT COUNT(*) FROM achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,death_year,domain,achievement_summary FROM achievers WHERE primary_era_id='taisho' AND (domain='women_pioneers' OR achievement_summary LIKE '%女性%' OR source_team LIKE '%women%') ORDER BY birth_year LIMIT 100\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+20226
+
+ succeeded in 0ms:
+168|taisho|culture_arts
+112|taisho|business
+100|taisho|social_movement
+60|taisho|local_craft
+36|taisho|politics
+36|taisho|craft
+35|taisho|education
+32|taisho|sports
+28|taisho|agriculture_local
+23|taisho|science
+14|taisho|women_pioneers
+14|taisho|religion_thought
+7|taisho|science_tech
+6|taisho|education_practice
+3|taisho|local_excellent_culture
+2|taisho|military
+1|taisho|professional
+
+ succeeded in 0ms:
+4715|マリ・キュリー|1867|1934|women_pioneers|放射能研究で二分野のノーベル賞を受けた
+4750|マダム・C・J・ウォーカー|1867|1919|women_pioneers|ヘアケア事業で成功し米国初期の女性自力富豪となった
+4699|アリス・ハミルトン|1869|1970|women_pioneers|産業医学の先駆者として労働者の健康保護に貢献した
+4836|マリア・モンテッソーリ|1870|1952|women_pioneers|モンテッソーリ教育法を開発し幼児教育を変えた
+4848|ローザ・ルクセンブルク|1871|1919|women_pioneers|政治経済思想と労働運動で女性知識人の役割を示した
+4681|サラ・ジョセフィン・ベーカー|1873|1945|women_pioneers|乳幼児保健を中心に都市公衆衛生を改善した
+4826|アリス・ギイ＝ブラシェ|1873|1968|women_pioneers|初期映画産業で監督・プロデューサーとして先駆的に活動した
+4835|メアリー・マクロード・ベスーン|1875|1955|women_pioneers|黒人女性教育者として学校設立と公民権活動を進めた
+4867|秋瑾|1875|1907|women_pioneers|中国の女性革命家・教育者として女性解放を訴えた
+1901|相馬黒光|1876|1955|education|相馬黒光は大正期前後に女性活躍・教育文化で活動し、近代日本の教育・思想分野の形成に実績を残した。
+4714|リーゼ・マイトナー|1878|1968|women_pioneers|核分裂の理論的解釈に貢献した
+4832|アイリーン・グレイ|1878|1976|women_pioneers|モダニズム家具・建築で独自の地位を築いた
+1903|長谷川時雨|1879|1941|education|長谷川時雨は大正期前後に女性活躍・教育文化で活動し、近代日本の教育・思想分野の形成に実績を残した。
+4866|フダー・シャアラーウィー|1879|1947|women_pioneers|エジプト女性運動を率い教育と社会参加を推進した
+4838|ヘレン・ケラー|1880|1968|women_pioneers|障害者の教育・権利擁護を世界的に訴えた
+4869|フランシス・パーキンス|1880|1965|women_pioneers|米国初の女性閣僚として労働政策と社会保障制度に貢献した
+4412|田村俊子|1884|1945|social_movement|女性の自立と性を描く作品・言論で、大正期女性解放思想の広がりを支えた。
+4419|柳原白蓮|1885|1967|social_movement|白蓮事件を通じて家制度と女性の自己決定を問い、大正期女性自立の象徴となった。
+4910|山川浦路|1885|1947|culture_arts|宝塚・新劇・映画で活動し、大正期舞台芸術に女性の新しい表現領域を広げた。
+1902|生田花世|1888|1970|education|生田花世は大正期前後に女性活躍・教育文化で活動し、近代日本の教育・思想分野の形成に実績を残した。
+4413|三宅やす子|1890|1932|social_movement|女性記者・作家として婦人問題を論じ、大正期女性言論の担い手となった。
+4416|九津見房子|1890|1980|social_movement|社会主義女性運動家として労働運動・婦人運動を横断し、女性の政治参加を訴えた。
+4908|森律子|1890|1961|culture_arts|新劇女優として舞台表現の近代化に関わり、女性俳優の職能確立を進めた。
+4965|島成園|1892|1970|culture_arts|大阪の女性日本画家として女性像を描き、女性作家の活動領域を広げた。
+4414|保良せき|1893|1983|social_movement|婦人参政権運動に参加し、地域と全国を結ぶ女性運動の組織化に関わった。
+4420|波多野秋子|1894|1923|social_movement|大杉栄周辺のアナキズム・自由恋愛論の渦中で、女性の生と自立をめぐる議論を可視化した。
+4911|五月信子|1894|1959|culture_arts|新派・映画で活躍し、近代都市の観客に向けた女性演技を発展させた。
+4907|川田芳子|1895|1970|culture_arts|松竹蒲田の女性スターとして、現代劇における女性像の普及に貢献した。
+4912|花柳はるみ|1896|1962|culture_arts|日本映画初期の女優として、女性役を女性が演じる映画表現の定着に寄与した。
+4966|梶原緋佐子|1896|1988|culture_arts|女性日本画家として都市女性や舞妓を描き、京都画壇の多様性を示した。
+4418|鄭七星|1897|1958|social_movement|朝鮮の女性社会運動家として日本留学・社会主義運動を経験し、植民地下の女性解放運動を担った。
+4950|山六郎|1897|1982|culture_arts|少女雑誌の挿絵で抒情的な女性像を描き、出版美術の裾野を広げた。
+4958|東郷青児|1897|1978|culture_arts|未来派的表現から独自の女性像へ展開し、モダンな洋画の受容を広げた。
+4405|宮本百合子|1899|1951|social_movement|女性作家としてプロレタリア文化運動に参加し、女性解放と社会運動を結びつけた。
+4417|山高しげり|1899|1977|social_movement|婦選運動に参加し、女性参政権実現後も女性の政治参加拡大を進めた。
+4913|英百合子|1900|1970|culture_arts|松竹蒲田などで現代劇に出演し、サイレント映画の女性演技を支えた。
+4989|丹野セツ|1902|1987|social_movement|紡績労働者から労働運動・女性運動に参加し、女性労働者の組織化を担った。
+4415|堺真柄|1903|1983|social_movement|社会主義者の家庭環境から労働・女性運動に入り、左派女性活動家として活動した。
+4992|中本たか子|1903|1991|social_movement|プロレタリア文学・女性運動に関わり、女性労働者と生活者の視点を社会批判に接続した。
+4990|鍋山歌子|1904|1988|social_movement|労働運動・左派女性運動に参加し、女性労働者と政治運動を結びつけた。
+4991|伊藤千代子|1905|1929|social_movement|学生運動から社会主義運動に参加し、若い女性知識人の政治参加を象徴した。
+4914|筑波雪子|1906|1977|culture_arts|大正末から昭和初期の映画女優として、モダンな女性像を演じた。
+4668|与那嶺貞|1909|2003|local_craft|読谷山花織の保持者として、沖縄の花織技法の復興と伝承に尽力した女性染織家。
+4916|夏川静江|1909|1999|culture_arts|少女スターから映画女優へ展開し、初期映画の若年女性像を担った。
+4988|桂ゆき|1913|1991|culture_arts|コラージュや寓意的表現で女性前衛画家として独自の位置を築いた。
+
+exec
+/bin/bash -lc "sed -n '1,220p' scripts/insert_taisho_social_movement.sql" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sed -n '1,240p' scripts/insert_taisho_achievers.py" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+#!/usr/bin/env python3
+import json
+import sqlite3
+from pathlib import Path
+from urllib.parse import quote
+
+DB_PATH = Path(__file__).resolve().parents[1] / "data" / "era_talents.db"
+TEAM = "codex_taisho"
+
+DOMAIN_CAPS = {
+    "politics": [("age_social_change", 9), ("cog_systems", 8), ("soc_interpersonal", 8), ("val_collective", 8)],
+    "business": [("age_entrepreneur", 9), ("cog_systems", 8), ("age_meta_learning", 8), ("soc_interpersonal", 7)],
+    "science": [("cog_logical", 9), ("cog_critical", 8), ("cog_creativity", 8), ("age_meta_learning", 7)],
+    "technology": [("cog_systems", 9), ("cog_logical", 8), ("cre_cross_domain", 8), ("age_entrepreneur", 7)],
+    "culture_arts": [("cog_creativity", 9), ("val_traditional", 8), ("cre_cross_domain", 8), ("val_tolerance", 7)],
+    "education": [("age_meta_learning", 9), ("cog_critical", 8), ("soc_interpersonal", 8), ("val_collective", 7)],
+    "social_movement": [("age_social_change", 9), ("age_resilience", 8), ("soc_interpersonal", 8), ("val_tolerance", 7)],
+    "sports": [("age_resilience", 9), ("age_meta_learning", 8), ("val_collective", 7), ("soc_interpersonal", 7)],
+    "agriculture_local": [("cog_systems", 8), ("val_eco", 8), ("soc_interpersonal", 8), ("age_social_change", 7)],
+    "craft": [("val_traditional", 9), ("cog_creativity", 8), ("age_meta_learning", 8), ("cre_cross_domain", 7)],
+    "media": [("cog_info", 9), ("cog_critical", 8), ("age_social_change", 7), ("soc_interpersonal", 7)],
+}
+
+DOMAIN_LABEL = {
+    "politics": "政治・行政",
+    "business": "実業・経営",
+    "science": "科学",
+    "technology": "技術",
+    "culture_arts": "文化芸術",
+    "education": "教育・思想",
+    "social_movement": "社会運動",
+    "sports": "スポーツ",
+    "agriculture_local": "地域・農業",
+    "craft": "工芸",
+    "media": "メディア",
+}
+
+YEARS = {
+    "原敬": (1856, 1921), "犬養毅": (1855, 1932), "加藤高明": (1860, 1926),
+    "若槻礼次郎": (1866, 1949), "田中義一": (1864, 1929), "永井柳太郎": (1881, 1944),
+    "後藤新平": (1857, 1929), "高橋是清": (1854, 1936), "山本権兵衛": (1852, 1933),
+    "清浦奎吾": (1850, 1942), "寺内正毅": (1852, 1919), "西園寺公望": (1849, 1940),
+    "尾崎行雄": (1858, 1954), "浜口雄幸": (1870, 1931), "幣原喜重郎": (1872, 1951),
+    "床次竹二郎": (1867, 1935), "水野錬太郎": (1868, 1949), "田健治郎": (1855, 1930),
+    "一木喜徳郎": (1867, 1944), "平沼騏一郎": (1867, 1952), "美濃部達吉": (1873, 1948),
+    "吉野作造": (1878, 1933), "牧野伸顕": (1861, 1949), "内田康哉": (1865, 1936),
+    "松岡洋右": (1880, 1946), "石井菊次郎": (1866, 1945), "小川平吉": (1869, 1942),
+    "小林一三": (1873, 1957), "松下幸之助": (1894, 1989), "出光佐三": (1885, 1981),
+    "堤康次郎": (1889, 1964), "根津嘉一郎": (1860, 1940), "武藤山治": (1867, 1934),
+    "渋沢栄一": (1840, 1931), "岩崎久弥": (1865, 1955), "大倉喜八郎": (1837, 1928),
+    "安田善次郎": (1838, 1921), "浅野総一郎": (1848, 1930), "鮎川義介": (1880, 1967),
+    "石橋正二郎": (1889, 1976), "豊田佐吉": (1867, 1930), "豊田喜一郎": (1894, 1952),
+    "野村徳七": (1878, 1945), "本多光太郎": (1870, 1954), "寺田寅彦": (1878, 1935),
+    "長岡半太郎": (1865, 1950), "八木秀次": (1886, 1976), "鈴木梅太郎": (1874, 1943),
+    "北里柴三郎": (1853, 1931), "志賀潔": (1871, 1957), "野口英世": (1876, 1928),
+    "高峰譲吉": (1854, 1922), "池田菊苗": (1864, 1936), "牧野富太郎": (1862, 1957),
+    "保井コノ": (1880, 1971), "黒田チカ": (1884, 1968), "芥川龍之介": (1892, 1927),
+    "谷崎潤一郎": (1886, 1965), "菊池寛": (1888, 1948), "武者小路実篤": (1885, 1976),
+    "志賀直哉": (1883, 1971), "宮沢賢治": (1896, 1933), "北原白秋": (1885, 1942),
+    "竹久夢二": (1884, 1934), "岸田劉生": (1891, 1929), "与謝野晶子": (1878, 1942),
+    "新渡戸稲造": (1862, 1933), "河上肇": (1879, 1946), "和辻哲郎": (1889, 1960),
+    "九鬼周造": (1888, 1941), "西田幾多郎": (1870, 1945), "田辺元": (1885, 1962),
+    "安部能成": (1883, 1966), "平塚らいてう": (1886, 1971), "市川房枝": (1893, 1981),
+    "山川菊栄": (1890, 1980), "伊藤野枝": (1895, 1923), "堺利彦": (1871, 1933),
+    "大杉栄": (1885, 1923), "賀川豊彦": (1888, 1960), "嘉納治五郎": (1860, 1938),
+    "金栗四三": (1891, 1983), "三島弥彦": (1886, 1954), "人見絹枝": (1907, 1931),
+}
+
+GROUPS = [
+("politics","政治・行政","原敬,犬養毅,加藤高明,若槻礼次郎,田中義一,永井柳太郎,後藤新平,高橋是清,山本権兵衛,清浦奎吾,寺内正毅,西園寺公望,尾崎行雄,浜口雄幸,幣原喜重郎,床次竹二郎、水野錬太郎,田健治郎,一木喜徳郎,平沼騏一郎,美濃部達吉,吉野作造,牧野伸顕,内田康哉,松岡洋右,石井菊次郎,小川平吉,中橋徳五郎,望月圭介,江木翼,芦田均,町田忠治,三土忠造,松田源治,斎藤隆夫,鳩山一郎"),
+("business","実業・起業","小林一三,松下幸之助,出光佐三,堤康次郎,根津嘉一郎,武藤山治,渋沢栄一,岩崎久弥,住友友純,大倉喜八郎,安田善次郎,浅野総一郎,鮎川義介,石橋正二郎,豊田佐吉,豊田喜一郎,野村徳七,山下亀三郎,藤原銀次郎,大川平三郎,郷誠之助,団琢磨,益田孝,森村市左衛門,服部金太郎,相馬愛蔵,鳥井信治郎,江崎利一,森永太一郎,藤山雷太,福澤桃介,松永安左エ門,早川徳次,御木本幸吉,大原孫三郎,金子直吉"),
+("science","科学技術","本多光太郎,寺田寅彦,長岡半太郎,八木秀次,鈴木梅太郎,北里柴三郎,志賀潔,野口英世,高峰譲吉,池田菊苗,田中館愛橘,石原純,仁科芳雄,湯川秀樹,朝永振一郎,西川正治,菊池正士,正田建次郎,岡潔,高木貞治,藤原松三郎,牧野富太郎,三好学,柴田桂太,本多静六,石川千代松,丘浅次郎,飯島魁,平瀬作五郎,藤井健次郎,保井コノ,黒田チカ,荻野久作,二木謙三,山極勝三郎,大森房吉"),
+("culture_arts","文学","芥川龍之介,谷崎潤一郎,菊池寛,武者小路実篤,志賀直哉,宮沢賢治,北原白秋,萩原朔太郎,佐藤春夫,室生犀星,島崎藤村,与謝野晶子,与謝野鉄幹,永井荷風,有島武郎,有島生馬,里見弴,久米正雄,宇野浩二,広津和郎,葛西善蔵,正宗白鳥,徳田秋声,泉鏡花,小山内薫,坪内逍遥,岡本綺堂,小川未明,鈴木三重吉,千葉省三,野口雨情,西條八十,堀口大學,小酒井不木,江戸川乱歩,横光利一"),
+("culture_arts","美術・音楽・演劇","竹久夢二,岸田劉生,黒田清輝,藤島武二,梅原龍三郎,安井曾太郎,小出楢重,萬鉄五郎,村山槐多,関根正二,恩地孝四郎,山本鼎,柳宗悦,高村光太郎,朝倉文夫,中山晋平,山田耕筰,藤原義江,本居長世,弘田龍太郎,三浦環,松井須磨子,川上貞奴,栗島すみ子,二代目市川左團次,初代中村吉右衛門,六代目尾上菊五郎,七代目松本幸四郎,初代水谷八重子,岡田嘉子,村田実,小山内薫,土方与志,佐々紅華,島村抱月,久保田万太郎"),
+("education","教育・思想","新渡戸稲造,河上肇,和辻哲郎,九鬼周造,西田幾多郎,田辺元,安部能成,左右田喜一郎,柳田国男,折口信夫,津田左右吉,内藤湖南,白鳥庫吉,喜田貞吉,田中耕太郎,小泉信三,南原繁,大内兵衛,矢内原忠雄,末弘厳太郎,穂積重遠,高田保馬,三木清,戸坂潤,長谷川如是閑,大山郁夫,福田徳三,土田杏村,西晋一郎,桑木厳翼,倉田百三,波多野精一,朝永三十郎,阿部次郎,小原國芳,沢柳政太郎"),
+("social_movement","社会運動・福祉","平塚らいてう,市川房枝,山川菊栄,伊藤野枝,堺利彦,大杉栄,賀川豊彦,鈴木文治,麻生久,山川均,荒畑寒村,徳田球一,片山潜,安部磯雄,赤松克麿,松岡駒吉,高野岩三郎,添田唖蝉坊,布施辰治,宮崎龍介,奥むめお,ガントレット恒子,久布白落実,矢嶋楫子,河崎なつ,高群逸枝,山田わか,山室軍平,留岡幸助,生江孝之,石井十次,田澤義鋪,下村湖人,杉山元治郎,神近市子,高良とみ"),
+("sports","スポーツ・体育","嘉納治五郎,金栗四三,三島弥彦,二階堂トクヨ,野口源三郎,織田幹雄,人見絹枝,鶴田義行,内田正練,高石勝男,斎藤兼吉,入江稔夫,宮崎康二,清川正二,牧野正蔵,横山隆志,前畑秀子,田畑政治,岸清一,野津謙,鈴木惣太郎,飛田穂洲,河野安通志,押川春浪,水原茂,三原脩,若林忠志,苅田久徳,西村幸生,藤本定義,鈴木龍二,大谷武一,東龍太郎,可児徳,大森兵蔵,安藤幸"),
+("agriculture_local","地域・農業・民俗","横井時敬,稲塚権次郎,加藤完治,石黒忠篤,那須皓,東畑精一,近藤康男,小平権一,千石興太郎,山崎延吉,前田正名,佐藤昌介,南方熊楠,渋沢敬三,早川孝太郎,今和次郎,有馬頼寧,三宅正一,下中弥三郎,川村竹治,山本滝之助,松本烝治,一戸兵衛,井上友一,田子一民,井上雅二,宮本常一,折口信夫,小寺融吉,竹内利美,柳田国男,佐々木喜善,金田一京助,知里真志保,鳥居龍蔵,伊波普猷"),
+("craft","工芸・職人","濱田庄司,河井寛次郎,富本憲吉,北大路魯山人,板谷波山,香取秀真,六角紫水,山鹿清華,芹沢銈介,小森忍,バーナード・リーチ,高村豊周,鹿島一谷,五代清水六兵衛,宮川香山,初代諏訪蘇山,二代諏訪蘇山,加藤土師萌,荒川豊蔵,金重陶陽,石黒宗麿,山田宗美,海野清,沼田一雅,楠部彌弌,十二代酒井田柿右衛門,十一代今泉今右衛門,初代宮之原謙,津田信夫,平田郷陽,堀柳女,野口園生,飯塚琅玕斎,高野松山,松田権六,磯井如真"),
+]
+
+WOMEN = "相馬黒光,生田花世,長谷川時雨,岡本かの子,柳原白蓮,野上弥生子,宇野千代,吉屋信子,宮本百合子,網野菊,林芙美子,円地文子,佐多稲子,三宅やす子,村岡花子,九条武子,柳兼子,鳩山春子,安井てつ,井上秀,河井道,津田梅子,広岡浅子,加藤シヅエ,羽仁もと子,下田歌子,成瀬仁蔵,吉岡彌生,大江スミ,山脇房子,棚橋絢子,跡見花蹊,大妻コタカ,小原春香,久保より江,渡辺カ子"
+
+
+def split_names(text):
+    return [x.strip() for x in text.replace("、", ",").split(",") if x.strip()]
+
+
+def build_rows():
+    rows = []
+    for domain, sub, names in GROUPS:
+        for name in split_names(names):
+            rows.append((name, domain, sub))
+    for name in split_names(WOMEN):
+        rows.append((name, "education", "女性活躍・教育文化"))
+
+    seen = set()
+    unique = []
+    for name, domain, sub in rows:
+        if name in seen:
+            continue
+        seen.add(name)
+        unique.append((name, domain, sub))
+
+    if len(unique) < 360:
+        raise SystemExit(f"only {len(unique)} unique names")
+    return unique[:360]
+
+
+def main():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys=ON")
+    inserted = 0
+    rows = build_rows()
+    for idx, (name, domain, sub_domain) in enumerate(rows, start=1):
+        birth_year, death_year = YEARS.get(name, (None, None))
+        if birth_year is None:
+            exists = conn.execute(
+                "SELECT id FROM achievers WHERE name_ja=? AND birth_year IS NULL", (name,)
+            ).fetchone()
+        else:
+            exists = conn.execute(
+                "SELECT id FROM achievers WHERE name_ja=? AND birth_year=?", (name, birth_year)
+            ).fetchone()
+        if exists:
+            continue
+
+        label = DOMAIN_LABEL.get(domain, domain)
+        summary = f"{name}は大正期前後に{sub_domain}で活動し、近代日本の{label}分野の形成に実績を残した。"
+        source_url = "https://ja.wikipedia.org/wiki/" + quote(name)
+        is_traditional = 1 if idx <= 120 else 0
+        is_local = 0 if is_traditional else 1
+        completeness = 80 if birth_year is not None and death_year is not None else 55
+        cur = conn.execute(
+            """
+            INSERT INTO achievers (
+                name_ja, birth_year, death_year, primary_era_id, domain, sub_domain,
+                achievement_summary, notable_works, is_traditional_great, is_local_excellent,
+                data_completeness, source_team, source_url, notes
+            ) VALUES (?, ?, ?, 'taisho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                name, birth_year, death_year, domain, sub_domain, summary,
+                json.dumps([sub_domain], ensure_ascii=False),
+                is_traditional, is_local, completeness, TEAM, source_url,
+                "大正期基礎母集団投入。生没年NULLの行は追加検証対象。",
+            ),
+        )
+        achiever_id = cur.lastrowid
+        for cap_id, score in DOMAIN_CAPS.get(domain, DOMAIN_CAPS["education"]):
+            conn.execute(
+                """
+                INSERT INTO achiever_capabilities (
+                    achiever_id, capability_id, score, evidence_quote, evidence_source, notes
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    achiever_id, cap_id, score, summary, source_url,
+                    "分野・業績要約に基づく初期スコア。後続調査で精緻化。",
+                ),
+            )
+        inserted += 1
+        if inserted % 50 == 0:
+            conn.commit()
+            count = conn.execute(
+                "SELECT COUNT(*) FROM achievers WHERE primary_era_id='taisho'"
+            ).fetchone()[0]
+            print(f"committed {inserted}; taisho count={count}")
+
+    conn.commit()
+    final = conn.execute("SELECT COUNT(*) FROM achievers WHERE primary_era_id='taisho'").fetchone()[0]
+    trad = conn.execute("SELECT COALESCE(SUM(is_traditional_great),0) FROM achievers WHERE primary_era_id='taisho'").fetchone()[0]
+    local = conn.execute("SELECT COALESCE(SUM(is_local_excellent),0) FROM achievers WHERE primary_era_id='taisho'").fetchone()[0]
+    caps = conn.execute(
+        "SELECT COUNT(*) FROM achiever_capabilities WHERE achiever_id IN (SELECT id FROM achievers WHERE primary_era_id='taisho')"
+    ).fetchone()[0]
+    print(f"inserted={inserted}")
+    print(f"final taisho count={final}")
+    print(f"traditional={trad}; local_excellent={local}; capabilities={caps}")
+
+
+if __name__ == "__main__":
+    main()
+
+ succeeded in 0ms:
+-- Batch 1: 50 achievers for taisho/social_movement.
+BEGIN;
+WITH rows(name_ja,name_en,name_kana,birth_year,death_year,birth_place,sub_domain,summary,works,family_class,education_path,is_great,is_local) AS (
+  VALUES
+  ('西川光二郎','Nishikawa Kojiro','にしかわ こうじろう',1876,1940,'兵庫県','socialism_labor','社会主義協会・平民社系の論客として大正期社会主義思想と労働運動の普及に関わった。','["平民社での社会主義言論","労働運動支援"]','other','東京専門学校',0,0),
+  ('岩佐作太郎','Iwasa Sakutaro','いわさ さくたろう',1879,1967,'千葉県','anarchism','日本アナキズム運動の理論家・組織者として大正期以降の自由連合思想を支えた。','["アナキズム運動","自由連合思想"]','farmer','独学',0,0),
+  ('八太舟三','Hatta Shuzo','はった しゅうぞう',1886,1934,'広島県','anarchism','無政府共産主義の理論家として大正末から昭和初期のアナキスト運動に影響を与えた。','["無政府共産主義論","アナキスト運動"]','other','僧籍・独学',0,0),
+  ('辻潤','Tsuji Jun','つじ じゅん',1884,1944,'東京都','anarchism_culture','ダダイズムとアナキズムを結び、大正期の反権威的文化運動を展開した。','["ダダイズム紹介","アナキズム評論"]','other','正則英語学校',0,0),
+  ('金子文子','Kaneko Fumiko','かねこ ふみこ',1903,1926,'神奈川県','anarchism_diaspora','朴烈とともに国家権力を批判した無政府主義者で、植民地支配と家父長制への抵抗を象徴した。','["獄中手記","無政府主義運動"]','working_class','独学',0,0),
+  ('朴烈','Pak Yol','ぱく よる',1902,1974,'朝鮮慶尚北道','anarchism_diaspora','在日朝鮮人アナキストとして大正期の反植民地主義・反権力運動を担った。','["不逞社","朝鮮人アナキズム運動"]','other','独学',0,0),
+  ('和田久太郎','Wada Kyutaro','わだ きゅうたろう',1893,1928,'兵庫県','anarchism_labor','労働運動からアナキズムに入り、直接行動派の活動家として大正期社会運動に関与した。','["労働運動","アナキスト直接行動"]','working_class','独学',0,0),
+  ('古田大次郎','Furuta Daijiro','ふるた だいじろう',1900,1925,'岐阜県','anarchism_labor','大正末期のアナキスト運動に参加し、若年活動家層の急進化を示す存在となった。','["アナキスト運動","大正末期直接行動"]','other','独学',0,0),
+  ('山鹿泰治','Yamaga Taiji','やまが たいじ',1892,1970,'京都府','anarchism_esperanto','アナキズムとエスペラント運動を結び、国際主義的な社会運動ネットワークを築いた。','["エスペラント運動","アナキズム翻訳"]','other','独学',0,0),
+  ('近藤憲二','Kondo Kenji','こんどう けんじ',1895,1969,'新潟県','anarchism_labor','大杉栄らと交流し、大正期アナキズム運動の組織化と記録に関わった。','["アナキズム運動","大杉栄関連記録"]','other','独学',0,0),
+  ('望月桂','Mochizuki Katsura','もちづき かつら',1886,1975,'長野県','anarchism_culture','漫画・挿絵と社会批評を通じて大正期アナキズム文化を広げた。','["社会漫画","アナキズム文化運動"]','other','東京美術学校',0,0),
+  ('高津正道','Takatsu Masamichi','たかつ まさみち',1893,1974,'広島県','socialism_labor','社会主義運動・労働農民運動に参加し、無産政党運動の現場を担った。','["労働農民運動","無産政党運動"]','other','早稲田大学',0,0),
+  ('森戸辰男','Morito Tatsuo','もりと たつお',1888,1984,'広島県','socialism_education','森戸事件で知られ、大学知識人として社会主義研究と教育の自由を結びつけた。','["森戸事件","社会政策研究"]','other','東京帝国大学',1,0),
+  ('河野密','Kono Mitsu','こうの みつ',1897,1981,'高知県','labor_politics','労働運動から無産政党運動へ進み、労働者代表の政治参加を推進した。','["労働運動","無産政党運動"]','other','早稲田大学',0,0),
+  ('平野力三','Hirano Rikizo','ひらの りきぞう',1898,1981,'山梨県','peasant_labor','農民運動・無産政党運動の指導者として、小作争議と政治運動を接続した。','["日本農民組合","無産政党運動"]','farmer','独学',0,0),
+  ('亀井貫一郎','Kamei Kanichiro','かめい かんいちろう',1892,1987,'東京都','socialism_politics','社会大衆党などで無産政党運動を担い、労働者・農民の政治的代表化に関わった。','["無産政党運動","社会大衆党"]','other','東京帝国大学',0,0),
+  ('棚橋小虎','Tanahashi Kotora','たなはし ことら',1889,1973,'岐阜県','labor_union','労働組合運動と無産政党運動に携わり、労働者の組織化に尽力した。','["労働組合運動","無産政党運動"]','other','早稲田大学',0,0),
+  ('浅原健三','Asahara Kenzo','あさはら けんぞう',1897,1967,'福岡県','labor_union','鉱山・地域労働運動から出発し、労働者の組織化と政治参加を推進した。','["労働組合運動","無産政党運動"]','working_class','独学',0,0),
+  ('高野実','Takano Minoru','たかの みのる',1901,1974,'福岡県','labor_union','労働組合運動家として戦前から活動し、現場労働者の組織化経験を蓄積した。','["労働組合運動","総評指導"]','working_class','独学',0,0),
+  ('細井和喜蔵','Hosoi Wakizo','ほそい わきぞう',1897,1925,'京都府','labor_documentation','紡績労働の実態を記録し、労働者自身による告発的ドキュメントを残した。','["女工哀史"]','working_class','尋常小学校',0,1),
+  ('宮地嘉六','Miyachi Karoku','みやち かろく',1884,1958,'愛知県','labor_literature','労働者生活を描く文学と社会批評を通じ、都市下層労働の現実を可視化した。','["労働文学","社会小説"]','working_class','独学',0,1),
+  ('葉山嘉樹','Hayama Yoshiki','はやま よしき',1894,1945,'福岡県','proletarian_movement','労働経験と獄中経験をもとに、プロレタリア文学運動で労働者の声を表現した。','["海に生くる人々","プロレタリア文学"]','working_class','独学',0,0),
+  ('青野季吉','Aono Suekichi','あおの すえきち',1890,1961,'新潟県','proletarian_movement','プロレタリア文学理論を整備し、文化運動としての社会変革論を提示した。','["プロレタリア文学評論","文芸戦線"]','other','早稲田大学',0,0),
+  ('蔵原惟人','Kurahara Korehito','くらはら これひと',1902,1991,'東京都','proletarian_movement','プロレタリア文化運動の理論家として、芸術と階級運動の関係を論じた。','["プロレタリア芸術論","ナップ"]','other','東京外国語学校',0,0),
+  ('宮本百合子','Miyamoto Yuriko','みやもと ゆりこ',1899,1951,'東京都','women_proletarian','女性作家としてプロレタリア文化運動に参加し、女性解放と社会運動を結びつけた。','["伸子","プロレタリア文化運動"]','other','日本女子大学校中退',1,0),
+  ('小牧近江','Komaki Omi','こまき おうみ',1894,1978,'秋田県','proletarian_international','雑誌「種蒔く人」を創刊し、反戦・国際主義的なプロレタリア文化運動を進めた。','["種蒔く人","プロレタリア文学運動"]','other','フランス留学',0,0),
+  ('柳瀬正夢','Yanase Masamu','やなせ まさむ',1900,1945,'愛媛県','proletarian_art','漫画・ポスターでプロレタリア美術運動を担い、視覚表現を社会運動に接続した。','["プロレタリア美術","政治漫画"]','other','独学',0,0),
+  ('鹿地亘','Kaji Wataru','かじ わたる',1903,1982,'大分県','proletarian_international','プロレタリア文学・反戦運動に参加し、国際的反ファシズム運動へ展開した。','["プロレタリア文学","反戦運動"]','other','東京帝国大学中退',0,0),
+  ('江口渙','Eguchi Kan','えぐち かん',1887,1975,'東京府','socialism_literature','社会主義思想と文学活動を結び、労働者・民衆側の文化運動に参加した。','["社会主義文学","プロレタリア文化運動"]','other','早稲田大学中退',0,0),
+  ('岡本潤','Okamoto Jun','おかもと じゅん',1901,1978,'東京都','proletarian_poetry','プロレタリア詩人として労働者の生活感覚と社会批判を詩に表した。','["プロレタリア詩","文芸戦線"]','other','独学',0,0),
+  ('佐野碩','Sano Seki','さの せき',1905,1966,'東京都','proletarian_theatre','プロレタリア演劇運動に参加し、演劇を大衆的な社会批判の手段にした。','["プロレタリア演劇","国際演劇活動"]','other','東京帝国大学中退',0,0),
+  ('田村俊子','Tamura Toshiko','たむら としこ',1884,1945,'東京府','women_movement_culture','女性の自立と性を描く作品・言論で、大正期女性解放思想の広がりを支えた。','["あきらめ","女性解放的文学"]','other','日本女子大学校中退',0,0),
+  ('三宅やす子','Miyake Yasuko','みやけ やすこ',1890,1932,'東京府','women_movement_media','女性記者・作家として婦人問題を論じ、大正期女性言論の担い手となった。','["婦人問題評論","女性記者活動"]','other','女子学院',0,0),
+  ('保良せき','Hora Seki','ほら せき',1893,1983,'富山県','women_suffrage','婦人参政権運動に参加し、地域と全国を結ぶ女性運動の組織化に関わった。','["婦人参政権運動","婦選運動"]','other','日本女子大学校',0,0),
+  ('堺真柄','Sakai Magara','さかい まがら',1903,1983,'東京都','women_socialism','社会主義者の家庭環境から労働・女性運動に入り、左派女性活動家として活動した。','["女性労働運動","社会主義運動"]','other','独学',0,0),
+  ('九津見房子','Kutsumi Fusako','くつみ ふさこ',1890,1980,'兵庫県','women_socialism','社会主義女性運動家として労働運動・婦人運動を横断し、女性の政治参加を訴えた。','["社会主義婦人運動","労働運動"]','other','独学',0,0),
+  ('山高しげり','Yamataka Shigeri','やまたか しげり',1899,1977,'三重県','women_suffrage','婦選運動に参加し、女性参政権実現後も女性の政治参加拡大を進めた。','["婦人参政権運動","女性政治教育"]','other','日本女子大学校',0,0),
+  ('鄭七星','Jeong Chil-seong','てい しちせい',1897,1958,'朝鮮大邱','women_diaspora','朝鮮の女性社会運動家として日本留学・社会主義運動を経験し、植民地下の女性解放運動を担った。','["朝鮮女性運動","社会主義運動"]','other','日本留学',0,0),
+  ('柳原白蓮','Yanagiwara Byakuren','やなぎわら びゃくれん',1885,1967,'東京府','women_autonomy','白蓮事件を通じて家制度と女性の自己決定を問い、大正期女性自立の象徴となった。','["白蓮事件","女性自立の言論"]','aristocrat','華族女学校',1,0),
+  ('波多野秋子','Hatano Akiko','はたの あきこ',1894,1923,'東京都','women_anarchism','大杉栄周辺のアナキズム・自由恋愛論の渦中で、女性の生と自立をめぐる議論を可視化した。','["アナキズム周辺運動","自由恋愛論争"]','other','独学',0,0),
+  ('西光万吉','Saiko Mankichi','さいこう まんきち',1895,1970,'奈良県','buraku_liberation','全国水平社創立宣言の起草に関わり、被差別部落解放運動の思想的中心となった。','["全国水平社創立宣言","部落解放運動"]','working_class','独学',0,0),
+  ('阪本清一郎','Sakamoto Seiichiro','さかもと せいいちろう',1892,1987,'奈良県','buraku_liberation','全国水平社の創立に参加し、差別撤廃を求める大衆運動の組織化を担った。','["全国水平社","部落解放運動"]','working_class','独学',0,0),
+  ('南梅吉','Minami Umekichi','みなみ うめきち',1877,1947,'奈良県','buraku_liberation','水平社運動の先駆的活動家として、地域から差別撤廃運動を推進した。','["全国水平社","地域解放運動"]','working_class','独学',0,1),
+  ('平野小剣','Hirano Shoken','ひらの しょうけん',1883,1940,'奈良県','buraku_liberation','水平社運動に参加し、被差別部落の尊厳回復を訴える文化・言論活動を担った。','["水平社運動","解放運動言論"]','working_class','独学',0,1),
+  ('木村京太郎','Kimura Kyotaro','きむら きょうたろう',1902,1988,'奈良県','buraku_liberation','水平社運動の若い世代として差別撤廃運動に参加し、戦後まで運動を継承した。','["水平社運動","部落解放運動"]','working_class','独学',0,1),
+  ('朝田善之助','Asada Zennosuke','あさだ ぜんのすけ',1902,1983,'京都府','buraku_liberation','水平社運動から部落解放運動へ関わり、地域組織化と権利要求を進めた。','["水平社運動","部落解放同盟"]','working_class','独学',0,1),
+  ('小河滋次郎','Ogawa Shigejiro','おがわ しげじろう',1864,1925,'長野県','social_work_policy','監獄改良・社会事業行政を通じ、近代日本の救済制度と社会政策の形成に貢献した。','["監獄改良","社会事業行政"]','other','東京帝国大学',0,0),
+  ('窪田静太郎','Kubota Seitaro','くぼた せいたろう',1865,1946,'東京都','social_work_policy','内務官僚として救貧・社会事業政策に関わり、大正期社会行政の制度化を支えた。','["社会事業政策","救貧行政"]','other','東京帝国大学',0,0),
+  ('大林宗嗣','Obayashi Munetsugu','おおばやし むねつぐ',1884,1944,'京都府','social_work','社会事業研究と実践を通じ、都市貧困・救済事業の専門化に寄与した。','["社会事業研究","都市救済事業"]','other','同志社',0,0),
+  ('竹内愛二','Takeuchi Aiji','たけうち あいじ',1895,1980,'兵庫県','social_work','社会事業教育・ケースワーク研究を進め、日本の専門的ソーシャルワーク形成に関わった。','["社会事業教育","ケースワーク研究"]','other','同志社大学',0,0)
+)
+INSERT INTO achievers (
+  name_ja,name_en,name_kana,birth_year,death_year,birth_place,primary_era_id,secondary_era_id,domain,sub_domain,
+  achievement_summary,notable_works,family_class,education_path,fame_source,fame_score,
+  is_traditional_great,is_local_excellent,data_completeness,source_team,source_url,notes
+)
+SELECT name_ja,name_en,name_kana,birth_year,death_year,birth_place,'taisho','showa_pre','social_movement',sub_domain,
+       summary,works,family_class,education_path,'wikipedia_ja_or_ndl',6.5,
+       is_great,is_local,78,'codex_taisho_social_movement','https://ja.wikipedia.org/wiki/' || name_ja,
+       '大正期社会運動セルの追加。INSERT時に name_ja + birth_year で重複回避。'
+FROM rows
+WHERE NOT EXISTS (
+  SELECT 1 FROM achievers a WHERE a.name_ja = rows.name_ja AND a.birth_year = rows.birth_year
+);
+COMMIT;
+
+SELECT 'after_batch_1', COUNT(*) FROM achievers WHERE source_team='codex_taisho_social_movement';
+
+-- Batch 2: 30 achievers for taisho/social_movement.
+BEGIN;
+WITH rows(name_ja,name_en,name_kana,birth_year,death_year,birth_place,sub_domain,summary,works,family_class,education_path,is_great,is_local) AS (
+  VALUES
+  ('石井亮一','Ishii Ryoichi','いしい りょういち',1867,1937,'佐賀県','disability_welfare_education','滝乃川学園を創設し、知的障害児教育と福祉実践の制度化を切り開いた。','["滝乃川学園","知的障害児教育"]','other','立教学校',0,0),
+  ('石井筆子','Ishii Fudeko','いしい ふでこ',1861,1944,'長崎県','disability_welfare_education','滝乃川学園を支え、女性教育と障害児福祉を結びつけた実践者となった。','["滝乃川学園","女性・障害児福祉"]','aristocrat','女子師範学校',0,0),
+  ('西村伊作','Nishimura Isaku','にしむら いさく',1884,1963,'和歌山県','free_education','文化学院を創立し、個性尊重・男女共学を掲げる大正自由教育を実践した。','["文化学院","自由教育実践"]','merchant','独学・海外見聞',0,0),
+  ('木下竹次','Kinoshita Takeji','きのした たけじ',1872,1946,'福井県','free_education','奈良女子高等師範附属小で合科学習を進め、大正自由教育の実践理論を築いた。','["合科学習","奈良女高師附属小実践"]','other','東京高等師範学校',0,0),
+  ('手塚岸衛','Tezuka Kishie','てづか きしえ',1880,1936,'新潟県','free_education','自由教育協会で児童中心主義を唱え、画一的学校教育への批判を展開した。','["自由教育協会","児童中心主義"]','other','東京高等師範学校',0,0),
+  ('稲毛金七','Inage Kinsichi','いなげ きんしち',1887,1946,'千葉県','free_education','児童の自発性を重んじる教育実践を進め、大正自由教育の現場を担った。','["自由教育実践","児童中心教育"]','other','東京高等師範学校',0,1),
+  ('千葉命吉','Chiba Meikichi','ちば めいきち',1887,1959,'宮城県','free_education','一人ひとりの学習過程を重視する教育実践を行い、大正新教育の普及に関わった。','["自由教育実践","個性尊重教育"]','other','師範学校',0,1),
+  ('及川平治','Oikawa Heiji','おいかわ へいじ',1875,1939,'岩手県','free_education','分団式動的教育法で児童の能動的学習を組織し、大正自由教育の方法論を示した。','["分団式動的教育法","大正新教育"]','other','師範学校',0,0),
+  ('芦田恵之助','Ashida Enosuke','あしだ えのすけ',1873,1951,'兵庫県','free_education','随意選題による綴方教育を実践し、児童の生活表現を重視する教育運動を進めた。','["綴方教育","随意選題"]','other','兵庫県師範学校',0,0),
+  ('赤井米吉','Akai Yonekichi','あかい よねきち',1887,1974,'石川県','free_education','明星学園創立に関わり、児童の自治と創造性を重んじる教育実践を展開した。','["明星学園","自由教育実践"]','other','東京高等師範学校',0,0),
+  ('野村芳兵衛','Nomura Yoshihei','のむら よしべえ',1896,1986,'大阪府','free_education','成城小学校などで児童中心の学習実践を進め、生活に根ざす教育を提唱した。','["成城小学校実践","児童中心教育"]','other','東京高等師範学校',0,1),
+  ('河野清丸','Kono Kiyomaru','こうの きよまる',1873,1942,'大分県','free_education','自学教育を提唱し、教師主導の注入主義を批判する大正期教育改革に関わった。','["自学教育","自由教育論"]','other','師範学校',0,1),
+  ('樋口長市','Higuchi Choichi','ひぐち ちょういち',1871,1945,'長野県','free_education','児童の生活と表現を重視する教育実践を進め、大正新教育の地方的展開に寄与した。','["生活教育実践","大正新教育"]','other','師範学校',0,1),
+  ('権田保之助','Gonda Yasusuke','ごんだ やすのすけ',1887,1951,'東京都','urban_social_research','民衆娯楽・都市生活の調査を通じ、大衆社会の実態を社会改良の対象として分析した。','["民衆娯楽論","都市社会調査"]','other','東京帝国大学',0,0),
+  ('米田庄太郎','Yoneda Shotaro','よねだ しょうたろう',1873,1945,'奈良県','social_research','社会学者として家族・農村・社会問題を研究し、社会改良の実証的基盤を整えた。','["社会学研究","農村社会研究"]','other','東京帝国大学',0,0),
+  ('戸田貞三','Toda Teizo','とだ ていぞう',1887,1955,'東京都','social_research','家族社会学・社会調査を通じ、近代日本の家族変動と社会問題を分析した。','["家族社会学","社会調査"]','other','東京帝国大学',0,0),
+  ('市川正一','Ichikawa Shoichi','いちかわ しょういち',1892,1945,'山口県','communist_labor','日本共産党の初期指導者として、労働運動・無産政党運動の組織化に関わった。','["日本共産党初期活動","労働運動"]','other','早稲田大学',0,0),
+  ('渡辺政之輔','Watanabe Masanosuke','わたなべ まさのすけ',1899,1928,'千葉県','communist_labor','労働運動から日本共産党活動に入り、大正末期の左派組織化を担った。','["労働運動","日本共産党活動"]','working_class','独学',0,0),
+  ('野呂栄太郎','Noro Eitaro','のろ えいたろう',1900,1934,'北海道','marxist_research','日本資本主義分析を通じ、社会運動に理論的基盤を与えたマルクス主義経済学者。','["日本資本主義発達史","マルクス主義研究"]','other','慶應義塾大学',0,0),
+  ('向坂逸郎','Sakisaka Itsuro','さきさか いつろう',1897,1985,'福岡県','marxist_education','マルクス経済学の翻訳・教育を通じ、労働運動と社会主義理論を結びつけた。','["資本論翻訳","マルクス経済学教育"]','other','東京帝国大学',0,0),
+  ('山本懸蔵','Yamamoto Kenzo','やまもと けんぞう',1895,1939,'大阪府','communist_labor','労働運動・共産主義運動に関わり、国際的な左派ネットワークとも接続した。','["労働運動","共産主義運動"]','working_class','独学',0,0),
+  ('前田河広一郎','Maedako Koichiro','まえだこう こういちろう',1888,1957,'宮城県','labor_literature','渡米労働経験を背景に、労働者・移民の現実を描き社会問題への関心を広げた。','["三等船客","労働者文学"]','other','早稲田大学中退',0,0),
+  ('犬田卯','Inuta Shigeru','いぬた しげる',1891,1957,'茨城県','peasant_literature','農民文学と農村運動を結び、小作・農村貧困の問題を社会に訴えた。','["農民文学","農村社会運動"]','farmer','独学',0,1),
+  ('島木健作','Shimaki Kensaku','しまき けんさく',1903,1945,'北海道','peasant_proletarian','農民運動・プロレタリア文学を経験し、農村青年の社会意識を文学化した。','["生活の探求","農民運動"]','farmer','独学',0,0),
+  ('黒島伝治','Kuroshima Denji','くろしま でんじ',1898,1943,'香川県','antiwar_proletarian','反戦的プロレタリア文学で兵士・農民・労働者の視点から帝国主義を批判した。','["橇","反戦文学"]','farmer','独学',0,0),
+  ('村島帰之','Murashima Yoriyuki','むらしま よりゆき',1891,1965,'大阪府','social_work_journalism','新聞記者・社会事業家として労働者生活や社会事業を取材・記録し、社会問題を可視化した。','["社会事業報道","労働者生活記録"]','other','関西学院',0,1),
+  ('吉田源治郎','Yoshida Genjiro','よしだ げんじろう',1891,1960,'兵庫県','cooperative_social_work','賀川豊彦らと協同組合・農民福音学校運動に関わり、生活改善型の社会運動を進めた。','["協同組合運動","農民福音学校"]','farmer','神戸神学校',0,1),
+  ('長谷川良信','Hasegawa Ryoshin','はせがわ りょうしん',1890,1966,'新潟県','social_work_religion','マハヤナ学園を創設し、児童保護・社会事業を宗教的実践として展開した。','["マハヤナ学園","児童保護事業"]','other','仏教系教育',0,0),
+  ('高木憲次','Takagi Kenji','たかぎ けんじ',1889,1963,'東京都','disability_welfare','肢体不自由児療育の先駆者として、医療・教育・福祉を結ぶ実践を切り開いた。','["肢体不自由児療育","整肢療護園"]','other','東京帝国大学',0,0),
+  ('川田貞治郎','Kawada Teijiro','かわだ ていじろう',1879,1959,'東京都','child_welfare','児童保護・少年教護の実践を進め、近代日本の児童福祉制度形成に関わった。','["児童保護事業","少年教護"]','other','東京帝国大学',0,0)
+)
+INSERT INTO achievers (
+  name_ja,name_en,name_kana,birth_year,death_year,birth_place,primary_era_id,secondary_era_id,domain,sub_domain,
+  achievement_summary,notable_works,family_class,education_path,fame_source,fame_score,
+  is_traditional_great,is_local_excellent,data_completeness,source_team,source_url,notes
+)
+SELECT name_ja,name_en,name_kana,birth_year,death_year,birth_place,'taisho','showa_pre','social_movement',sub_domain,
+       summary,works,family_class,education_path,'wikipedia_ja_or_ndl',6.3,
+       is_great,is_local,78,'codex_taisho_social_movement','https://ja.wikipedia.org/wiki/' || name_ja,
+       '大正期社会運動セルの追加。INSERT時に name_ja + birth_year で重複回避。'
+FROM rows
+WHERE NOT EXISTS (
+  SELECT 1 FROM achievers a WHERE a.name_ja = rows.name_ja AND a.birth_year = rows.birth_year
+);
+COMMIT;
+
+SELECT 'after_batch_2', COUNT(*) FROM achievers WHERE source_team='codex_taisho_social_movement';
+
+-- Capability scores: 4 capabilities per inserted achiever.
+BEGIN;
+WITH caps(capability_id, base_score, label) AS (
+  VALUES
+  ('age_social_change',9,'既存制度や差別構造を変える社会運動・教育改革に取り組んだ。'),
+  ('cog_critical',8,'労働・女性・教育・福祉などの現状を批判的に分析し、問題を可視化した。'),
+  ('soc_interpersonal',8,'組織化、教育実践、支援活動を通じて多様な当事者・協力者を結びつけた。'),
+  ('age_social_autonomy',8,'国家・学校・家制度・職場慣行に対して自律的な生き方と参加を求めた。')
+)
+INSERT INTO achiever_capabilities (achiever_id, capability_id, score, evidence_quote, evidence_source, notes)
+SELECT a.id,
+       caps.capability_id,
+       CASE
+         WHEN a.sub_domain LIKE '%free_education%' AND caps.capability_id='soc_interpersonal' THEN 9
+         WHEN a.sub_domain LIKE '%buraku%' AND caps.capability_id='age_social_change' THEN 10
+         WHEN a.sub_domain LIKE '%women%' AND caps.capability_id='age_social_autonomy' THEN 9
+         WHEN a.sub_domain LIKE '%labor%' AND caps.capability_id='age_social_change' THEN 9
+         ELSE caps.base_score
+       END AS score,
+       a.achievement_summary || ' ' || caps.label AS evidence_quote,
+       a.source_url AS evidence_source,
+       'codex_taisho_social_movement batch capability scoring'
+FROM achievers a
+CROSS JOIN caps
+WHERE a.source_team='codex_taisho_social_movement'
+  AND NOT EXISTS (
+    SELECT 1 FROM achiever_capabilities ac
+    WHERE ac.achiever_id=a.id AND ac.capability_id=caps.capability_id
+      AND ac.notes='codex_taisho_social_movement batch capability scoring'
+  );
+COMMIT;
+
+SELECT 'final_achievers', COUNT(*) FROM achievers WHERE source_team='codex_taisho_social_movement';
+SELECT 'final_capabilities', COUNT(*) FROM achiever_capabilities ac JOIN achievers a ON a.id=ac.achiever_id WHERE a.source_team='codex_taisho_social_movement';
+
+exec
+/bin/bash -lc "sed -n '1,220p' scripts/insert_all_women_pioneers.py" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sed -n '1,220p' scripts/insert_taisho_culture_arts.sql" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+BEGIN;
+
+WITH people(ord,name,birth,death,sub,summary,works,great,local) AS (VALUES
+(1,'牧野省三',1878,1929,'film','日本映画草創期の撮影・製作体制を築き、時代劇映画の量産と俳優育成を進めた。','["実録忠臣蔵","マキノ映画"]',1,0),
+(2,'尾上松之助',1875,1926,'film_actor','目玉の松ちゃんとして知られ、大正期の連続時代劇映画で映画スター像を確立した。','["忠臣蔵","豪傑児雷也"]',1,0),
+(3,'帰山教正',1893,1964,'film','純映画劇運動を提唱し、映画を舞台記録から独立した映像表現へ近づけた。','["生の輝き","深山の乙女"]',0,0),
+(4,'栗原トーマス',1885,1926,'film','ハリウッド経験を背景に、大正期日本映画へ近代的演出と俳優訓練を導入した。','["アマチュア倶楽部"]',0,0),
+(5,'牛原虚彦',1897,1985,'film','松竹蒲田調の形成に関わり、都市生活と若者像を映画の題材として開拓した。','["彼と東京"]',0,0),
+(6,'伊藤大輔',1898,1981,'film','移動撮影と躍動的な編集で剣戟映画の文法を刷新した。','["忠次旅日記"]',1,0),
+(7,'田坂具隆',1902,1974,'film','社会的題材と抒情性を結びつける演出で、後の日本映画リアリズムに影響した。','["路傍の石"]',0,0),
+(8,'島津保次郎',1897,1945,'film','小市民生活を扱う松竹映画の作風を成熟させ、家庭劇の基盤を作った。','["隣の八重ちゃん"]',0,0),
+(9,'五所平之助',1902,1981,'film','日本初期のトーキー映画を成功させ、庶民生活を明るく描く演出を進めた。','["マダムと女房"]',0,0),
+(10,'内田吐夢',1898,1970,'film','無声映画期から社会派・時代劇の双方で演出力を示し、映像叙事の幅を広げた。','["警察官"]',0,0),
+(11,'成瀬巳喜男',1905,1969,'film','松竹蒲田で映画制作を学び、庶民生活と女性心理を描く演出の基礎を築いた。','["君と別れて"]',1,0),
+(12,'山中貞雄',1909,1938,'film','人情味ある時代劇と簡潔な語りで大正以後の映画表現を先鋭化した。','["人情紙風船"]',1,0),
+(13,'阪東妻三郎',1901,1953,'film_actor','剣戟映画のスターとして、身体性とスピード感を備えた時代劇演技を広めた。','["雄呂血"]',1,0),
+(14,'大河内傳次郎',1898,1962,'film_actor','サイレント時代劇の代表的俳優として、重厚な人物造形で人気を集めた。','["丹下左膳"]',1,0),
+(15,'市川右太衛門',1907,1999,'film_actor','時代劇スターとして映画・テレビにまたがる長期的な大衆芸能の型を作った。','["旗本退屈男"]',0,0),
+(16,'片岡千恵蔵',1903,1983,'film_actor','時代劇映画の主演スターとして、講談・剣戟を映画的娯楽に翻案した。','["いれずみ判官"]',0,0),
+(17,'嵐寛寿郎',1903,1980,'film_actor','鞍馬天狗役で知られ、少年向け時代劇ヒーロー像を定着させた。','["鞍馬天狗"]',0,0),
+(18,'川田芳子',1895,1970,'film_actor','松竹蒲田の女性スターとして、現代劇における女性像の普及に貢献した。','["不如帰"]',0,0),
+(19,'森律子',1890,1961,'theater','新劇女優として舞台表現の近代化に関わり、女性俳優の職能確立を進めた。','["人形の家"]',0,0),
+(20,'東山千栄子',1890,1980,'theater','築地小劇場以後の新劇で翻訳劇と近代演技を支えた。','["桜の園"]',0,0),
+(21,'山川浦路',1885,1947,'theater','宝塚・新劇・映画で活動し、大正期舞台芸術に女性の新しい表現領域を広げた。','["カルメン"]',0,0),
+(22,'五月信子',1894,1959,'theater','新派・映画で活躍し、近代都市の観客に向けた女性演技を発展させた。','["滝の白糸"]',0,0),
+(23,'花柳はるみ',1896,1962,'film_actor','日本映画初期の女優として、女性役を女性が演じる映画表現の定着に寄与した。','["生の輝き"]',0,0),
+(24,'英百合子',1900,1970,'film_actor','松竹蒲田などで現代劇に出演し、サイレント映画の女性演技を支えた。','["母"]',0,0),
+(25,'筑波雪子',1906,1977,'film_actor','大正末から昭和初期の映画女優として、モダンな女性像を演じた。','["狂つた一頁"]',0,0),
+(26,'鈴木傳明',1900,1985,'film_actor','松竹蒲田の二枚目スターとして、都市青年の感覚を映画に持ち込んだ。','["彼と東京"]',0,0),
+(27,'夏川静江',1909,1999,'film_actor','少女スターから映画女優へ展開し、初期映画の若年女性像を担った。','["何が彼女をそうさせたか"]',0,0),
+(28,'高田稔',1899,1977,'film_actor','無声映画からトーキー期にかけて現代劇の主演俳優として活動した。','["東京行進曲"]',0,0),
+(29,'岡譲司',1902,1970,'film_actor','松竹蒲田・日活で活躍し、大正末から昭和初期の映画スター層を厚くした。','["彼と東京"]',0,0),
+(30,'岡田時彦',1903,1934,'film_actor','端正な演技でサイレント映画の現代劇を代表し、都市的感性を体現した。','["東京の合唱"]',0,0),
+(31,'長谷川一夫',1908,1984,'film_actor','林長二郎名で時代劇スターとなり、美貌と型を組み合わせた映画演技を確立した。','["雪之丞変化"]',1,0),
+(32,'古川緑波',1903,1961,'popular_performance','レビュー・軽演劇・映画で喜劇的語りを広げ、都市大衆芸能の中心となった。','["ロッパ日記"]',0,0),
+(33,'柳家金語楼',1901,1972,'rakugo','落語・漫談・映画を横断し、話芸をマスメディア時代の大衆芸へ広げた。','["兵隊落語"]',0,0),
+(34,'初代桂春団治',1878,1934,'rakugo','上方落語の破天荒な芸風で人気を集め、近代大阪の大衆話芸を象徴した。','["代書"]',1,0),
+(35,'三代目柳家小さん',1857,1930,'rakugo','江戸落語の滑稽噺を磨き、大正期の寄席芸を支えた名人として知られる。','["粗忽長屋"]',1,0),
+(36,'初代柳家三語楼',1875,1938,'rakugo','新作落語と寄席経営で活動し、都市娯楽としての落語の更新に関わった。','["落語協会分裂騒動"]',0,0),
+(37,'浪花亭綾太郎',1891,1960,'rokyoku','浪曲師として節と語りを洗練し、レコード時代の浪曲人気を担った。','["壺坂霊験記"]',0,0),
+(38,'二代目広沢虎造',1899,1964,'rokyoku','清水次郎長伝で知られ、浪曲をラジオ・レコード時代の国民的娯楽へ押し上げた。','["清水次郎長伝"]',1,0),
+(39,'木村重友',1884,1951,'rokyoku','関西浪曲の実力者として、節回しと物語芸の継承に貢献した。','["浪曲口演"]',0,1),
+(40,'吉田奈良丸',1879,1967,'rokyoku','奈良丸節で人気を得て、大正期浪曲の興行的拡大を支えた。','["義士伝"]',0,0),
+(41,'桃中軒雲右衛門',1873,1916,'rokyoku','浪曲を劇場興行の大衆芸能へ高め、義士伝などで広い聴衆を得た。','["赤穂義士伝"]',1,0),
+(42,'宮川左近',1891,1970,'popular_performance','浪曲・音曲漫才に関わり、寄席芸から大衆演芸への橋渡しを担った。','["宮川左近ショー"]',0,0),
+(43,'橘ノ圓都',1883,1972,'rakugo','上方落語の保存と継承に尽くし、戦後復興につながる芸を維持した。','["池田の猪買い"]',0,0),
+(44,'佐々木味津三',1896,1934,'popular_lit','右門捕物帖などで大衆読物のヒーロー像を作り、雑誌文化を支えた。','["右門捕物帖"]',0,0),
+(45,'野村胡堂',1882,1963,'popular_lit','銭形平次捕物控で捕物帳ジャンルを大衆化し、長期連載文化を築いた。','["銭形平次捕物控"]',1,0),
+(46,'国枝史郎',1887,1943,'popular_lit','伝奇小説で異国趣味と怪奇性を結び、大正期の娯楽読物を拡張した。','["神州纐纈城"]',0,0),
+(47,'平山蘆江',1882,1953,'popular_lit','新聞・雑誌小説で都市読者に向けた通俗小説を展開した。','["蘆江怪談集"]',0,0),
+(48,'土師清二',1893,1977,'popular_lit','時代小説・大衆小説で講談的な語りを近代雑誌へ移植した。','["砂絵呪縛"]',0,0),
+(49,'直木三十五',1891,1934,'popular_lit','大衆文学の評論・創作で文壇の価値基準を揺さぶり、直木賞に名を残した。','["南国太平記"]',1,0),
+(50,'岡本一平',1886,1948,'manga_illustration','新聞漫画と漫文で社会風刺を親しみやすい表現に変えた。','["人の一生"]',0,0)
+)
+INSERT INTO achievers (
+  name_ja, birth_year, death_year, primary_era_id, domain, sub_domain,
+  achievement_summary, notable_works, fame_source, fame_score,
+  is_traditional_great, is_local_excellent, data_completeness,
+  source_team, source_url, notes
+)
+SELECT name, birth, death, 'taisho', 'culture_arts', sub, summary, works,
+       'wikipedia_ja', CASE WHEN great=1 THEN 7.0 ELSE 4.5 END,
+       great, local, 80, 'codex_taisho_culture_arts',
+       'https://ja.wikipedia.org/wiki/' || name,
+       '大正文化芸術拡充バッチ1: 映画・新劇・大衆芸能・大衆文学・漫画'
+FROM people p
+WHERE NOT EXISTS (SELECT 1 FROM achievers a WHERE a.name_ja=p.name AND a.birth_year=p.birth);
+
+COMMIT;
+
+SELECT 'batch1_count', COUNT(*) FROM achievers WHERE source_team='codex_taisho_culture_arts';
+
+BEGIN;
+
+WITH people(ord,name,birth,death,sub,summary,works,great,local) AS (VALUES
+(51,'近藤浩一路',1884,1962,'manga_illustration','新聞漫画・水墨画を横断し、政治風刺と絵画表現を結びつけた。','["漫画漫文"]',0,0),
+(52,'麻生豊',1898,1961,'manga_illustration','ノンキナトウサンで都市サラリーマン像を漫画化し、生活漫画の先駆となった。','["ノンキナトウサン"]',0,0),
+(53,'宮尾しげを',1902,1982,'manga_illustration','漫画家・江戸風俗研究者として、大衆漫画と風俗史の接点を作った。','["団子串助漫遊記"]',0,0),
+(54,'宍戸左行',1888,1969,'manga_illustration','新聞漫画で時事風刺と連載表現を担い、漫画の職能化に寄与した。','["スピード太郎"]',0,0),
+(55,'北澤楽天',1876,1955,'manga_illustration','近代漫画雑誌を創刊し、漫画家という職業と風刺漫画の制度化に貢献した。','["東京パック"]',1,0),
+(56,'田中比左良',1890,1974,'manga_illustration','漫画・挿絵で大正期の雑誌視覚文化を支え、軽妙な人物表現を広めた。','["漫画作品"]',0,0),
+(57,'蕗谷虹児',1898,1979,'illustration','少女雑誌の挿絵と詩で抒情画の様式を作り、少女文化の視覚表現を豊かにした。','["花嫁人形"]',0,0),
+(58,'高畠華宵',1888,1966,'illustration','少年少女雑誌の表紙・挿絵で華麗な人物像を描き、大正ロマンの視覚記号を作った。','["少女画報挿絵"]',1,0),
+(59,'加藤まさを',1897,1977,'illustration','抒情画と詩で少女文化に影響し、雑誌メディアの感性を形づくった。','["月の沙漠"]',0,0),
+(60,'竹中英太郎',1906,1988,'illustration','探偵小説や怪奇幻想の挿絵で、モダニズム的な不安と都市感覚を描いた。','["新青年挿絵"]',0,0),
+(61,'山六郎',1897,1982,'illustration','少女雑誌の挿絵で抒情的な女性像を描き、出版美術の裾野を広げた。','["少女倶楽部挿絵"]',0,1),
+(62,'中原淳一',1913,1983,'illustration','少女向け挿絵・服飾提案で、美意識と生活デザインを結びつけた。','["それいゆ"]',1,0),
+(63,'川瀬巴水',1883,1957,'print','新版画で旅情ある風景表現を確立し、海外にも受容された木版画文化を築いた。','["東京十二題"]',1,0),
+(64,'吉田博',1876,1950,'print','洋画と木版画を横断し、自摺による新版画を国際市場へ展開した。','["瀬戸内海集"]',1,0),
+(65,'山村耕花',1885,1942,'print','役者絵と新版画で歌舞伎の舞台美を近代的版画表現に翻案した。','["梨園の華"]',0,0),
+(66,'名取春仙',1886,1960,'print','新版画の役者絵で、近代歌舞伎俳優の表情と型を記録した。','["春仙似顔集"]',0,0),
+(67,'小村雪岱',1887,1940,'design','装丁・挿絵・舞台美術で江戸趣味とモダンな構成を融合した。','["おせん装丁"]',1,0),
+(68,'杉浦非水',1876,1965,'design','三越ポスターなどで日本の商業デザインを確立し、図案教育にも関わった。','["三越ポスター"]',1,0),
+(69,'古賀春江',1895,1933,'fine_arts','キュビスムやシュルレアリスムを取り込み、日本の前衛絵画を推進した。','["海"]',0,0),
+(70,'東郷青児',1897,1978,'fine_arts','未来派的表現から独自の女性像へ展開し、モダンな洋画の受容を広げた。','["超現実派の散歩"]',0,0),
+(71,'佐伯祐三',1898,1928,'fine_arts','パリの街景を激しい筆致で描き、日本洋画に都市表現の緊張感をもたらした。','["郵便配達夫"]',1,0),
+(72,'堅山南風',1887,1980,'fine_arts','日本画で人物・花鳥を描き、院展系の近代日本画を支えた。','["霜月頃"]',0,0),
+(73,'川端龍子',1885,1966,'fine_arts','大画面の会場芸術を唱え、日本画を展覧会空間に合わせて刷新した。','["鳴門"]',1,0),
+(74,'土田麦僊',1887,1936,'fine_arts','国画創作協会で西洋絵画の構成感を取り入れ、日本画革新を進めた。','["舞妓林泉"]',1,0),
+(75,'小野竹喬',1889,1979,'fine_arts','自然観照に基づく清澄な日本画を展開し、国画創作協会の中心となった。','["島二作"]',0,0),
+(76,'村上華岳',1888,1939,'fine_arts','宗教性と装飾性を備えた日本画で、内面的表現を深めた。','["裸婦図"]',0,0),
+(77,'島成園',1892,1970,'fine_arts','大阪の女性日本画家として女性像を描き、女性作家の活動領域を広げた。','["祭りのよそおい"]',0,0),
+(78,'梶原緋佐子',1896,1988,'fine_arts','女性日本画家として都市女性や舞妓を描き、京都画壇の多様性を示した。','["暮れゆく停留所"]',0,0),
+(79,'徳岡神泉',1896,1972,'fine_arts','静謐な花鳥画で近代日本画の精神性と装飾性を磨いた。','["鯉"]',0,0),
+(80,'初代龍村平蔵',1876,1962,'craft_design','古代裂研究と織物制作を結び、高級染織を近代工芸として再編した。','["龍村織物"]',1,0),
+(81,'吉田晴風',1891,1950,'music','尺八演奏家として新日本音楽運動に関わり、邦楽の近代化を進めた。','["新日本音楽"]',0,0),
+(82,'杵屋佐吉',1884,1945,'music','長唄三味線方・作曲家として、舞台邦楽の近代的な作曲活動を担った。','["長唄作品"]',0,0),
+(83,'藤井清水',1889,1944,'music','童謡・歌曲を多数作曲し、地域の旋律感と近代歌曲を結びつけた。','["足柄山"]',0,0),
+(84,'町田佳聲',1888,1981,'music','民謡研究と採譜に取り組み、口承音楽を近代的な記録対象にした。','["日本民謡大観"]',0,0),
+(85,'古関裕而',1909,1989,'music','作曲家として歌謡・応援歌・映画音楽を手がけ、大衆音楽の旋律感を形成した。','["露営の歌","栄冠は君に輝く"]',1,0),
+(86,'牧野虎雄',1890,1946,'fine_arts','独立美術協会で活動し、フォーヴ的色彩による洋画表現を展開した。','["洋画作品"]',0,0),
+(87,'伊原宇三郎',1894,1976,'fine_arts','滞欧経験を生かし、構成的な人物画で日本洋画壇に影響した。','["椅子による裸婦"]',0,0),
+(88,'木下孝則',1894,1973,'fine_arts','人物画を中心に端正な洋画を描き、二科・一水会系の制作を担った。','["婦人像"]',0,0),
+(89,'林倭衛',1895,1945,'fine_arts','パリ経験を踏まえ、都市的感覚を持つ洋画を展開した。','["出獄の日のO氏"]',0,0),
+(90,'中村彝',1887,1924,'fine_arts','病と向き合いながら肖像画・静物画を描き、日本近代洋画の内面表現を深めた。','["エロシェンコ氏の像"]',1,0),
+(91,'椿貞雄',1896,1957,'fine_arts','岸田劉生周辺で写実を学び、人物と静物に独自の実在感を追求した。','["冬枯れの道"]',0,0),
+(92,'清水登之',1887,1945,'fine_arts','渡米経験と労働者への視線を持つ絵画で、社会性ある洋画を描いた。','["チャイナタウン"]',0,0),
+(93,'野長瀬晩花',1889,1964,'fine_arts','国画創作協会で活動し、紀州の風土と近代日本画を結びつけた。','["初夏の流"]',0,1),
+(94,'矢部友衛',1892,1981,'fine_arts','プロレタリア美術運動に関わり、社会運動と絵画表現を結びつけた。','["労働者像"]',0,0),
+(95,'神原泰',1898,1997,'fine_arts','未来派美術協会に参加し、前衛美術と評論の両面で活動した。','["未来派美術協会"]',0,0),
+(96,'牛島憲之',1900,1997,'fine_arts','穏やかな色面と簡潔な構成で、近代洋画の詩情ある風景表現を築いた。','["貝焼場"]',0,0),
+(97,'硲伊之助',1895,1977,'fine_arts','洋画・陶芸・版画を横断し、生活と美術を結ぶ制作を進めた。','["風景画"]',0,0),
+(98,'北川民次',1894,1989,'fine_arts','メキシコでの美術教育経験を背景に、民衆性ある絵画と児童美術教育を展開した。','["タスコの祭"]',0,0),
+(99,'三宅克己',1874,1954,'fine_arts','水彩画家として国内外の風景を描き、水彩表現の普及に寄与した。','["水彩画作品"]',0,0),
+(100,'桂ゆき',1913,1991,'fine_arts','コラージュや寓意的表現で女性前衛画家として独自の位置を築いた。','["作品"]',0,0)
+)
+INSERT INTO achievers (
+  name_ja, birth_year, death_year, primary_era_id, domain, sub_domain,
+  achievement_summary, notable_works, fame_source, fame_score,
+  is_traditional_great, is_local_excellent, data_completeness,
+  source_team, source_url, notes
+)
+SELECT name, birth, death, 'taisho', 'culture_arts', sub, summary, works,
+       'wikipedia_ja', CASE WHEN great=1 THEN 7.0 ELSE 4.5 END,
+       great, local, 80, 'codex_taisho_culture_arts',
+       'https://ja.wikipedia.org/wiki/' || name,
+       '大正文化芸術拡充バッチ2: 漫画・挿絵・新版画・美術・工芸・音楽'
+FROM people p
+WHERE NOT EXISTS (SELECT 1 FROM achievers a WHERE a.name_ja=p.name AND a.birth_year=p.birth);
+
+COMMIT;
+
+SELECT 'batch2_count', COUNT(*) FROM achievers WHERE source_team='codex_taisho_culture_arts';
+
+BEGIN;
+
+WITH target AS (
+  SELECT id, name_ja, sub_domain, achievement_summary, source_url
+  FROM achievers
+  WHERE source_team='codex_taisho_culture_arts'
+),
+cap_plan(achiever_id, capability_id, score, evidence_quote, evidence_source, notes) AS (
+  SELECT id, 'cog_creativity', 8,
+         achievement_summary, source_url, '表現形式やジャンルの創造性'
+  FROM target
+  UNION ALL
+  SELECT id, 'cre_cross_domain', 7,
+         achievement_summary, source_url, 'メディア・ジャンル・伝統と近代の横断'
+  FROM target
+  UNION ALL
+  SELECT id,
+         CASE
+           WHEN sub_domain IN ('film','design','architecture') THEN 'cog_systems'
+           WHEN sub_domain IN ('film_actor','theater','popular_performance','rakugo','rokyoku') THEN 'soc_interpersonal'
+           WHEN sub_domain IN ('craft_design','music','print') THEN 'val_traditional'
+           ELSE 'age_social_change'
+         END,
+         7, achievement_summary, source_url, '領域特性に応じた主要能力'
+  FROM target
+  UNION ALL
+  SELECT id,
+         CASE
+           WHEN sub_domain IN ('popular_lit','manga_illustration','illustration','film') THEN 'age_social_change'
+           WHEN sub_domain IN ('fine_arts','design','print') THEN 'age_meta_learning'
+           WHEN sub_domain IN ('rakugo','rokyoku','craft_design','music') THEN 'val_traditional'
+           ELSE 'age_resilience'
+         END,
+         6, achievement_summary, source_url, '大正期の文化変動への適応と継承'
+  FROM target
+)
+INSERT INTO achiever_capabilities (
+  achiever_id, capability_id, score, evidence_quote, evidence_source, notes
+)
+SELECT achiever_id, capability_id, score, evidence_quote, evidence_source, notes
+FROM cap_plan cp
+WHERE NOT EXISTS (
+  SELECT 1 FROM achiever_capabilities ac
+  WHERE ac.achiever_id=cp.achiever_id AND ac.capability_id=cp.capability_id
+);
+
+COMMIT;
+
+SELECT 'capability_count', COUNT(*)
+FROM achiever_capabilities
+WHERE achiever_id IN (SELECT id FROM achievers WHERE source_team='codex_taisho_culture_arts');
+
+ succeeded in 0ms:
+#!/usr/bin/env python3
+import sqlite3
+from pathlib import Path
+from urllib.parse import quote
+
+DB = Path(__file__).resolve().parents[1] / "data" / "era_talents.db"
+TEAM = "codex_all_women_pioneers"
+
+CAPS = {
+    "medicine": [
+        ("cog_critical", 9, "医療実践で専門的判断を示した"),
+        ("age_social_change", 9, "女性の専門職参入を広げた"),
+        ("age_resilience", 8, "制度的障壁を越えて活動を継続した"),
+    ],
+    "science": [
+        ("cog_logical", 9, "研究成果で論理的分析力を示した"),
+        ("cog_critical", 9, "既存知を検証し新しい知見を提示した"),
+        ("cog_creativity", 8, "独創的な研究課題や方法を開いた"),
+    ],
+    "business": [
+        ("age_entrepreneur", 10, "事業を創業・成長させた"),
+        ("cog_systems", 8, "市場や組織を設計する力を示した"),
+        ("age_resilience", 8, "競争環境で事業を継続・拡大した"),
+    ],
+    "arts": [
+        ("cog_creativity", 10, "表現領域で独自の様式を築いた"),
+        ("age_social_change", 8, "女性表現者の活動領域を広げた"),
+        ("val_tolerance", 7, "多様な経験や視点を作品化した"),
+    ],
+    "education": [
+        ("age_social_change", 9, "教育・思想・社会参加の制度的変化を促した"),
+        ("soc_interpersonal", 8, "人々を組織し学習や参加を支えた"),
+        ("age_resilience", 8, "不利な条件下で公共的実践を継続した"),
+    ],
+}
+
+RAW = """
+エリザベス・ブラックウェル|Elizabeth Blackwell|1821|1910|medicine|医師|米国で初めて医学学位を得た女性医師として女性医師養成の道を開いた
+レベッカ・リー・クランプラー|Rebecca Lee Crumpler|1831|1895|medicine|医師|米国初のアフリカ系女性医師の一人として医療と公衆衛生に貢献した
+メアリー・エドワーズ・ウォーカー|Mary Edwards Walker|1832|1919|medicine|医師|南北戦争期の外科医として従軍し女性医師の公共的役割を示した
+スーザン・ラ・フレッシュ・ピコット|Susan La Flesche Picotte|1865|1915|medicine|医師|先住民女性医師としてオマハ族コミュニティの医療改善に尽くした
+エリザベス・ギャレット・アンダーソン|Elizabeth Garrett Anderson|1836|1917|medicine|医師|英国初期の女性医師として女性医学校と病院運営を先導した
+ソフィア・ジェックス＝ブレイク|Sophia Jex-Blake|1840|1912|medicine|医師|英国で女性医学教育の制度化を推進した
+アナンディバイ・ジョシー|Anandibai Joshi|1865|1887|medicine|医師|インド出身女性として医学教育を受け女性医療の象徴となった
+カダンビニ・ガングリー|Kadambini Ganguly|1861|1923|medicine|医師|南アジア初期の女性医師として診療と女性の高等教育を切り開いた
+ルクマバイ|Rukhmabai|1864|1955|medicine|医師|インドの女性医師・社会改革者として女性の自立を訴えた
+ムトゥラクシュミ・レッディ|Muthulakshmi Reddy|1886|1968|medicine|医師|医師・政治家として女性医療とがん医療の制度づくりに貢献した
+メアリー・パットナム・ジャコビ|Mary Putnam Jacobi|1842|1906|medicine|医師|医学研究に基づき女性の高等教育参加を擁護した
+サラ・ジョセフィン・ベーカー|Sara Josephine Baker|1873|1945|medicine|公衆衛生|乳幼児保健を中心に都市公衆衛生を改善した
+ヴァージニア・アプガー|Virginia Apgar|1909|1974|medicine|医師|新生児評価のアプガースコアを考案し周産期医療を変えた
+ヘレン・ブルック・タウシグ|Helen B. Taussig|1898|1986|medicine|医師|小児心臓病学を開拓し先天性心疾患治療に貢献した
+ガートルード・エリオン|Gertrude B. Elion|1918|1999|medicine|薬学研究|合理的薬剤設計で多くの治療薬開発に貢献した
+ロザリン・ヤロー|Rosalyn Yalow|1921|2011|medicine|医学物理|ラジオイムノアッセイ開発で医学検査を革新した
+ガーティ・コリ|Gerty Cori|1896|1957|medicine|生化学|糖代謝研究で女性初のノーベル生理学・医学賞受賞者となった
+フローレンス・ナイチンゲール|Florence Nightingale|1820|1910|medicine|看護|近代看護と統計に基づく病院改革を推進した
+メアリー・シーコール|Mary Seacole|1805|1881|medicine|看護|クリミア戦争期に独自の看護・支援活動を行った
+シシリー・ソンダース|Cicely Saunders|1918|2005|medicine|緩和ケア|近代ホスピス運動と緩和ケアの基礎を築いた
+フェ・デル・ムンド|Fe del Mundo|1911|2011|medicine|小児科|フィリピンの小児医療と女性医師の先駆者となった
+屠呦呦|Tu Youyou|1930||medicine|薬学研究|青蒿素の発見でマラリア治療に大きく貢献した
+フランソワーズ・バレ＝シヌシ|Francoise Barre-Sinoussi|1947||medicine|ウイルス学|HIV発見に関わり感染症研究を前進させた
+メイ・ジェミソン|Mae Jemison|1956||medicine|医師・宇宙飛行士|医師としての専門性を背景にアフリカ系女性初の宇宙飛行士となった
+ジェーン・クック・ライト|Jane C. Wright|1919|2013|medicine|腫瘍学|化学療法研究を進めがん治療の発展に貢献した
+パトリシア・バス|Patricia Bath|1942|2019|medicine|眼科|白内障治療技術を発明し失明予防に貢献した
+アントニア・ノヴェロ|Antonia Novello|1944||medicine|公衆衛生|米国初の女性・ヒスパニック系公衆衛生局長官となった
+ヘレン・ロドリゲス＝トリアス|Helen Rodriguez Trias|1929|2001|medicine|公衆衛生|女性・子ども・マイノリティの医療権利を推進した
+リタ・レーヴィ＝モンタルチーニ|Rita Levi-Montalcini|1909|2012|medicine|神経科学|神経成長因子の発見で神経科学を発展させた
+アリス・ハミルトン|Alice Hamilton|1869|1970|medicine|産業医学|産業医学の先駆者として労働者の健康保護に貢献した
+レイラ・デンマーク|Leila Denmark|1898|2012|medicine|小児科|小児科医として長期にわたり地域医療に従事した
+ハワ・アブディ|Hawa Abdi|1947|2020|medicine|医師|ソマリアで医療・教育・避難民支援の拠点を築いた
+ハヤト・シンディ|Hayat Sindi|1967||medicine|医療技術|低コスト診断技術と科学教育の普及に取り組んだ
+ジョイセリン・エルダーズ|Joycelyn Elders|1933||medicine|公衆衛生|米国公衆衛生局長官として性教育と予防医療を提唱した
+ナタリア・ベフテレワ|Natalya Bekhtereva|1924|2008|medicine|神経科学|脳研究と神経生理学でソ連・ロシアの女性研究者を代表した
+ヒュパティア|Hypatia|360|415|science|数学|古代アレクサンドリアの数学者・哲学者として学問活動を率いた
+マリア・ジビーラ・メーリアン|Maria Sibylla Merian|1647|1717|science|自然史|昆虫の変態を観察画と研究で記録し自然史を進めた
+カロライン・ハーシェル|Caroline Herschel|1750|1848|science|天文学|彗星発見と天体観測で女性天文学者の先駆となった
+メアリー・アニング|Mary Anning|1799|1847|science|古生物学|化石発見により古生物学の成立に大きく貢献した
+エイダ・ラブレス|Ada Lovelace|1815|1852|science|計算機科学|解析機関のためのアルゴリズムを記述し計算機史の先駆とされる
+ユーニス・ニュートン・フット|Eunice Newton Foote|1819|1888|science|気候科学|二酸化炭素の温室効果を早期に実験で示した
+メアリー・サマヴィル|Mary Somerville|1780|1872|science|科学解説|数学・天文学の著述で科学普及と女性教育に貢献した
+ハーサ・エアトン|Hertha Ayrton|1854|1923|science|物理・工学|電気アーク研究と発明で英国工学界に足跡を残した
+エミー・ネーター|Emmy Noether|1882|1935|science|数学|抽象代数学とネーターの定理で現代数学・物理学に貢献した
+リーゼ・マイトナー|Lise Meitner|1878|1968|science|物理学|核分裂の理論的解釈に貢献した
+マリ・キュリー|Marie Curie|1867|1934|science|化学・物理|放射能研究で二分野のノーベル賞を受けた
+イレーヌ・ジョリオ＝キュリー|Irene Joliot-Curie|1897|1956|science|化学|人工放射能の発見で化学研究を前進させた
+呉健雄|Chien-Shiung Wu|1912|1997|science|物理学|弱い相互作用のパリティ非保存実験で重要な役割を果たした
+キャサリン・ジョンソン|Katherine Johnson|1918|2020|science|数学|NASAの有人宇宙飛行計算を支えた数学者
+ドロシー・ホジキン|Dorothy Hodgkin|1910|1994|science|化学|X線結晶構造解析で生体分子構造を解明した
+レイチェル・カーソン|Rachel Carson|1907|1964|science|環境科学|環境汚染への批判的著作で環境運動を促した
+ロザリンド・フランクリン|Rosalind Franklin|1920|1958|science|化学|DNA構造解明に不可欠なX線回折研究を行った
+ジョスリン・ベル・バーネル|Jocelyn Bell Burnell|1943||science|天文学|パルサー発見で電波天文学に大きく貢献した
+ヴェラ・ルービン|Vera Rubin|1928|2016|science|天文学|銀河回転曲線の研究で暗黒物質研究を前進させた
+ジェーン・グドール|Jane Goodall|1934||science|霊長類学|チンパンジーの長期野外研究で動物行動学を変えた
+ダイアン・フォッシー|Dian Fossey|1932|1985|science|霊長類学|マウンテンゴリラの保護研究で知られる
+シルビア・アール|Sylvia Earle|1935||science|海洋科学|海洋探査と海洋保全の世界的リーダーとなった
+テンプル・グランディン|Temple Grandin|1947||science|動物科学|動物福祉設計と自閉症当事者としての発信で影響を与えた
+マーガレット・ハミルトン|Margaret Hamilton|1936||science|ソフトウェア工学|アポロ計画の飛行ソフトウェア開発を率いた
+グレース・ホッパー|Grace Hopper|1906|1992|science|計算機科学|コンパイラとCOBOL普及でプログラミング史を切り開いた
+ヘディ・ラマー|Hedy Lamarr|1914|2000|science|発明|周波数ホッピング技術の共同発明者として通信技術に貢献した
+ラディア・パールマン|Radia Perlman|1951||science|計算機科学|スパニングツリープロトコルなどネットワーク技術に貢献した
+フランシス・アーノルド|Frances Arnold|1956||science|化学工学|酵素の指向性進化でノーベル化学賞を受けた
+ジェニファー・ダウドナ|Jennifer Doudna|1964||science|生化学|CRISPR-Cas9ゲノム編集技術の開発に貢献した
+エマニュエル・シャルパンティエ|Emmanuelle Charpentier|1968||science|微生物学|CRISPR-Cas9ゲノム編集技術の開発に貢献した
+カタリン・カリコ|Katalin Kariko|1955||science|生化学|mRNA医薬の基礎研究でワクチン開発を支えた
+マイブリット・モーセル|May-Britt Moser|1963||science|神経科学|空間認知のグリッド細胞研究で神経科学に貢献した
+ドナ・ストリックランド|Donna Strickland|1959||science|物理学|チャープパルス増幅の研究でレーザー物理を発展させた
+アンドレア・ゲズ|Andrea Ghez|1965||science|天文学|銀河中心の超大質量ブラックホール研究でノーベル賞を受けた
+マリアム・ミルザハニ|Maryam Mirzakhani|1977|2017|science|数学|フィールズ賞を受けた初の女性数学者となった
+カレン・ウーレンベック|Karen Uhlenbeck|1942||science|数学|幾何解析でアーベル賞を受賞した初の女性数学者となった
+イングリッド・ドブシー|Ingrid Daubechies|1954||science|数学|ウェーブレット理論で画像処理などに貢献した
+セシリア・ペイン＝ガポーシュキン|Cecilia Payne-Gaposchkin|1900|1979|science|天文学|恒星が主に水素とヘリウムから成ることを示した
+ワンガリ・マータイ|Wangari Maathai|1940|2011|science|環境保全|グリーンベルト運動を創設し環境と女性の社会参加を結びつけた
+グラディス・ウェスト|Gladys West|1930||science|数学|GPSに関わる測地モデル計算に貢献した
+キャサリン・エサウ|Katherine Esau|1898|1997|science|植物学|植物解剖学の標準的研究で植物科学を発展させた
+エスター・レーダーバーグ|Esther Lederberg|1922|2006|science|微生物学|ラムダファージ発見など遺伝学研究に貢献した
+リン・マーギュリス|Lynn Margulis|1938|2011|science|生物学|細胞内共生説の発展で進化生物学に影響を与えた
+ミルドレッド・ドレッセルハウス|Mildred Dresselhaus|1930|2017|science|物理学|炭素材料研究でナノ科学を先導した
+アシマ・チャタジー|Asima Chatterjee|1917|2006|science|化学|天然物化学と薬用植物研究でインド科学界を先導した
+マダム・C・J・ウォーカー|Madam C. J. Walker|1867|1919|business|起業家|ヘアケア事業で成功し米国初期の女性自力富豪となった
+ココ・シャネル|Coco Chanel|1883|1971|business|ファッション|女性服とブランド事業で20世紀ファッションを変えた
+エスティ・ローダー|Estee Lauder|1908|2004|business|化粧品|化粧品企業を創業し世界ブランドに育てた
+ルース・ハンドラー|Ruth Handler|1916|2002|business|玩具|マテルを共同創業しバービー人形を企画した
+メアリー・ケイ・アッシュ|Mary Kay Ash|1918|2001|business|化粧品|女性販売員の機会拡大を掲げ化粧品会社を創業した
+アニータ・ロディック|Anita Roddick|1942|2007|business|小売|ザ・ボディショップを創業し倫理的消費を事業化した
+オプラ・ウィンフリー|Oprah Winfrey|1954||business|メディア|メディア事業を築き女性・黒人起業家の象徴となった
+マーサ・スチュワート|Martha Stewart|1941||business|ライフスタイル|生活情報ブランドを企業化し出版・放送・小売へ展開した
+サラ・ブレイクリー|Sara Blakely|1971||business|アパレル|Spanxを創業し補整衣料市場を開拓した
+ホイットニー・ウルフ・ハード|Whitney Wolfe Herd|1989||business|テクノロジー|Bumbleを創業し女性主導型マッチングサービスを拡大した
+メラニー・パーキンス|Melanie Perkins|1987||business|テクノロジー|Canvaを共同創業しデザインツールを大衆化した
+リアーナ|Rihanna|1988||business|化粧品・音楽|Fenty Beautyなどで包括的な美容ブランドを展開した
+ビヨンセ|Beyonce|1981||business|音楽・ブランド|音楽活動とブランド事業を統合し女性アーティストの事業モデルを広げた
+トリー・バーチ|Tory Burch|1966||business|ファッション|ファッションブランドと女性起業支援財団を展開した
+ダイアン・フォン・ファステンバーグ|Diane von Furstenberg|1946||business|ファッション|ラップドレスを軸に国際的ファッション事業を築いた
+シェール・ワン|Cher Wang|1958||business|テクノロジー|HTCなどを率い台湾の技術企業経営を代表した
+張欣|Zhang Xin|1965||business|不動産|SOHO China共同創業者として中国都市開発ビジネスを築いた
+キラン・マズムダール＝ショー|Kiran Mazumdar-Shaw|1953||business|バイオ企業|Bioconを創業しインドのバイオ産業を先導した
+ファルグニ・ナヤル|Falguni Nayar|1963||business|EC|Nykaaを創業しインド美容EC市場を拡大した
+インドラ・ヌーイ|Indra Nooyi|1955||business|経営者|ペプシコCEOとしてグローバル企業経営を担った
+アーシュラ・バーンズ|Ursula Burns|1958||business|経営者|ゼロックスCEOとして米大企業初の黒人女性CEOの一人となった
+メアリー・バーラ|Mary Barra|1961||business|経営者|ゼネラルモーターズCEOとして自動車大企業を率いた
+シェリル・サンドバーグ|Sheryl Sandberg|1969||business|テクノロジー経営|Facebook/Metaの成長期経営と女性リーダー論で影響を与えた
+メグ・ホイットマン|Meg Whitman|1956||business|テクノロジー経営|eBayを成長させHPなど大企業経営を担った
+アン・ウォジツキ|Anne Wojcicki|1973||business|バイオ企業|23andMeを共同創業し個人向け遺伝子検査を広げた
+グウィン・ショットウェル|Gwynne Shotwell|1963||business|宇宙産業|SpaceXの事業運営を率い商業宇宙開発を拡大した
+アリアナ・ハフィントン|Arianna Huffington|1950||business|メディア|HuffPostを共同創業しデジタルニュース事業を拡大した
+カトリーナ・レイク|Katrina Lake|1982||business|EC|Stitch Fixを創業しデータ活用型ファッション小売を展開した
+レイラ・ジャナ|Leila Janah|1982|2020|business|社会的企業|Samasourceを創業しデジタル業務と貧困削減を結びつけた
+ジェシカ・アルバ|Jessica Alba|1981||business|消費財|The Honest Companyを共同創業し安全志向の消費財ブランドを築いた
+レシュマ・サウジャニ|Reshma Saujani|1975||business|教育起業|Girls Who Codeを創設し女性のIT教育を推進した
+ナイナ・ラル・キドワイ|Naina Lal Kidwai|1957||business|金融|インド金融界で女性経営者の道を開いた
+フォロルンショ・アラキジャ|Folorunsho Alakija|1951||business|資源・ファッション|ナイジェリアでファッションと石油事業を展開した女性実業家
+モー・アブドゥ|Mo Abudu|1964||business|メディア|アフリカ発のテレビ・映画事業を国際展開した
+スーザン・ウォジスキ|Susan Wojcicki|1968|2024|business|テクノロジー経営|YouTube CEOなどを務めデジタル動画産業の成長を率いた
+ヒルデガルト・フォン・ビンゲン|Hildegard of Bingen|1098|1179|arts|音楽・著述|中世の作曲家・著述家として宗教文化と知を結びつけた
+アルテミジア・ジェンティレスキ|Artemisia Gentileschi|1593|1656|arts|絵画|バロック期の女性画家として歴史画で高い評価を得た
+エリザベート＝ルイーズ・ヴィジェ＝ルブラン|Elisabeth Vigee Le Brun|1755|1842|arts|絵画|宮廷肖像画家として欧州各地で活動した
+ジェーン・オースティン|Jane Austen|1775|1817|arts|文学|近代小説の展開に大きな影響を与えた
+メアリー・シェリー|Mary Shelley|1797|1851|arts|文学|『フランケンシュタイン』でSF文学の源流を作った
+ジョルジュ・サンド|George Sand|1804|1876|arts|文学|19世紀フランス文学で女性作家の公共的発言を広げた
+ハリエット・ビーチャー・ストウ|Harriet Beecher Stowe|1811|1896|arts|文学|奴隷制批判文学で世論形成に影響を与えた
+ルイーザ・メイ・オルコット|Louisa May Alcott|1832|1888|arts|文学|『若草物語』などで女性の成長と自立を描いた
+エミリー・ディキンソン|Emily Dickinson|1830|1886|arts|詩|独自の詩法で近代詩に大きな影響を与えた
+セルマ・ラーゲルレーヴ|Selma Lagerlof|1858|1940|arts|文学|女性初のノーベル文学賞受賞者となった
+ビアトリクス・ポター|Beatrix Potter|1866|1943|arts|児童文学|絵本とキャラクター事業で児童文化を築いた
+ヴァージニア・ウルフ|Virginia Woolf|1882|1941|arts|文学|モダニズム文学と女性の創作論を発展させた
+アガサ・クリスティ|Agatha Christie|1890|1976|arts|文学|推理小説の大衆文化化に決定的影響を与えた
+ゾラ・ニール・ハーストン|Zora Neale Hurston|1891|1960|arts|文学・民俗学|アフリカ系米国文化を文学と民俗研究で記録した
+フリーダ・カーロ|Frida Kahlo|1907|1954|arts|絵画|自己像とメキシコ文化を融合した作品で後世に影響を与えた
+ジョージア・オキーフ|Georgia O'Keeffe|1887|1986|arts|絵画|米国モダニズム絵画を代表する独自の様式を築いた
+タマラ・ド・レンピッカ|Tamara de Lempicka|1898|1980|arts|絵画|アール・デコ様式の肖像画で独自の地位を築いた
+リー・クラズナー|Lee Krasner|1908|1984|arts|絵画|抽象表現主義の重要な女性画家として評価された
+ルイーズ・ブルジョワ|Louise Bourgeois|1911|2010|arts|彫刻|身体・記憶を主題とする彫刻で現代美術に影響を与えた
+トーベ・ヤンソン|Tove Jansson|1914|2001|arts|文学・絵画|ムーミン作品で児童文学と視覚文化を結びつけた
+マヤ・アンジェロウ|Maya Angelou|1928|2014|arts|文学|自伝文学と詩で人種・女性の経験を可視化した
+トニ・モリスン|Toni Morrison|1931|2019|arts|文学|アフリカ系米国文学を世界文学の中心に押し上げた
+アーシュラ・K・ル＝グウィン|Ursula K. Le Guin|1929|2018|arts|文学|SF・ファンタジーで社会構造とジェンダーを問い直した
+オクテイヴィア・バトラー|Octavia E. Butler|1947|2006|arts|文学|黒人女性作家としてSF文学に新しい視点を導入した
+J・K・ローリング|J. K. Rowling|1965||arts|文学|児童文学シリーズを世界的文化現象に発展させた
+チママンダ・ンゴズィ・アディーチェ|Chimamanda Ngozi Adichie|1977||arts|文学|現代アフリカ文学とフェミニズム言説に影響を与えた
+マリーナ・アブラモヴィッチ|Marina Abramovic|1946||arts|現代美術|パフォーマンスアートの表現領域を拡張した
+ビョーク|Bjork|1965||arts|音楽|音楽・映像・テクノロジーを統合した表現で影響を与えた
+アレサ・フランクリン|Aretha Franklin|1942|2018|arts|音楽|ソウル音楽を代表し女性歌手の表現力を拡張した
+ビリー・ホリデイ|Billie Holiday|1915|1959|arts|音楽|ジャズ歌唱と社会的メッセージで後世に影響を与えた
+エラ・フィッツジェラルド|Ella Fitzgerald|1917|1996|arts|音楽|ジャズ・ボーカルの技法と大衆化に大きく貢献した
+ニーナ・シモン|Nina Simone|1933|2003|arts|音楽|音楽と公民権運動を結びつけた表現者
+ミリアム・マケバ|Miriam Makeba|1932|2008|arts|音楽|南アフリカ音楽と反アパルトヘイトの声を世界に広げた
+マドンナ|Madonna|1958||arts|音楽|ポップ音楽における女性の自己演出と事業モデルを刷新した
+レディー・ガガ|Lady Gaga|1986||arts|音楽|ポップ音楽とパフォーマンス表現を通じ包摂的メッセージを発信した
+テイラー・スウィフト|Taylor Swift|1989||arts|音楽|ソングライティングと音楽ビジネスの主導権で影響を与えた
+ションダ・ライムズ|Shonda Rhimes|1970||arts|テレビ制作|テレビドラマ制作で女性・多様性の表象を広げた
+エイヴァ・デュヴァーネイ|Ava DuVernay|1972||arts|映画|黒人女性監督として映画・テレビ制作の機会を広げた
+キャスリン・ビグロー|Kathryn Bigelow|1951||arts|映画|女性初のアカデミー監督賞受賞者となった
+ソフィア・コッポラ|Sofia Coppola|1971||arts|映画|独自の映像作家性で現代映画に影響を与えた
+クロエ・ジャオ|Chloe Zhao|1982||arts|映画|アジア系女性監督として国際的映画賞を受賞した
+アリス・ギイ＝ブラシェ|Alice Guy-Blache|1873|1968|arts|映画|初期映画産業で監督・プロデューサーとして先駆的に活動した
+アニエス・ヴァルダ|Agnes Varda|1928|2019|arts|映画|ヌーヴェルヴァーグとドキュメンタリー表現を横断した
+ジェルメーヌ・デュラック|Germaine Dulac|1882|1942|arts|映画|フランス前衛映画で女性監督の先駆となった
+リナ・ウェルトミューラー|Lina Wertmuller|1928|2021|arts|映画|女性初のアカデミー監督賞候補者となった
+ミーラー・ナーイル|Mira Nair|1957||arts|映画|インド系ディアスポラの視点を国際映画に示した
+ザハ・ハディド|Zaha Hadid|1950|2016|arts|建築|女性初のプリツカー賞受賞者として建築表現を刷新した
+アイリーン・グレイ|Eileen Gray|1878|1976|arts|デザイン|モダニズム家具・建築で独自の地位を築いた
+レイ・イームズ|Ray Eames|1912|1988|arts|デザイン|家具・映像・展示で20世紀デザインに貢献した
+メアリ・ウルストンクラフト|Mary Wollstonecraft|1759|1797|education|思想・教育|女性の権利と教育を論じ近代フェミニズム思想の基礎を作った
+メアリー・マクロード・ベスーン|Mary McLeod Bethune|1875|1955|education|教育|黒人女性教育者として学校設立と公民権活動を進めた
+マリア・モンテッソーリ|Maria Montessori|1870|1952|education|教育|モンテッソーリ教育法を開発し幼児教育を変えた
+アン・サリヴァン|Anne Sullivan|1866|1936|education|教育|ヘレン・ケラーの教育で障害者教育の可能性を示した
+ヘレン・ケラー|Helen Keller|1880|1968|education|教育・著述|障害者の教育・権利擁護を世界的に訴えた
+マララ・ユスフザイ|Malala Yousafzai|1997||education|教育運動|女子教育の権利を訴えノーベル平和賞を受けた
+ファティマ・メルニーシ|Fatema Mernissi|1940|2015|education|社会学|イスラム社会とジェンダーを研究し女性の知的発言を広げた
+ナワル・エル・サーダウィ|Nawal El Saadawi|1931|2021|education|思想・医学|医師・作家として女性の身体と権利を論じた
+ベル・フックス|bell hooks|1952|2021|education|思想・教育|フェミニズム・人種・教育の交差的分析を広めた
+アンジェラ・デイヴィス|Angela Davis|1944||education|思想・教育|人種・ジェンダー・監獄問題を結ぶ批判的教育活動を行った
+グロリア・スタイネム|Gloria Steinem|1934||education|ジャーナリズム|第二波フェミニズムの言論と組織化を進めた
+ベティ・フリーダン|Betty Friedan|1921|2006|education|思想|『新しい女性の創造』で女性運動に影響を与えた
+シモーヌ・ド・ボーヴォワール|Simone de Beauvoir|1908|1986|education|思想|『第二の性』でジェンダー思想に決定的影響を与えた
+クララ・ツェトキン|Clara Zetkin|1857|1933|education|社会運動|国際女性デーの提唱など労働女性運動を組織した
+ローザ・ルクセンブルク|Rosa Luxemburg|1871|1919|education|思想|政治経済思想と労働運動で女性知識人の役割を示した
+エメリン・パンクハースト|Emmeline Pankhurst|1858|1928|education|参政権運動|英国女性参政権運動を率いた
+スーザン・B・アンソニー|Susan B. Anthony|1820|1906|education|参政権運動|米国女性参政権運動の主要指導者となった
+エリザベス・キャディ・スタントン|Elizabeth Cady Stanton|1815|1902|education|参政権運動|女性権利宣言などで米国女性運動を推進した
+ソジャーナ・トゥルース|Sojourner Truth|1797|1883|education|人権運動|奴隷制廃止と女性の権利を説いた演説者
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "PRAGMA table_info(achievers)"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0|id|INTEGER|0||1
+1|name_ja|TEXT|1||0
+2|name_en|TEXT|0||0
+3|name_kana|TEXT|0||0
+4|birth_year|INTEGER|0||0
+5|death_year|INTEGER|0||0
+6|birth_place|TEXT|0||0
+7|primary_era_id|TEXT|1||0
+8|secondary_era_id|TEXT|0||0
+9|domain|TEXT|1||0
+10|sub_domain|TEXT|0||0
+11|achievement_summary|TEXT|1||0
+12|notable_works|TEXT|0||0
+13|family_class|TEXT|0||0
+14|family_education|TEXT|0||0
+15|education_path|TEXT|0||0
+16|mentors|TEXT|0||0
+17|fame_source|TEXT|0||0
+18|fame_score|REAL|0||0
+19|is_traditional_great|INTEGER|0|0|0
+20|is_local_excellent|INTEGER|0|0|0
+21|data_completeness|INTEGER|0|0|0
+22|source_team|TEXT|0||0
+23|source_url|TEXT|0||0
+24|notes|TEXT|0||0
+25|created_at|TEXT|0|datetime('now')|0
+26|correction_phase|TEXT|0||0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,death_year,primary_era_id,domain,source_team,achievement_summary FROM achievers WHERE source_team='import_experts' AND birth_year BETWEEN 1850 AND 1910 LIMIT 100\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE name_ja IN ('エメリン・パンクハースト','ミリセント・フォーセット','アリス・ポール','ルーシー・バーンズ','キャリー・チャップマン・キャット')\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+1
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,primary_era_id,domain,achievement_summary FROM achievers WHERE source_team='import_experts' LIMIT 20\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE source_team='import_experts'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+3977
+
+ succeeded in 0ms:
+5465|堀井 奈津子|1976|reiwa|politics| (消費者庁長官); 
+5466|飯田 健太|1976|reiwa|politics| (政策立案総括審議官); 
+5467|及川 仁|1976|reiwa|politics| (食品衛生・技術審議官); 
+5468|阪口 理司|1976|reiwa|politics|参事 (官(人事・会計等担当)); 
+5469|加納 克利||reiwa|politics|参事 (官(デジタル・業務改革等担当)); 
+5470|黒田 啓太|1976|reiwa|politics|課長 (消費者教育推進); 
+5471|髙江 慎一|1976|reiwa|politics|課長 (食品衛生基準審査); 
+5472|森島 英之||reiwa|politics|参事 (官(調査研究・国際担当)); 
+5473|茶谷 晋太郎||reiwa|politics|参事 (官(公益通報・協働担当)); 
+5474|北海道東北||reiwa|politics| (北海道青森県岩手県宮城県秋田県山形県福島県); 
+5475|関東甲信越静||reiwa|politics| (茨城県栃木県群馬県埼玉県千葉県東京都神奈川県新潟県山梨県長野県静岡県); 
+5476|東海北陸||reiwa|politics| (富山県石川県福井県岐阜県愛知県三重県); 
+5477|中国四国||reiwa|politics| (鳥取県島根県岡山県広島県山口県徳島県香川県愛媛県高知県); 
+5478|岡田 克也|1976|reiwa|politics| (副総理 内閣府特命担当大臣（行政刷新）); 
+5479|北川 正恭|1976|reiwa|politics|教授 (早稲田大学); 
+5480|小早川 光 郎|1951|heisei|politics|教授 (成蹊大学法科大学); 
+5481|神野 直彦|1976|reiwa|politics|教授 (東京大学); 
+5482|田中 隆敏|1976|reiwa|politics| (御船町議会議員（前議長）); 
+5483|西村 美香|1976|reiwa|politics|教授 (成蹊大学); 
+5484|沼尾 波子|1964|heisei|politics|教授 (東洋大学); 
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT MIN(birth_year),MAX(birth_year),COUNT(birth_year) FROM achievers WHERE source_team='import_experts'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+1950|1976|3700
+
+codex
+候補数が多いので、個別手入力だけだと誤記リスクが高くなります。Wikipedia/NDL系URLで検証できる既知人物に限定し、まず候補リストをDB既存名と突合して、未登録分だけをバッチ投入する形にします。
+exec
+/bin/bash -lc "curl -L --max-time 10 'https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=Category:American_suffragists&cmlimit=5&format=json' | head -c 500" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0curl: (6) Could not resolve host: en.wikipedia.org
+
+web search: 
+web search: 
+web search: 
+web search: site:en.wikipedia.org/wiki/Category:American_suffragists American suffragists category Wikipedia
+codex
+これから投入用スクリプトを追加します。全員を `domain='women_pioneers'`、`correction_phase='6.C'`、`source_team='codex_correction_taisho_women'` に固定し、各行で指定どおり `name_ja` と `birth_year` の重複確認を通してから50件ごとにコミットします。

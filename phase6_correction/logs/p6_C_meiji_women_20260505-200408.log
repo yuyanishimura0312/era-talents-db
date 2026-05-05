@@ -1,0 +1,339 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-439c-71d1-aa16-fcdf86227d40
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.C
+theme: meiji_women
+追加目標: 200 件
+説明: 明治期の女性パイオニア（医師・教育者・作家・社会運動家、津田梅子世代以外も）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.C' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_meiji_women' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【C==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まずスキーマ、既存データの傾向、能力ディメンションを確認します。200件投入は人物実在確認と重複回避が肝なので、既存の命名・summary形式に合わせてからバッチ化します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,domain,summary FROM achievers WHERE source_team='codex_correction_meiji_women' LIMIT 5\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+ exited 1 in 0ms:
+Error: in prepare, no such column: summary
+  SELECT id,name_ja,birth_year,domain,summary FROM achievers WHERE source_team='
+                        error here ---^
+
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+codex
+`achievers` は `achievement_summary` 列を使う形でした。次に時代ID、既存の明治女性候補、重複しやすい人物名を確認して、投入用SQLを生成します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id,name_ja,start_year,end_year FROM eras"' in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: start_year
+  SELECT id,name_ja,start_year,end_year FROM eras
+                    ^--- error here
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE correction_phase='6.C' OR source_team='codex_correction_meiji_women'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*), domain FROM achievers WHERE primary_era_id='meiji' GROUP BY domain ORDER BY COUNT(*) DESC\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,domain,achievement_summary FROM achievers WHERE primary_era_id='meiji' AND (domain='women_pioneers' OR achievement_summary LIKE '%女性%' OR name_ja IN ('津田梅子','荻野吟子','吉岡彌生')) LIMIT 20\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+194|culture_arts
+174|business
+89|science_tech
+80|education_thought
+79|politics
+55|education
+52|science
+47|social_movement
+45|professional
+15|women_pioneers
+11|sports
+11|education_practice
+10|religion_thought
+2|military
+1|other
+1|media
+
+ succeeded in 0ms:
+1316|津田梅子|1864|education|学校制度、私学、啓蒙思想、人文社会科学、女子教育を担った明治期の教育・思想人材。
+1461|植木枝盛|1857|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1462|中江兆民|1847|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1463|田中正造|1841|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1464|堺利彦|1871|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1465|片山潜|1859|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1466|幸徳秋水|1871|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1467|福田英子|1865|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1468|岸田俊子|1863|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1469|矢嶋楫子|1833|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1470|奥村五百子|1845|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1471|石井十次|1865|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1472|木下尚江|1869|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1473|謝花昇|1865|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1474|宮崎滔天|1871|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1475|宮崎八郎|1851|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1476|安部磯雄|1865|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1477|荒畑寒村|1887|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1478|有馬頼寧|1884|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+1479|大山郁夫|1880|social_movement|自由民権、労働、社会改良、女性教育・宗教運動を通じて明治社会の変革を進めた人材。
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+ succeeded in 0ms:
+meiji|明治|Meiji|1868|1912|0||1
+taisho|大正|Taisho|1912|1926|0||2
+showa_pre|昭和前期|Showa Pre-war|1926|1945|0||3
+showa_post|昭和後期|Showa Post-war|1946|1989|0||4
+heisei|平成|Heisei|1989|2019|0||5
+reiwa|令和|Reiwa|2019|2030|0||6
+future_2030|2030年代|2030s|2030|2040|1||7
+future_2050|2050年代|2050s|2050|2060|1||8
+future_2100|2100年代|2100s|2100|2110|1||9
+all|全時代|All eras|1868|2030|0|横断的収集用の擬似時代ID|0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,death_year,domain,source_url FROM achievers WHERE domain='women_pioneers' OR correction_phase='6.C' ORDER BY birth_year LIMIT 50\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+4705|ヒュパティア|360|415|women_pioneers|https://en.wikipedia.org/wiki/Hypatia
+4785|ヒルデガルト・フォン・ビンゲン|1098|1179|women_pioneers|https://en.wikipedia.org/wiki/Hildegard_of_Bingen
+4786|アルテミジア・ジェンティレスキ|1593|1656|women_pioneers|https://en.wikipedia.org/wiki/Artemisia_Gentileschi
+4706|マリア・ジビーラ・メーリアン|1647|1717|women_pioneers|https://en.wikipedia.org/wiki/Maria_Sibylla_Merian
+4707|カロライン・ハーシェル|1750|1848|women_pioneers|https://en.wikipedia.org/wiki/Caroline_Herschel
+4787|エリザベート＝ルイーズ・ヴィジェ＝ルブラン|1755|1842|women_pioneers|https://en.wikipedia.org/wiki/Elisabeth_Vigee_Le_Brun
+4834|メアリ・ウルストンクラフト|1759|1797|women_pioneers|https://en.wikipedia.org/wiki/Mary_Wollstonecraft
+4788|ジェーン・オースティン|1775|1817|women_pioneers|https://en.wikipedia.org/wiki/Jane_Austen
+4711|メアリー・サマヴィル|1780|1872|women_pioneers|https://en.wikipedia.org/wiki/Mary_Somerville
+4789|メアリー・シェリー|1797|1851|women_pioneers|https://en.wikipedia.org/wiki/Mary_Shelley
+4852|ソジャーナ・トゥルース|1797|1883|women_pioneers|https://en.wikipedia.org/wiki/Sojourner_Truth
+4708|メアリー・アニング|1799|1847|women_pioneers|https://en.wikipedia.org/wiki/Mary_Anning
+4790|ジョルジュ・サンド|1804|1876|women_pioneers|https://en.wikipedia.org/wiki/George_Sand
+4688|メアリー・シーコール|1805|1881|women_pioneers|https://en.wikipedia.org/wiki/Mary_Seacole
+4791|ハリエット・ビーチャー・ストウ|1811|1896|women_pioneers|https://en.wikipedia.org/wiki/Harriet_Beecher_Stowe
+4709|エイダ・ラブレス|1815|1852|women_pioneers|https://en.wikipedia.org/wiki/Ada_Lovelace
+4851|エリザベス・キャディ・スタントン|1815|1902|women_pioneers|https://en.wikipedia.org/wiki/Elizabeth_Cady_Stanton
+4710|ユーニス・ニュートン・フット|1819|1888|women_pioneers|https://en.wikipedia.org/wiki/Eunice_Newton_Foote
+4687|フローレンス・ナイチンゲール|1820|1910|women_pioneers|https://en.wikipedia.org/wiki/Florence_Nightingale
+4850|スーザン・B・アンソニー|1820|1906|women_pioneers|https://en.wikipedia.org/wiki/Susan_B._Anthony
+4670|エリザベス・ブラックウェル|1821|1910|women_pioneers|https://en.wikipedia.org/wiki/Elizabeth_Blackwell
+4853|ハリエット・タブマン|1822|1913|women_pioneers|https://en.wikipedia.org/wiki/Harriet_Tubman
+4793|エミリー・ディキンソン|1830|1886|women_pioneers|https://en.wikipedia.org/wiki/Emily_Dickinson
+4671|レベッカ・リー・クランプラー|1831|1895|women_pioneers|https://en.wikipedia.org/wiki/Rebecca_Lee_Crumpler
+4672|メアリー・エドワーズ・ウォーカー|1832|1919|women_pioneers|https://en.wikipedia.org/wiki/Mary_Edwards_Walker
+4792|ルイーザ・メイ・オルコット|1832|1888|women_pioneers|https://en.wikipedia.org/wiki/Louisa_May_Alcott
+4674|エリザベス・ギャレット・アンダーソン|1836|1917|women_pioneers|https://en.wikipedia.org/wiki/Elizabeth_Garrett_Anderson
+4675|ソフィア・ジェックス＝ブレイク|1840|1912|women_pioneers|https://en.wikipedia.org/wiki/Sophia_Jex-Blake
+4680|メアリー・パットナム・ジャコビ|1842|1906|women_pioneers|https://en.wikipedia.org/wiki/Mary_Putnam_Jacobi
+4712|ハーサ・エアトン|1854|1923|women_pioneers|https://en.wikipedia.org/wiki/Hertha_Ayrton
+4847|クララ・ツェトキン|1857|1933|women_pioneers|https://en.wikipedia.org/wiki/Clara_Zetkin
+4794|セルマ・ラーゲルレーヴ|1858|1940|women_pioneers|https://en.wikipedia.org/wiki/Selma_Lagerlof
+4849|エメリン・パンクハースト|1858|1928|women_pioneers|https://en.wikipedia.org/wiki/Emmeline_Pankhurst
+4855|ジェーン・アダムズ|1860|1935|women_pioneers|https://en.wikipedia.org/wiki/Jane_Addams
+4677|カダンビニ・ガングリー|1861|1923|women_pioneers|https://en.wikipedia.org/wiki/Kadambini_Ganguly
+4854|アイダ・B・ウェルズ|1862|1931|women_pioneers|https://en.wikipedia.org/wiki/Ida_B._Wells
+4868|ファトマ・アリエ|1862|1936|women_pioneers|https://en.wikipedia.org/wiki/Fatma_Aliye
+4678|ルクマバイ|1864|1955|women_pioneers|https://en.wikipedia.org/wiki/Rukhmabai
+4673|スーザン・ラ・フレッシュ・ピコット|1865|1915|women_pioneers|https://en.wikipedia.org/wiki/Susan_La_Flesche_Picotte
+4676|アナンディバイ・ジョシー|1865|1887|women_pioneers|https://en.wikipedia.org/wiki/Anandibai_Joshi
+4795|ビアトリクス・ポター|1866|1943|women_pioneers|https://en.wikipedia.org/wiki/Beatrix_Potter
+4837|アン・サリヴァン|1866|1936|women_pioneers|https://en.wikipedia.org/wiki/Anne_Sullivan
+4715|マリ・キュリー|1867|1934|women_pioneers|https://en.wikipedia.org/wiki/Marie_Curie
+4750|マダム・C・J・ウォーカー|1867|1919|women_pioneers|https://en.wikipedia.org/wiki/Madam_C._J._Walker
+4699|アリス・ハミルトン|1869|1970|women_pioneers|https://en.wikipedia.org/wiki/Alice_Hamilton
+4836|マリア・モンテッソーリ|1870|1952|women_pioneers|https://en.wikipedia.org/wiki/Maria_Montessori
+4848|ローザ・ルクセンブルク|1871|1919|women_pioneers|https://en.wikipedia.org/wiki/Rosa_Luxemburg
+4681|サラ・ジョセフィン・ベーカー|1873|1945|women_pioneers|https://en.wikipedia.org/wiki/Sara_Josephine_Baker
+4826|アリス・ギイ＝ブラシェ|1873|1968|women_pioneers|https://en.wikipedia.org/wiki/Alice_Guy-Blache
+4835|メアリー・マクロード・ベスーン|1875|1955|women_pioneers|https://en.wikipedia.org/wiki/Mary_McLeod_Bethune
+
+web search: 
+web search: 
+web search: 
+web search: site:wikidata.org Japanese women born 1860 Meiji educator physician writer social activist
+codex
+人物の実在確認は Wikidata / Wikipedia / 近代日本人名録系の出典URLを `source_url` と `evidence_source` に入れる形にします。手作業で200名を捏造しないため、まず機械的に参照可能な候補を作って、DB上の重複で落としていきます。
+exec
+/bin/bash -lc "python3 - <<'PY'
+import urllib.request
+url='https://www.wikidata.org/w/api.php?action=wbsearchentities&search=%E8%8D%BB%E9%87%8E%E5%90%9F%E5%AD%90&language=ja&format=json&limit=1'
+try:
+    print(urllib.request.urlopen(url, timeout=10).read()[:500])
+except Exception as e:
+    print(type(e).__name__, e)
+PY" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+URLError <urlopen error [Errno 8] nodename nor servname provided, or not known>
+
+web search: 
+web search: Wikipedia 明治時代 女性 教育者 医師 作家 社会運動家 一覧
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id,name_ja,birth_year,primary_era_id,domain,achievement_summary FROM achievers WHERE id BETWEEN 4670 AND 4868 LIMIT 20"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+4670|エリザベス・ブラックウェル|1821|showa_post|women_pioneers|米国で初めて医学学位を得た女性医師として女性医師養成の道を開いた
+4671|レベッカ・リー・クランプラー|1831|showa_post|women_pioneers|米国初のアフリカ系女性医師の一人として医療と公衆衛生に貢献した
+4672|メアリー・エドワーズ・ウォーカー|1832|showa_post|women_pioneers|南北戦争期の外科医として従軍し女性医師の公共的役割を示した
+4673|スーザン・ラ・フレッシュ・ピコット|1865|meiji|women_pioneers|先住民女性医師としてオマハ族コミュニティの医療改善に尽くした
+4674|エリザベス・ギャレット・アンダーソン|1836|showa_post|women_pioneers|英国初期の女性医師として女性医学校と病院運営を先導した
+4675|ソフィア・ジェックス＝ブレイク|1840|meiji|women_pioneers|英国で女性医学教育の制度化を推進した
+4676|アナンディバイ・ジョシー|1865|meiji|women_pioneers|インド出身女性として医学教育を受け女性医療の象徴となった
+4677|カダンビニ・ガングリー|1861|meiji|women_pioneers|南アジア初期の女性医師として診療と女性の高等教育を切り開いた
+4678|ルクマバイ|1864|meiji|women_pioneers|インドの女性医師・社会改革者として女性の自立を訴えた
+4679|ムトゥラクシュミ・レッディ|1886|showa_pre|women_pioneers|医師・政治家として女性医療とがん医療の制度づくりに貢献した
+4680|メアリー・パットナム・ジャコビ|1842|meiji|women_pioneers|医学研究に基づき女性の高等教育参加を擁護した
+4681|サラ・ジョセフィン・ベーカー|1873|taisho|women_pioneers|乳幼児保健を中心に都市公衆衛生を改善した
+4682|ヴァージニア・アプガー|1909|showa_post|women_pioneers|新生児評価のアプガースコアを考案し周産期医療を変えた
+4683|ヘレン・ブルック・タウシグ|1898|showa_pre|women_pioneers|小児心臓病学を開拓し先天性心疾患治療に貢献した
+4684|ガートルード・エリオン|1918|showa_post|women_pioneers|合理的薬剤設計で多くの治療薬開発に貢献した
+4685|ロザリン・ヤロー|1921|showa_post|women_pioneers|ラジオイムノアッセイ開発で医学検査を革新した
+4686|ガーティ・コリ|1896|showa_pre|women_pioneers|糖代謝研究で女性初のノーベル生理学・医学賞受賞者となった
+4687|フローレンス・ナイチンゲール|1820|showa_post|women_pioneers|近代看護と統計に基づく病院改革を推進した
+4688|メアリー・シーコール|1805|showa_post|women_pioneers|クリミア戦争期に独自の看護・支援活動を行った
+4689|シシリー・ソンダース|1918|showa_post|women_pioneers|近代ホスピス運動と緩和ケアの基礎を築いた
+
+codex
+これから投入スクリプトを追加します。各候補は女性であることを summary に明記し、`source_url` と能力エビデンスには Wikipedia / Wikidata / NDL / Kotobank など参照可能なページを入れます。

@@ -1,0 +1,1416 @@
+Reading prompt from stdin...
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/nishimura+/projects/research/era-talents-db
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/nishimura+/.codex/memories]
+reasoning effort: none
+reasoning summaries: none
+session id: 019df7cf-9a54-7722-a52b-9a0723d2ecc6
+--------
+user
+あなたは「時代別活躍人材DB」のバイアス補正タスク Codexエージェントです。
+DB: /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db
+
+【担当】
+phase: Phase 6.F
+theme: l2_critical
+追加目標: 60 件
+説明: L2: 批判理論（柄谷行人・東浩紀・浅田彰）
+
+【スキーマ】
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achievers"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema era_retrospectives"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema future_demands"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema academic_references"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db ".schema achiever_capabilities"
+sqlite3 /Users/nishimura+/projects/research/era-talents-db/data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"
+
+【投入先テーブル】
+- Package B/C/D: achievers + achiever_capabilities
+- Package F: era_retrospectives
+- Package E: future_demands
+- Package G: academic_references
+
+【厳守ルール】
+1. correction_phase='6.F' を必ず achievers.correction_phase に設定
+2. source_team='codex_correction_l2_critical' を必ず設定
+3. 重複チェック: INSERT前に SELECT 1 FROM achievers WHERE name_ja=? AND birth_year IS ?
+4. 実在確認可能な人物のみ（ハルシネーション禁止）
+5. 50件ずつバッチINSERTで進める
+
+【Package別の指示】
+- B（politics解消）: domain='craft' or 'local_excellent_business' or 'agriculture_local'
+  is_local_excellent=1 を必ず設定
+- C（女性追加）: 女性であることを名前・summary で明示
+  domain='women_pioneers' OR 専門ドメイン+性別フラグ。is_traditional_great=0 推奨
+- D（低スコア追加）: 批判的伝記研究を引用（example: 「失敗の本質」「日本のメリトクラシー」「同時代評価のネガ部分」）
+  achiever_capabilities でscore=3〜5 の能力を必ず1個以上付与
+  例: 政治家でも数学リテラシー=3、芸術家でも論理的思考=4 のように明示
+- F（L2多様化）: era_retrospectives.perspective に theme(edu_socio/history/sociology/gender/anthro/critical)
+  source_author を必ず指定（教育社会学・歴史学・社会学の指定研究者から）
+  各時代均等に分配（meiji〜reiwa 6時代）
+- E（L4機関多様化）: future_demands.source_org に機関名（ADB/AU/CEPAL等）
+  scenario='asia_centric' or 'global_south' or 'multipolar' 推奨
+- G（文献グローバル化）: academic_references にDOI/出典明記
+  framework_tag に研究者の理論枠組み（postcolonial/dependency/decolonial等）
+
+【F==B/C/D の能力スコアリング】
+追加した人物について achiever_capabilities にも投入:
+- 主要能力3-5個を選択
+- score 1-10 の範囲を意識的に分散させる（特にPackage D は低スコア必須）
+- evidence_quote と evidence_source を必ず記載
+
+完了後、追加件数を sqlite3 で確認し報告。
+
+codex
+まずDB構造と既存データの分布を確認します。対象が Phase 6.F / l2_critical なので、人物追加だけでなく retrospective / future_demands / references のどれが不足しているかを実データに合わせて詰めます。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achievers"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE achievers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT,
+    name_kana       TEXT,
+    birth_year      INTEGER,
+    death_year      INTEGER,
+    birth_place     TEXT,
+    primary_era_id  TEXT NOT NULL REFERENCES eras(id),  -- 主に活躍した時代
+    secondary_era_id TEXT REFERENCES eras(id),
+    domain          TEXT NOT NULL,           -- politics, business, science, technology, culture_arts, sports, social_movement, education, religion, media, agriculture_local, professional, craft
+    sub_domain      TEXT,
+    achievement_summary TEXT NOT NULL,
+    notable_works   TEXT,                    -- JSON array
+    -- 階層・背景（Bourdieu型）
+    family_class    TEXT,                    -- aristocrat, samurai, merchant, farmer, working_class, other
+    family_education TEXT,
+    -- 教育経歴
+    education_path  TEXT,
+    mentors         TEXT,                    -- JSON array
+    -- 著名度指標
+    fame_source     TEXT,                    -- wikipedia_ja_size, pantheon_hpi, ndl_authority, prize
+    fame_score      REAL,
+    -- データ品質
+    is_traditional_great INTEGER DEFAULT 0,  -- 偉人カテゴリ
+    is_local_excellent   INTEGER DEFAULT 0,  -- 無名の卓越者
+    data_completeness INTEGER DEFAULT 0,
+    source_team     TEXT,                    -- codex_meiji, codex_taisho, claude_synthesis
+    source_url      TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, correction_phase TEXT);
+CREATE INDEX idx_achievers_era ON achievers(primary_era_id);
+CREATE INDEX idx_achievers_domain ON achievers(domain);
+CREATE INDEX idx_achievers_birth ON achievers(birth_year);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema era_retrospectives"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema future_demands"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE era_retrospectives (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    perspective     TEXT,                    -- historical_sociology, education_research, biography_studies
+    source_title    TEXT NOT NULL,
+    source_author   TEXT,
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    relevance_score INTEGER CHECK(relevance_score BETWEEN 1 AND 10),
+    diverges_from_l1 INTEGER DEFAULT 0,      -- L1当時言説とのズレフラグ
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, source_team TEXT);
+CREATE INDEX idx_retrospectives_era ON era_retrospectives(era_id);
+
+ succeeded in 0ms:
+CREATE TABLE future_demands (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    era_id          TEXT NOT NULL REFERENCES eras(id),  -- future_2030 / future_2050 / future_2100
+    capability_id   TEXT REFERENCES capability_dimensions(id),
+    scenario        TEXT,                    -- baseline, ssp1, ssp3, post_growth, posthuman
+    source_title    TEXT NOT NULL,
+    source_org      TEXT,                    -- OECD, WEF, METI, IPCC, etc
+    source_year     INTEGER,
+    source_url      TEXT,
+    finding_ja      TEXT NOT NULL,
+    confidence      INTEGER CHECK(confidence BETWEEN 1 AND 10),
+    is_unique_to_era INTEGER DEFAULT 0,      -- その時代固有か
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_future_era ON future_demands(era_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema academic_references"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema achiever_capabilities"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE academic_references (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    citation        TEXT NOT NULL,
+    author          TEXT,
+    year            INTEGER,
+    title           TEXT,
+    framework_tag   TEXT,                    -- simonton, csikszentmihalyi, subotnik, bourdieu, granovetter, merton
+    relevance_to_layer TEXT,                 -- L1, L2, L3, L4, methodology
+    doi             TEXT,
+    notes           TEXT
+);
+
+ succeeded in 0ms:
+CREATE TABLE achiever_capabilities (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    achiever_id     INTEGER NOT NULL REFERENCES achievers(id),
+    capability_id   TEXT NOT NULL REFERENCES capability_dimensions(id),
+    score           INTEGER CHECK(score BETWEEN 1 AND 10),
+    evidence_quote  TEXT,
+    evidence_source TEXT,
+    notes           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+, is_uniform_bulk INTEGER DEFAULT 0);
+CREATE INDEX idx_capabilities_achiever ON achiever_capabilities(achiever_id);
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM capability_dimensions"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+cog_creativity|創造性
+cog_critical|批判的思考
+cog_logical|論理的思考
+cog_math|数学的リテラシー
+cog_info|情報リテラシー
+cog_ai_collab|AI協働リテラシー
+val_tolerance|寛容性
+val_collective|集団協調性
+val_traditional|伝統文化尊重
+soc_interpersonal|対人関係スキル
+age_oecd_transformative|OECD変革コンピテンシー
+age_social_autonomy|社会的自立性
+age_entrepreneur|起業家精神
+age_social_change|社会変革志向
+cre_cross_domain|異分野統合志向
+cog_systems|システム思考
+val_eco|エコロジカルリテラシー
+age_resilience|レジリエンス
+age_meta_learning|学習戦略・適応性
+
+codex
+スキーマは確認できました。次に、既存の `6.F` 件数、時代ID、同名重複の出方を見て、60件をどのテーブルに入れるのがこのDBの既存設計に合うか確認します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, name_ja FROM eras ORDER BY start_year"' in /Users/nishimura+/projects/research/era-talents-db
+ exited 1 in 0ms:
+Error: in prepare, no such column: start_year
+  SELECT id, name_ja FROM eras ORDER BY start_year
+                          error here ---^
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT correction_phase, source_team, COUNT(*) FROM achievers WHERE correction_phase IS NOT NULL OR source_team LIKE 'codex_correction%' GROUP BY correction_phase, source_team ORDER BY correction_phase, source_team\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT source_team, COUNT(*) FROM era_retrospectives GROUP BY source_team ORDER BY COUNT(*) DESC LIMIT 20"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+6.1_experts_redistribution|import_experts|833
+6.1_experts_year_only|import_experts|2867
+
+ succeeded in 0ms:
+|627
+codex_retrospective_expand|300
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT primary_era_id, domain, COUNT(*) FROM achievers GROUP BY primary_era_id, domain ORDER BY primary_era_id, COUNT(*) DESC LIMIT 80"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+heisei|politics|885
+heisei|culture_arts|283
+heisei|business|257
+heisei|sports|227
+heisei|science_tech|93
+heisei|science|59
+heisei|women_pioneers|52
+heisei|professional|44
+heisei|agriculture_local|39
+heisei|craft|38
+heisei|social_movement|33
+heisei|diaspora_ainu_okinawa|32
+heisei|media|23
+heisei|education_practice|22
+heisei|education|22
+heisei|local_excellent_craft|20
+heisei|religion_thought|15
+heisei|local_excellent_social|6
+heisei|local_excellent_business|6
+heisei|local_excellent_culture|4
+meiji|culture_arts|194
+meiji|business|174
+meiji|science_tech|89
+meiji|education_thought|80
+meiji|politics|79
+meiji|education|55
+meiji|science|52
+meiji|social_movement|47
+meiji|professional|45
+meiji|women_pioneers|15
+meiji|sports|11
+meiji|education_practice|11
+meiji|religion_thought|10
+meiji|military|2
+meiji|other|1
+meiji|media|1
+reiwa|politics|3173
+reiwa|business|178
+reiwa|culture_arts|117
+reiwa|social_movement|98
+reiwa|science_tech|79
+reiwa|science|50
+reiwa|sports|40
+reiwa|education|38
+reiwa|craft|38
+reiwa|agriculture_local|33
+reiwa|media|28
+reiwa|women_pioneers|16
+reiwa|professional|9
+reiwa|technology|8
+reiwa|religion_thought|8
+reiwa|local_excellent_business|2
+reiwa|education_practice|2
+reiwa|local_excellent_social|1
+reiwa|diaspora_ainu_okinawa|1
+showa_post|business|241
+showa_post|sports|140
+showa_post|culture_arts|101
+showa_post|science_tech|97
+showa_post|politics|93
+showa_post|women_pioneers|87
+showa_post|media_journalism|80
+showa_post|science|72
+showa_post|agriculture_local|72
+showa_post|education|60
+showa_post|social_movement|51
+showa_post|media|49
+showa_post|education_practice|48
+showa_post|local_excellent_craft|47
+showa_post|diaspora_ainu_okinawa|41
+showa_post|local_excellent_culture|36
+showa_post|religion_thought|29
+showa_post|professional|29
+showa_post|local_excellent_business|8
+showa_post|military|3
+showa_post|local_excellent_social|2
+showa_pre|business|154
+showa_pre|culture_arts|142
+showa_pre|science_tech|90
+showa_pre|social_movement|81
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT framework_tag, COUNT(*) FROM academic_references GROUP BY framework_tag ORDER BY COUNT(*) DESC LIMIT 20"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT era_id, scenario, source_org, COUNT(*) FROM future_demands GROUP BY era_id, scenario, source_org ORDER BY era_id, COUNT(*) DESC LIMIT 40"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+simonton|4
+terman|3
+galton|2
+csikszentmihalyi|2
+zuckerman|1
+wef|1
+unesco|1
+takeuchi|1
+subotnik|1
+schumpeter|1
+renzulli|1
+pantheon|1
+p21|1
+oecd|1
+naoi|1
+mext|1
+meti|1
+merton|1
+kariya|1
+granovetter|1
+
+ succeeded in 0ms:
+future_2030|baseline|OECD|17
+future_2030|baseline|McKinsey|7
+future_2030|ai_acceleration|World Economic Forum|6
+future_2030|ssp3|World Economic Forum|5
+future_2030|ai_acceleration|McKinsey|4
+future_2030|ai_acceleration|McKinsey Global Institute|4
+future_2030|baseline|World Economic Forum|4
+future_2030|baseline|経済産業省|3
+future_2030|ssp1|IPCC|3
+future_2030|ssp1|OECD|3
+future_2030|ssp1|OECD Skills Outlook|3
+future_2030|ai_acceleration|IPA DX推進スキル標準|2
+future_2030|ai_acceleration|Stanford HAI|2
+future_2030|ai_acceleration|WEF|2
+future_2030|ai_acceleration|経済産業省|2
+future_2030|ai_acceleration|野村総合研究所|2
+future_2030|ai_singularity|Ada Lovelace Institute|2
+future_2030|ai_singularity|United Nations AI Advisory Body|2
+future_2030|baseline|IPA DX推進スキル標準|2
+future_2030|baseline|IPA/経済産業省|2
+future_2030|baseline|International Labour Organization|2
+future_2030|baseline|McKinsey Global Institute|2
+future_2030|baseline|UNESCO|2
+future_2030|baseline|United Nations|2
+future_2030|baseline|WEF New Economy Skills|2
+future_2030|baseline|文部科学省|2
+future_2030|baseline|経団連|2
+future_2030|baseline|野村総合研究所|2
+future_2030|post_growth|OECD|2
+future_2030|post_growth|UNDP|2
+future_2030|posthuman|European Parliament STOA|2
+future_2030|posthuman|World Health Organization|2
+future_2030|space_civilization|International Space Exploration Coordination Group|2
+future_2030|ssp1|International Energy Agency|2
+future_2030|ssp3|NATO|2
+future_2030|ssp3|United Nations|2
+future_2030|ai_acceleration|IPA/経済産業省|1
+future_2030|ai_acceleration|JMAM|1
+future_2030|ai_acceleration|McKinsey Learning Perspectives|1
+future_2030|ai_acceleration|OECD|1
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT * FROM eras"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db ".schema eras"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+CREATE TABLE eras (
+    id              TEXT PRIMARY KEY,        -- meiji, taisho, showa_pre, showa_post, heisei, reiwa, future_2030, future_2050, future_2100
+    name_ja         TEXT NOT NULL,
+    name_en         TEXT NOT NULL,
+    year_start      INTEGER NOT NULL,
+    year_end        INTEGER NOT NULL,
+    is_future       INTEGER NOT NULL DEFAULT 0,
+    description     TEXT,
+    sort_order      INTEGER
+);
+
+ succeeded in 0ms:
+meiji|明治|Meiji|1868|1912|0||1
+taisho|大正|Taisho|1912|1926|0||2
+showa_pre|昭和前期|Showa Pre-war|1926|1945|0||3
+showa_post|昭和後期|Showa Post-war|1946|1989|0||4
+heisei|平成|Heisei|1989|2019|0||5
+reiwa|令和|Reiwa|2019|2030|0||6
+future_2030|2030年代|2030s|2030|2040|1||7
+future_2050|2050年代|2050s|2050|2060|1||8
+future_2100|2100年代|2100s|2100|2110|1||9
+all|全時代|All eras|1868|2030|0|横断的収集用の擬似時代ID|0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,name_ja,birth_year,primary_era_id,domain FROM achievers WHERE domain IN ('religion_thought','education_thought') ORDER BY birth_year LIMIT 80\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT primary_era_id, COUNT(*) FROM achievers WHERE correction_phase='6.F' GROUP BY primary_era_id\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM achievers WHERE source_team='codex_correction_l2_critical'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+ succeeded in 0ms:
+3774|黒住宗忠|1780|meiji|education_thought
+3775|金光大神|1814|meiji|education_thought
+4349|重野安繹|1827|meiji|education_thought
+3715|釈雲照|1827|meiji|religion_thought
+3439|西村茂樹|1828|meiji|education_thought
+3440|津田真道|1829|meiji|education_thought
+3758|近藤真琴|1831|meiji|education_thought
+3433|島地黙雷|1838|meiji|education_thought
+3771|岡田良一郎|1839|meiji|education_thought
+3759|田中敬一|1843|meiji|education_thought
+3763|関信三|1843|meiji|education_thought
+3782|三輪田真佐子|1843|meiji|education_thought
+3466|渡辺辰五郎|1844|meiji|education_thought
+4348|中島歌子|1844|meiji|education_thought
+3434|大内青巒|1845|meiji|education_thought
+3441|田中不二麿|1845|meiji|education_thought
+3443|田中義廉|1845|meiji|education_thought
+3445|稲垣千頴|1845|meiji|education_thought
+3719|千家尊福|1845|meiji|religion_thought
+3444|物集高見|1847|meiji|education_thought
+3776|川合清丸|1848|meiji|education_thought
+3442|浜尾新|1849|meiji|education_thought
+3418|押川方義|1850|meiji|education_thought
+3431|村上専精|1851|meiji|education_thought
+3465|佐藤志津|1851|meiji|education_thought
+3459|能勢栄|1852|meiji|education_thought
+3764|小西信八|1854|meiji|education_thought
+3778|高嶺秀夫|1854|meiji|education_thought
+3720|金光宅吉|1854|meiji|religion_thought
+3436|前田慧雲|1855|meiji|education_thought
+3419|横井時雄|1857|meiji|education_thought
+3767|陸羯南|1857|meiji|education_thought
+3777|宮川経輝|1857|meiji|education_thought
+3737|前田慧雲|1857|taisho|religion_thought
+3417|植村正久|1858|meiji|education_thought
+3451|元良勇次郎|1858|meiji|education_thought
+3755|小崎千代|1858|meiji|education_thought
+3422|松村介石|1859|meiji|education_thought
+3423|柏木義円|1860|meiji|education_thought
+3430|釈宗演|1860|meiji|education_thought
+3435|織田得能|1860|meiji|education_thought
+3765|三宅雪嶺|1860|meiji|education_thought
+3781|三宅米吉|1860|meiji|education_thought
+3429|田中智學|1861|meiji|education_thought
+3756|永井繁子|1861|meiji|education_thought
+3757|石井筆子|1861|meiji|education_thought
+3762|下村孝太郎|1861|meiji|education_thought
+3780|藤澤利喜太郎|1861|meiji|education_thought
+3421|巌本善治|1863|meiji|education_thought
+3425|清沢満之|1863|meiji|education_thought
+3454|湯原元一|1863|meiji|education_thought
+3766|志賀重昂|1863|meiji|education_thought
+3420|高木壬太郎|1864|meiji|education_thought
+3716|高木顕明|1864|meiji|religion_thought
+3450|松本亦太郎|1865|meiji|education_thought
+3779|大瀬甚太郎|1865|meiji|education_thought
+3437|高楠順次郎|1866|meiji|education_thought
+3723|河口慧海|1866|meiji|religion_thought
+3447|上田万年|1867|meiji|education_thought
+3448|芳賀矢一|1867|meiji|education_thought
+3452|佐々木吉三郎|1867|meiji|education_thought
+3453|谷本富|1867|meiji|education_thought
+3754|山脇房子|1867|meiji|education_thought
+3718|川合信水|1867|meiji|religion_thought
+3461|野口援太郎|1868|meiji|education_thought
+3426|近角常観|1870|meiji|education_thought
+3768|加藤咄堂|1870|meiji|education_thought
+3432|境野黄洋|1871|meiji|education_thought
+3460|樋口勘次郎|1871|meiji|education_thought
+3724|佐伯好郎|1871|meiji|religion_thought
+3428|西田天香|1872|meiji|education_thought
+3438|渡辺海旭|1872|meiji|education_thought
+3446|保科孝一|1872|meiji|education_thought
+3449|藤岡勝二|1872|meiji|education_thought
+3462|木下竹次|1872|meiji|education_thought
+3770|蟹江義丸|1872|meiji|education_thought
+3722|筧克彦|1872|meiji|religion_thought
+3424|綱島梁川|1873|meiji|education_thought
+3773|姉崎嘲風|1873|meiji|education_thought
+3721|加藤玄智|1873|meiji|religion_thought
+
+ succeeded in 0ms:
+0
+
+codex
+既存の `6.F` はまだ0件で、`era_retrospectives` には `source_team` 列があります。Phase名と「各時代均等」指定から、今回は `era_retrospectives` に明治から令和まで10件ずつ、計60件を入れるのが最も整合的です。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT id, era_id, capability_id, perspective, source_title, source_author, source_year, finding_ja, relevance_score, diverges_from_l1, source_team FROM era_retrospectives ORDER BY id DESC LIMIT 20"' in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT era_id, perspective, COUNT(*) FROM era_retrospectives GROUP BY era_id, perspective ORDER BY era_id, perspective"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+heisei|biography_studies|10
+heisei|education_research|22
+heisei|historical_sociology|24
+heisei|humanities_concept|103
+heisei|innovation_theory|158
+heisei|social_theory|65
+meiji|biography_studies|10
+meiji|education_research|22
+meiji|historical_sociology|24
+meiji|humanities_concept|7
+meiji|innovation_theory|3
+meiji|social_theory|11
+reiwa|biography_studies|9
+reiwa|education_research|23
+reiwa|historical_sociology|24
+reiwa|humanities_concept|37
+reiwa|innovation_theory|5
+reiwa|social_theory|21
+showa_post|biography_studies|10
+showa_post|education_research|21
+showa_post|historical_sociology|25
+showa_post|humanities_concept|48
+showa_post|innovation_theory|30
+showa_post|social_theory|84
+showa_pre|biography_studies|9
+showa_pre|education_research|22
+showa_pre|historical_sociology|25
+showa_pre|humanities_concept|4
+showa_pre|innovation_theory|4
+showa_pre|social_theory|8
+taisho|biography_studies|10
+taisho|education_research|22
+taisho|historical_sociology|24
+taisho|humanities_concept|1
+taisho|social_theory|2
+
+ succeeded in 0ms:
+927|heisei||innovation_theory|制度と企業間知識流動（人材移動・スピンアウト）||1994|労働移動・スピンアウトを通じた知識スピルオーバーの制度的条件を明示した。非競業禁止協定の規制方針がイノベーションエコシステムの活力に与える影響の政策論争において中心的な実証的根拠となっている。|7|0|
+926|heisei||innovation_theory|制度構築能力とリーンガバナンス||2013|開発途上国の制度構築アプローチの根本的な方法論的刷新として世界銀行・USAID・UNDPなど開発機関に採用されつつある。イノベーション政策の制度構築においても「学習と実験」による適応的設計の重要性を示している。|7|0|
+925|heisei||innovation_theory|発展途上国の知的財産制度とイノベーション||2000|途上国イノベーション政策における知財制度設計の根本的なトレードオフを示した。TRIPS plus条項を含む自由貿易協定の政策的含意について、発展経済学・国際法学の両面で重要な議論を促している。|7|0|
+924|showa_post||innovation_theory|社会学的制度主義とイソモーフィズム||1983|組織の制度論的分析の基盤として最も引用される論文の一つ。大学TTO・スタートアップアクセラレーター・企業R&Dラボのグローバルな均質化傾向の説明に活用される。|7|0|
+923|heisei||innovation_theory|複雑性経済と制度（Hidalgo・Arthur）||2009|経済複雑性分析がイノベーション能力・産業構造変化の研究に新しい定量的枠組みを提供した。ECI指標は世界銀行・IMF等の政策機関でも活用されており、産業政策の優先順位付けに応用されている。|7|0|
+922|heisei||innovation_theory|制度的論理とハイブリッド組織（社会的企業）||2014|社会的イノベーション・インパクト投資の担い手としてのハイブリッド組織の組織・制度的分析の基盤を提供した。ソーシャルベンチャー・インパクトベンチャーの経営論的・制度論的研究を牽引している。|7|0|
+921|heisei||innovation_theory|官僚制とイノベーション（Schein）||1996|「組織文化がイノベーションを決める」という命題の制度論的基盤を提供。公的研究機関・大企業R&D部門の組織設計においてDARPAモデルが世界的に参照されるようになった。|7|0|
+920|heisei||innovation_theory|移民と制度的イノベーション||2008|移民政策がイノベーション政策の重要な次元であることを実証した。シリコンバレーの創業者・特許発明者における外国生まれ比率の高さが移民-イノベーション仮説の証拠として示されている。|7|0|
+919|heisei||innovation_theory|教育訓練制度とイノベーション能力||1991|職業訓練・高等教育政策とイノベーション能力の制度的連関を示した。欧州の二元制訓練システムとアングロサクソンの大学教育モデルの比較的優位の説明に広く使われる。|7|0|
+918|heisei||innovation_theory|ガバナンスとイノベーションの地域的変異||1998|イノベーション政策の地域化・地方分権化の理論的根拠となった。スマートスペシャライゼーション（EU地域イノベーション政策）の設計において地域固有の制度的強みを活かす発想の基盤となった。|7|0|
+917|heisei||innovation_theory|労働市場制度とイノベーション||1994|労働市場柔軟性とイノベーションの関係の理論・実証の中心的研究。シリコンバレーモデルの成功における人材流動性の役割を制度論的に示した。|7|0|
+916|showa_post||innovation_theory|FDI・外国直接投資とイノベーション||1988|グローバルバリューチェーンへの参加によるイノベーション能力構築の条件を解明。アジア新興国の技術追随戦略においてFDI誘致政策の有効性に関する実証研究に多大な影響を与えた。|7|0|
+915|heisei||innovation_theory|制度的ロジック（Thornton & Ocasio）||1999|ハイブリッド組織・社会的企業・公的研究機関など複数ロジックを持つ組織の行動分析に広く活用。イノベーション文脈では市場ロジックと科学ロジックの緊張関係の分析に用いられる。|7|0|
+914|heisei||innovation_theory|ルーティンと制度（Hodgson-Nelson-Winter接続）||1993|組織能力と制度環境の相互作用を理論化。イノベーション能力の国際比較における制度的説明を可能にした。|7|0|
+913|heisei||innovation_theory|マッチング市場とイノベーション人材||2004|イノベーション人材の効率的配置と活用がシステム設計の問題として捉えられるようになり、採用・評価・タスク割り当ての改善に経済学的根拠を提供。デジタル人材プラットフォームの設計原則としてマッチング理論が活用されている。|7|0|
+912|heisei||innovation_theory|両利きのリーダーシップ||2011|イノベーション管理における「リーダーは何をすべきか」の実践的指針を提供した。特に新規事業開発と既存事業維持を同時に担う「ミドルマネージャーの両利き行動」の研究が組織の実践変革に貢献している。|7|0|
+911|showa_post||innovation_theory|リーダーシップとイノベーション：変革型リーダー||1985|リーダーシップスタイルがチームと組織のイノベーション成果に与える影響を定量化し、イノベーション志向のリーダーシップ開発プログラムの設計に理論的根拠を提供した。特に技術系リーダーの変革型行動育成の実践に影響を与えた。|7|0|
+910|heisei||innovation_theory|プラットフォームリーダーシップ（Gawer & Cusumano）||2002|Appleエコシステム・Androidエコシステム・Salesforceプラットフォームなどの現代デジタルプラットフォーム戦略の理論的基盤として機能し、プラットフォーム設計の競争戦略論の礎石となった。|7|0|
+909|heisei||innovation_theory|インバウンドオープンイノベーション||2003|大企業のR&D戦略における外部知識活用の理論的根拠として、企業のイノベーションポートフォリオ管理・外部パートナーシップ設計の中核概念として定着した。|7|0|
+908|heisei||innovation_theory|両面市場と技術変化||1996|技術戦略と組織設計を統合的に論じる枠組みの先駆として、イノベーション管理・組織変革研究の中核参照文献の一つとなった。|7|0|
+
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db "SELECT DISTINCT capability_id FROM era_retrospectives ORDER BY capability_id"' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+
+age_entrepreneur
+age_meta_learning
+age_oecd_transformative
+age_resilience
+age_social_autonomy
+age_social_change
+cog_ai_collab
+cog_creativity
+cog_critical
+cog_info
+cog_logical
+cog_systems
+cre_cross_domain
+soc_interpersonal
+val_collective
+val_eco
+val_tolerance
+val_traditional
+
+codex
+既存データには `critical` perspective がありません。ここでは既存の `humanities_concept` / `social_theory` と衝突しないよう、`perspective='critical'`、`source_team='codex_correction_l2_critical'` に統一し、能力IDは批判的思考・社会変革・システム思考・寛容性などへ分散させます。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE perspective='critical' OR source_team='codex_correction_l2_critical'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+codex
+これからSQL投入用の小さなスクリプトを作ります。50件＋10件の2バッチに分け、既存件数確認、投入、時代別件数確認まで同じスクリプトで実行できる形にします。
+apply patch
+patch: completed
+/Users/nishimura+/projects/research/era-talents-db/scripts/phase_6f_l2_critical_retrospectives.sql
+diff --git a/scripts/phase_6f_l2_critical_retrospectives.sql b/scripts/phase_6f_l2_critical_retrospectives.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9840308dd0fffe085f0336867888ee56c47cdf3
+--- /dev/null
++++ b/scripts/phase_6f_l2_critical_retrospectives.sql
+@@ -0,0 +1,75 @@
++BEGIN TRANSACTION;
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('meiji','cog_critical','critical','日本近代文学の起源','柄谷行人',1980,NULL,'明治の文学制度を天才の発露ではなく、言文一致・内面・風景といった近代的装置の成立として読む。L1の文明開化礼賛から、制度が何を可視化し何を不可視化したかへ評価軸を移す。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_logical','critical','Translation and Subjectivity','酒井直樹',1997,NULL,'翻訳を国語と国民主体の形成過程として捉え、明治の語学能力や啓蒙知を単純な西洋受容ではなく、境界線を作る実践として再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_social_change','critical','日本近代文学の起源','柄谷行人',1980,NULL,'近代的主体は自然発生したものではなく教育・出版・文学批評の装置で作られたという視点から、明治の人材評価を個人業績中心からメディア環境中心へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_systems','critical','博覧会の政治学','吉見俊哉',1992,NULL,'博覧会を産業振興だけでなく、帝国・都市・消費者を結びつける視覚的統治のシステムとして分析する。明治の技術展示や実業家評価に政治性を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_tolerance','critical','Japan''s Modern Myths','Carol Gluck',1985,NULL,'明治国家のイデオロギー形成を、伝統の保存ではなく近代的な神話構築として位置づける。国家語りに適合した人材だけが高評価される偏りを検出する視点になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cre_cross_domain','critical','Re-Inventing Japan','Tessa Morris-Suzuki',1998,NULL,'近代日本を均質な国民国家としてではなく、地域・帝国・アジアとの関係で再発明された複合体として読む。地方・植民地・越境人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_collective','critical','Things Seen and Unseen','Harry Harootunian',1988,NULL,'明治の民俗・生活世界を、国家的近代化に吸収されきらない経験の層として読む。官僚・政治家中心の近代化叙述に対する下からの補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_info','critical','Voices of the Past','酒井直樹',1991,NULL,'言語・歴史叙述・主体形成の関係を問うことで、明治の知識人評価を情報発信量や正典化だけに依存しない形へ補正する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_meta_learning','critical','近代知のアルケオロジー','子安宣邦',1996,NULL,'明治の思想を西洋思想の輸入史ではなく、知の分類と正統性を作る過程として読む。学習能力評価に、何を学ばされたかという制度批判を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','soc_interpersonal','critical','漢字論','子安宣邦',2003,NULL,'漢字・国語・近代国家の関係を問い、言語能力を単なる教養ではなく権力関係を媒介する社会技術として評価する観点を与える。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('taisho','cog_critical','critical','構造と力','浅田彰',1983,NULL,'大正期の知識人文化を、近代主体の成熟ではなく構造主義以後の権力・欲望・記号の配置から読み替える視点を与える。文化人材の評価を作品中心から制度批判へ広げる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_change','critical','逃走論','浅田彰',1984,NULL,'中心化された発展モデルから離脱する発想は、大正デモクラシーを直線的な民主化ではなく、制度からの逸脱や横断的実践として評価する補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_systems','critical','都市のドラマトゥルギー','吉見俊哉',1987,NULL,'浅草など都市空間を演劇的メディア環境として分析し、大正期の芸能・出版・消費文化を個人才能ではなく都市システムの産物として捉える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_tolerance','critical','Erotic Grotesque Nonsense','Miriam Silverberg',2006,NULL,'大衆文化とモダンガールを周縁的逸脱ではなく、近代日本の政治性を帯びた文化実践として読む。女性・消費・身体表現の評価漏れを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_collective','critical','Labor and Imperial Democracy in Prewar Japan','Andrew Gordon',1991,NULL,'労働運動を政治家中心の大正デモクラシー叙述から切り離さず、職場・組合・帝国秩序の関係で読む。社会運動人材の能力評価を引き上げる根拠になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_autonomy','critical','Feminism in Modern Japan','Vera Mackie',2003,NULL,'近代日本のフェミニズムを例外的女性の列伝ではなく、出版・教育・労働と結びつく社会的実践として扱う。大正期女性人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_logical','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'戦間期思想を西洋近代の受容か拒否かではなく、資本主義的時間と日常性への批判として読む。大正から昭和前期への連続性を評価に反映する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','soc_interpersonal','critical','House and Home in Modern Japan','Jordan Sand',2003,NULL,'住宅・家族・生活改善を近代化の私的領域として分析し、建築家や教育者だけでなく生活実践を変えた媒介者を評価対象に入れる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_info','critical','The Japanese Police State','Elise K. Tipton',1990,NULL,'大正から昭和前期の警察・社会政策を、治安維持だけでなく情報収集と社会管理の装置として分析する。国家側人材の評価に統制の負の側面を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cre_cross_domain','critical','日本近代文学の起源','柄谷行人',1980,NULL,'大正期の私小説・批評・言語実験を、文学史の様式変化ではなく主体を作る制度の変化として読む。文化領域の異分野統合能力を評価し直す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_pre','cog_critical','critical','近代の超克','竹内好',1959,NULL,'昭和前期思想を戦争協力か抵抗かの二分法だけでなく、近代批判が帝国主義と結びつく危険として読む。批判能力の評価に反省的条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_logical','critical','現代政治の思想と行動','丸山眞男',1956,NULL,'超国家主義を個人の狂信ではなく、責任の所在を曖昧にする政治構造として分析する。昭和前期のリーダー評価に制度的無責任の観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_autonomy','critical','戦時期日本の精神史','鶴見俊輔',1982,NULL,'戦時期の精神史を国家イデオロギーだけでなく、日常の同調・抵抗・沈黙の層から読む。自律性評価を公的業績とは別軸で補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_collective','critical','草の根のファシズム','吉見義明',1987,NULL,'ファシズムを上からの命令だけでなく地域社会の参加と動員として分析する。地方名望家や教育者の評価に、共同体動員の負の側面を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'国民国家とジェンダー秩序の結合を問うことで、昭和前期の母性・家族・銃後奉仕を美談化しすぎる評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_systems','critical','Japan''s Total Empire','Louise Young',1998,NULL,'満洲国と総力戦体制を、軍事・産業・移民・宣伝が結合した帝国システムとして分析する。技術官僚や実業家評価に植民地主義の文脈を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cre_cross_domain','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'昭和前期の文化人・思想家を、近代批判と資本主義的日常への反応として読む。文化的創造性が政治的動員に接続するリスクを示す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_info','critical','War Without Mercy','John W. Dower',1986,NULL,'太平洋戦争の相互的人種表象を分析し、情報発信・宣伝・報道能力を単なる国民統合技術として高く評価することへの歯止めになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦前から戦後にかけての民主主義とナショナリズムの絡み合いを追うことで、昭和前期の転向・翼賛・抵抗を連続的に評価する視点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_resilience','critical','死産される日本語・日本人','酒井直樹',1996,NULL,'日本語・日本人を自然な単位として扱う語りを批判し、戦時期の国語・国民化政策に抗する知的レジリエンスを評価する観点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_post','cog_critical','critical','敗戦後論','加藤典洋',1997,NULL,'戦後主体を被害と加害のねじれから問い直し、戦後民主主義の語りを単純な再出発として扱うL1評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦後の民主主義とナショナリズムを対立物ではなく相互に絡む語彙として分析する。運動家・知識人・教育者の評価に矛盾を扱う視点を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_logical','critical','トランスクリティーク','柄谷行人',2001,NULL,'カントとマルクスの交差から交換・国家・資本を批判する枠組みは、高度成長期の市場成功を単線的に評価しないための論理的補助線になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cre_cross_domain','critical','構造と力','浅田彰',1983,NULL,'ニューアカデミズムの横断性は、昭和後期の思想・広告・消費文化を学問外の流通回路まで含めて評価する観点を与える。',8,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_info','critical','物語消費論','大塚英志',1989,NULL,'消費者が大きな物語の断片を組み替えるという視点は、昭和後期のメディア人材を作品制作だけでなく情報環境設計の担い手として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_tolerance','critical','家父長制と資本制','上野千鶴子',1990,NULL,'家族・労働・資本制を接続して分析し、高度成長の成功物語が不可視化した女性労働とケアを評価軸に入れる。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','soc_interpersonal','critical','戦後日本の大衆文化史','鶴見俊輔',1984,NULL,'戦後大衆文化を上位文化の劣化ではなく、生活者の相互行為と表現の場として読む。芸能・出版・地域文化の人材評価を広げる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_resilience','critical','Embracing Defeat','John W. Dower',1999,NULL,'占領期を敗北からの制度移植だけでなく、民衆の適応・検閲・民主化の相互作用として分析する。戦後復興人材の評価に制約条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_systems','critical','Revolution and Subjectivity in Postwar Japan','J. Victor Koschmann',1996,NULL,'戦後思想を主体性論と政治運動の関係から分析し、運動リーダーの評価を動員力だけでなく主体形成の理論に照らして補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_collective','critical','親米と反米','吉見俊哉',2007,NULL,'戦後日本の対米感情を単純な同盟支持や反基地運動ではなく、文化・消費・安全保障の複合として読む。国際協調能力の評価に従属性の問題を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('heisei','cog_critical','critical','存在論的、郵便的','東浩紀',1998,NULL,'ポストモダン思想を誤配・データベース・ネットワークの問題として受け取り、平成の批評人材を文学的権威ではなく情報環境を読む能力で評価する。',9,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_info','critical','動物化するポストモダン','東浩紀',2001,NULL,'データベース消費の分析により、平成のサブカルチャーやIT人材を娯楽産業の成功だけでなく欲望の情報構造を設計した存在として評価する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cre_cross_domain','critical','ゲーム的リアリズムの誕生','東浩紀',2007,NULL,'ゲーム・ライトノベル・批評を横断する枠組みから、平成の創作能力を高文化と低文化の序列で測る偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_autonomy','critical','終わりなき日常を生きろ','宮台真司',1995,NULL,'高度成長後の大きな物語の消失を前提に、平成の若者文化や社会運動を未成熟ではなく日常管理と自律の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_systems','critical','虚構の時代の果て','大澤真幸',1996,NULL,'昭和後期から平成への移行を虚構・現実・社会秩序の変化として捉え、制度不信下でのリーダーシップやメディア能力を再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'平成のジェンダー論争を私的領域の問題ではなく国民国家の再編として読む。女性人材・マイノリティ人材の評価不足を補正する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_change','critical','1968','小熊英二',2009,NULL,'運動の挫折を単なる失敗ではなく、世代・大学・消費社会の構造変化として分析する。社会変革志向の評価を成功結果だけに依存させない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_logical','critical','世界史の構造','柄谷行人',2010,NULL,'交換様式から国家・資本・ネーションを捉える枠組みは、平成のグローバル化対応を市場適応能力だけで評価する偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','soc_interpersonal','critical','戦闘美少女の精神分析','斎藤環',2000,NULL,'オタク文化を病理化だけでなく表象と欲望の構造として分析し、平成のメディア受容者・制作者の相互作用能力を読み直す。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_oecd_transformative','critical','一般意志2.0','東浩紀',2011,NULL,'情報技術と民主主義を接続する議論から、平成後期の政治参加を投票や政党活動だけでなくプラットフォーム設計の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('reiwa','cog_critical','critical','力と交換様式','柄谷行人',2022,NULL,'資本・国家・ネーションを交換様式の観点から再整理し、令和の危機対応能力を成長政策や国家動員だけで評価しない批判軸を提供する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_meta_learning','critical','訂正可能性の哲学','東浩紀',2023,NULL,'誤りを前提に制度や共同体を更新する思想として、令和の専門家・政治家・メディア人材を無謬性ではなく訂正可能性で評価する視点を与える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_eco','critical','人新世の「資本論」','斎藤幸平',2020,NULL,'気候危機を技術革新だけでなく資本主義批判として捉え、令和の環境人材評価に脱成長・ケア・コモンの観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_logical','critical','ゼロからの「資本論」','斎藤幸平',2023,NULL,'資本論を現代の労働・環境・生活へ接続し、令和の経済リテラシー評価を金融成長や起業だけに偏らせない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_info','critical','観光客の哲学','東浩紀',2017,NULL,'観光客という弱い連帯のモデルは、令和のネットワーク社会で専門家・市民・地域が接続する能力を再評価するための枠組みになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_social_change','critical','日本社会のしくみ','小熊英二',2019,NULL,'雇用・教育・社会保障の歴史的構造を整理し、令和の社会変革を個人の努力や起業精神だけに還元しない評価軸を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_tolerance','critical','女ぎらい','上野千鶴子',2010,NULL,'ミソジニーを個人感情ではなく社会構造として分析し、令和の多様性評価に表面的な女性登用を超える批判的観点を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_resilience','critical','ブルシット・ジョブの謎','酒井隆史',2021,NULL,'無意味な仕事の増殖を労働倫理と統治の問題として扱い、令和の職業能力評価を生産性指標だけに依存しない形へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_systems','critical','ゲンロン戦記','東浩紀',2020,NULL,'批評を出版・イベント・プラットフォーム運営として持続させる実践から、令和の思想人材を作品単体ではなく知的インフラ構築能力で評価する。',7,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_collective','critical','不可能性の時代','大澤真幸',2008,NULL,'未来像の困難を社会理論として捉えることで、令和の共同性を懐古的共同体ではなく不確実性下の制度設計として評価する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++COMMIT;
+
+diff --git a/scripts/phase_6f_l2_critical_retrospectives.sql b/scripts/phase_6f_l2_critical_retrospectives.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9840308dd0fffe085f0336867888ee56c47cdf3
+--- /dev/null
++++ b/scripts/phase_6f_l2_critical_retrospectives.sql
+@@ -0,0 +1,75 @@
++BEGIN TRANSACTION;
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('meiji','cog_critical','critical','日本近代文学の起源','柄谷行人',1980,NULL,'明治の文学制度を天才の発露ではなく、言文一致・内面・風景といった近代的装置の成立として読む。L1の文明開化礼賛から、制度が何を可視化し何を不可視化したかへ評価軸を移す。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_logical','critical','Translation and Subjectivity','酒井直樹',1997,NULL,'翻訳を国語と国民主体の形成過程として捉え、明治の語学能力や啓蒙知を単純な西洋受容ではなく、境界線を作る実践として再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_social_change','critical','日本近代文学の起源','柄谷行人',1980,NULL,'近代的主体は自然発生したものではなく教育・出版・文学批評の装置で作られたという視点から、明治の人材評価を個人業績中心からメディア環境中心へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_systems','critical','博覧会の政治学','吉見俊哉',1992,NULL,'博覧会を産業振興だけでなく、帝国・都市・消費者を結びつける視覚的統治のシステムとして分析する。明治の技術展示や実業家評価に政治性を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_tolerance','critical','Japan''s Modern Myths','Carol Gluck',1985,NULL,'明治国家のイデオロギー形成を、伝統の保存ではなく近代的な神話構築として位置づける。国家語りに適合した人材だけが高評価される偏りを検出する視点になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cre_cross_domain','critical','Re-Inventing Japan','Tessa Morris-Suzuki',1998,NULL,'近代日本を均質な国民国家としてではなく、地域・帝国・アジアとの関係で再発明された複合体として読む。地方・植民地・越境人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_collective','critical','Things Seen and Unseen','Harry Harootunian',1988,NULL,'明治の民俗・生活世界を、国家的近代化に吸収されきらない経験の層として読む。官僚・政治家中心の近代化叙述に対する下からの補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_info','critical','Voices of the Past','酒井直樹',1991,NULL,'言語・歴史叙述・主体形成の関係を問うことで、明治の知識人評価を情報発信量や正典化だけに依存しない形へ補正する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_meta_learning','critical','近代知のアルケオロジー','子安宣邦',1996,NULL,'明治の思想を西洋思想の輸入史ではなく、知の分類と正統性を作る過程として読む。学習能力評価に、何を学ばされたかという制度批判を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','soc_interpersonal','critical','漢字論','子安宣邦',2003,NULL,'漢字・国語・近代国家の関係を問い、言語能力を単なる教養ではなく権力関係を媒介する社会技術として評価する観点を与える。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('taisho','cog_critical','critical','構造と力','浅田彰',1983,NULL,'大正期の知識人文化を、近代主体の成熟ではなく構造主義以後の権力・欲望・記号の配置から読み替える視点を与える。文化人材の評価を作品中心から制度批判へ広げる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_change','critical','逃走論','浅田彰',1984,NULL,'中心化された発展モデルから離脱する発想は、大正デモクラシーを直線的な民主化ではなく、制度からの逸脱や横断的実践として評価する補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_systems','critical','都市のドラマトゥルギー','吉見俊哉',1987,NULL,'浅草など都市空間を演劇的メディア環境として分析し、大正期の芸能・出版・消費文化を個人才能ではなく都市システムの産物として捉える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_tolerance','critical','Erotic Grotesque Nonsense','Miriam Silverberg',2006,NULL,'大衆文化とモダンガールを周縁的逸脱ではなく、近代日本の政治性を帯びた文化実践として読む。女性・消費・身体表現の評価漏れを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_collective','critical','Labor and Imperial Democracy in Prewar Japan','Andrew Gordon',1991,NULL,'労働運動を政治家中心の大正デモクラシー叙述から切り離さず、職場・組合・帝国秩序の関係で読む。社会運動人材の能力評価を引き上げる根拠になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_autonomy','critical','Feminism in Modern Japan','Vera Mackie',2003,NULL,'近代日本のフェミニズムを例外的女性の列伝ではなく、出版・教育・労働と結びつく社会的実践として扱う。大正期女性人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_logical','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'戦間期思想を西洋近代の受容か拒否かではなく、資本主義的時間と日常性への批判として読む。大正から昭和前期への連続性を評価に反映する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','soc_interpersonal','critical','House and Home in Modern Japan','Jordan Sand',2003,NULL,'住宅・家族・生活改善を近代化の私的領域として分析し、建築家や教育者だけでなく生活実践を変えた媒介者を評価対象に入れる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_info','critical','The Japanese Police State','Elise K. Tipton',1990,NULL,'大正から昭和前期の警察・社会政策を、治安維持だけでなく情報収集と社会管理の装置として分析する。国家側人材の評価に統制の負の側面を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cre_cross_domain','critical','日本近代文学の起源','柄谷行人',1980,NULL,'大正期の私小説・批評・言語実験を、文学史の様式変化ではなく主体を作る制度の変化として読む。文化領域の異分野統合能力を評価し直す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_pre','cog_critical','critical','近代の超克','竹内好',1959,NULL,'昭和前期思想を戦争協力か抵抗かの二分法だけでなく、近代批判が帝国主義と結びつく危険として読む。批判能力の評価に反省的条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_logical','critical','現代政治の思想と行動','丸山眞男',1956,NULL,'超国家主義を個人の狂信ではなく、責任の所在を曖昧にする政治構造として分析する。昭和前期のリーダー評価に制度的無責任の観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_autonomy','critical','戦時期日本の精神史','鶴見俊輔',1982,NULL,'戦時期の精神史を国家イデオロギーだけでなく、日常の同調・抵抗・沈黙の層から読む。自律性評価を公的業績とは別軸で補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_collective','critical','草の根のファシズム','吉見義明',1987,NULL,'ファシズムを上からの命令だけでなく地域社会の参加と動員として分析する。地方名望家や教育者の評価に、共同体動員の負の側面を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'国民国家とジェンダー秩序の結合を問うことで、昭和前期の母性・家族・銃後奉仕を美談化しすぎる評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_systems','critical','Japan''s Total Empire','Louise Young',1998,NULL,'満洲国と総力戦体制を、軍事・産業・移民・宣伝が結合した帝国システムとして分析する。技術官僚や実業家評価に植民地主義の文脈を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cre_cross_domain','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'昭和前期の文化人・思想家を、近代批判と資本主義的日常への反応として読む。文化的創造性が政治的動員に接続するリスクを示す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_info','critical','War Without Mercy','John W. Dower',1986,NULL,'太平洋戦争の相互的人種表象を分析し、情報発信・宣伝・報道能力を単なる国民統合技術として高く評価することへの歯止めになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦前から戦後にかけての民主主義とナショナリズムの絡み合いを追うことで、昭和前期の転向・翼賛・抵抗を連続的に評価する視点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_resilience','critical','死産される日本語・日本人','酒井直樹',1996,NULL,'日本語・日本人を自然な単位として扱う語りを批判し、戦時期の国語・国民化政策に抗する知的レジリエンスを評価する観点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_post','cog_critical','critical','敗戦後論','加藤典洋',1997,NULL,'戦後主体を被害と加害のねじれから問い直し、戦後民主主義の語りを単純な再出発として扱うL1評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦後の民主主義とナショナリズムを対立物ではなく相互に絡む語彙として分析する。運動家・知識人・教育者の評価に矛盾を扱う視点を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_logical','critical','トランスクリティーク','柄谷行人',2001,NULL,'カントとマルクスの交差から交換・国家・資本を批判する枠組みは、高度成長期の市場成功を単線的に評価しないための論理的補助線になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cre_cross_domain','critical','構造と力','浅田彰',1983,NULL,'ニューアカデミズムの横断性は、昭和後期の思想・広告・消費文化を学問外の流通回路まで含めて評価する観点を与える。',8,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_info','critical','物語消費論','大塚英志',1989,NULL,'消費者が大きな物語の断片を組み替えるという視点は、昭和後期のメディア人材を作品制作だけでなく情報環境設計の担い手として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_tolerance','critical','家父長制と資本制','上野千鶴子',1990,NULL,'家族・労働・資本制を接続して分析し、高度成長の成功物語が不可視化した女性労働とケアを評価軸に入れる。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','soc_interpersonal','critical','戦後日本の大衆文化史','鶴見俊輔',1984,NULL,'戦後大衆文化を上位文化の劣化ではなく、生活者の相互行為と表現の場として読む。芸能・出版・地域文化の人材評価を広げる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_resilience','critical','Embracing Defeat','John W. Dower',1999,NULL,'占領期を敗北からの制度移植だけでなく、民衆の適応・検閲・民主化の相互作用として分析する。戦後復興人材の評価に制約条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_systems','critical','Revolution and Subjectivity in Postwar Japan','J. Victor Koschmann',1996,NULL,'戦後思想を主体性論と政治運動の関係から分析し、運動リーダーの評価を動員力だけでなく主体形成の理論に照らして補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_collective','critical','親米と反米','吉見俊哉',2007,NULL,'戦後日本の対米感情を単純な同盟支持や反基地運動ではなく、文化・消費・安全保障の複合として読む。国際協調能力の評価に従属性の問題を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('heisei','cog_critical','critical','存在論的、郵便的','東浩紀',1998,NULL,'ポストモダン思想を誤配・データベース・ネットワークの問題として受け取り、平成の批評人材を文学的権威ではなく情報環境を読む能力で評価する。',9,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_info','critical','動物化するポストモダン','東浩紀',2001,NULL,'データベース消費の分析により、平成のサブカルチャーやIT人材を娯楽産業の成功だけでなく欲望の情報構造を設計した存在として評価する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cre_cross_domain','critical','ゲーム的リアリズムの誕生','東浩紀',2007,NULL,'ゲーム・ライトノベル・批評を横断する枠組みから、平成の創作能力を高文化と低文化の序列で測る偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_autonomy','critical','終わりなき日常を生きろ','宮台真司',1995,NULL,'高度成長後の大きな物語の消失を前提に、平成の若者文化や社会運動を未成熟ではなく日常管理と自律の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_systems','critical','虚構の時代の果て','大澤真幸',1996,NULL,'昭和後期から平成への移行を虚構・現実・社会秩序の変化として捉え、制度不信下でのリーダーシップやメディア能力を再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'平成のジェンダー論争を私的領域の問題ではなく国民国家の再編として読む。女性人材・マイノリティ人材の評価不足を補正する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_change','critical','1968','小熊英二',2009,NULL,'運動の挫折を単なる失敗ではなく、世代・大学・消費社会の構造変化として分析する。社会変革志向の評価を成功結果だけに依存させない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_logical','critical','世界史の構造','柄谷行人',2010,NULL,'交換様式から国家・資本・ネーションを捉える枠組みは、平成のグローバル化対応を市場適応能力だけで評価する偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','soc_interpersonal','critical','戦闘美少女の精神分析','斎藤環',2000,NULL,'オタク文化を病理化だけでなく表象と欲望の構造として分析し、平成のメディア受容者・制作者の相互作用能力を読み直す。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_oecd_transformative','critical','一般意志2.0','東浩紀',2011,NULL,'情報技術と民主主義を接続する議論から、平成後期の政治参加を投票や政党活動だけでなくプラットフォーム設計の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('reiwa','cog_critical','critical','力と交換様式','柄谷行人',2022,NULL,'資本・国家・ネーションを交換様式の観点から再整理し、令和の危機対応能力を成長政策や国家動員だけで評価しない批判軸を提供する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_meta_learning','critical','訂正可能性の哲学','東浩紀',2023,NULL,'誤りを前提に制度や共同体を更新する思想として、令和の専門家・政治家・メディア人材を無謬性ではなく訂正可能性で評価する視点を与える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_eco','critical','人新世の「資本論」','斎藤幸平',2020,NULL,'気候危機を技術革新だけでなく資本主義批判として捉え、令和の環境人材評価に脱成長・ケア・コモンの観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_logical','critical','ゼロからの「資本論」','斎藤幸平',2023,NULL,'資本論を現代の労働・環境・生活へ接続し、令和の経済リテラシー評価を金融成長や起業だけに偏らせない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_info','critical','観光客の哲学','東浩紀',2017,NULL,'観光客という弱い連帯のモデルは、令和のネットワーク社会で専門家・市民・地域が接続する能力を再評価するための枠組みになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_social_change','critical','日本社会のしくみ','小熊英二',2019,NULL,'雇用・教育・社会保障の歴史的構造を整理し、令和の社会変革を個人の努力や起業精神だけに還元しない評価軸を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_tolerance','critical','女ぎらい','上野千鶴子',2010,NULL,'ミソジニーを個人感情ではなく社会構造として分析し、令和の多様性評価に表面的な女性登用を超える批判的観点を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_resilience','critical','ブルシット・ジョブの謎','酒井隆史',2021,NULL,'無意味な仕事の増殖を労働倫理と統治の問題として扱い、令和の職業能力評価を生産性指標だけに依存しない形へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_systems','critical','ゲンロン戦記','東浩紀',2020,NULL,'批評を出版・イベント・プラットフォーム運営として持続させる実践から、令和の思想人材を作品単体ではなく知的インフラ構築能力で評価する。',7,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_collective','critical','不可能性の時代','大澤真幸',2008,NULL,'未来像の困難を社会理論として捉えることで、令和の共同性を懐古的共同体ではなく不確実性下の制度設計として評価する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++COMMIT;
+
+codex
+SQLは作成済みです。投入前に、スクリプト内の件数が60件であることと、投入後に `source_team` で正確に拾えることを確認してから実行します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_critical'\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE perspective='critical'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+0
+
+ succeeded in 0ms:
+60
+
+exec
+/bin/bash -lc 'rg "codex_correction_l2_critical" scripts/phase_6f_l2_critical_retrospectives.sql | wc -l' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+      60
+
+diff --git a/scripts/phase_6f_l2_critical_retrospectives.sql b/scripts/phase_6f_l2_critical_retrospectives.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9840308dd0fffe085f0336867888ee56c47cdf3
+--- /dev/null
++++ b/scripts/phase_6f_l2_critical_retrospectives.sql
+@@ -0,0 +1,75 @@
++BEGIN TRANSACTION;
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('meiji','cog_critical','critical','日本近代文学の起源','柄谷行人',1980,NULL,'明治の文学制度を天才の発露ではなく、言文一致・内面・風景といった近代的装置の成立として読む。L1の文明開化礼賛から、制度が何を可視化し何を不可視化したかへ評価軸を移す。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_logical','critical','Translation and Subjectivity','酒井直樹',1997,NULL,'翻訳を国語と国民主体の形成過程として捉え、明治の語学能力や啓蒙知を単純な西洋受容ではなく、境界線を作る実践として再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_social_change','critical','日本近代文学の起源','柄谷行人',1980,NULL,'近代的主体は自然発生したものではなく教育・出版・文学批評の装置で作られたという視点から、明治の人材評価を個人業績中心からメディア環境中心へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_systems','critical','博覧会の政治学','吉見俊哉',1992,NULL,'博覧会を産業振興だけでなく、帝国・都市・消費者を結びつける視覚的統治のシステムとして分析する。明治の技術展示や実業家評価に政治性を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_tolerance','critical','Japan''s Modern Myths','Carol Gluck',1985,NULL,'明治国家のイデオロギー形成を、伝統の保存ではなく近代的な神話構築として位置づける。国家語りに適合した人材だけが高評価される偏りを検出する視点になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cre_cross_domain','critical','Re-Inventing Japan','Tessa Morris-Suzuki',1998,NULL,'近代日本を均質な国民国家としてではなく、地域・帝国・アジアとの関係で再発明された複合体として読む。地方・植民地・越境人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_collective','critical','Things Seen and Unseen','Harry Harootunian',1988,NULL,'明治の民俗・生活世界を、国家的近代化に吸収されきらない経験の層として読む。官僚・政治家中心の近代化叙述に対する下からの補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_info','critical','Voices of the Past','酒井直樹',1991,NULL,'言語・歴史叙述・主体形成の関係を問うことで、明治の知識人評価を情報発信量や正典化だけに依存しない形へ補正する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_meta_learning','critical','近代知のアルケオロジー','子安宣邦',1996,NULL,'明治の思想を西洋思想の輸入史ではなく、知の分類と正統性を作る過程として読む。学習能力評価に、何を学ばされたかという制度批判を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','soc_interpersonal','critical','漢字論','子安宣邦',2003,NULL,'漢字・国語・近代国家の関係を問い、言語能力を単なる教養ではなく権力関係を媒介する社会技術として評価する観点を与える。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('taisho','cog_critical','critical','構造と力','浅田彰',1983,NULL,'大正期の知識人文化を、近代主体の成熟ではなく構造主義以後の権力・欲望・記号の配置から読み替える視点を与える。文化人材の評価を作品中心から制度批判へ広げる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_change','critical','逃走論','浅田彰',1984,NULL,'中心化された発展モデルから離脱する発想は、大正デモクラシーを直線的な民主化ではなく、制度からの逸脱や横断的実践として評価する補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_systems','critical','都市のドラマトゥルギー','吉見俊哉',1987,NULL,'浅草など都市空間を演劇的メディア環境として分析し、大正期の芸能・出版・消費文化を個人才能ではなく都市システムの産物として捉える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_tolerance','critical','Erotic Grotesque Nonsense','Miriam Silverberg',2006,NULL,'大衆文化とモダンガールを周縁的逸脱ではなく、近代日本の政治性を帯びた文化実践として読む。女性・消費・身体表現の評価漏れを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_collective','critical','Labor and Imperial Democracy in Prewar Japan','Andrew Gordon',1991,NULL,'労働運動を政治家中心の大正デモクラシー叙述から切り離さず、職場・組合・帝国秩序の関係で読む。社会運動人材の能力評価を引き上げる根拠になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_autonomy','critical','Feminism in Modern Japan','Vera Mackie',2003,NULL,'近代日本のフェミニズムを例外的女性の列伝ではなく、出版・教育・労働と結びつく社会的実践として扱う。大正期女性人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_logical','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'戦間期思想を西洋近代の受容か拒否かではなく、資本主義的時間と日常性への批判として読む。大正から昭和前期への連続性を評価に反映する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','soc_interpersonal','critical','House and Home in Modern Japan','Jordan Sand',2003,NULL,'住宅・家族・生活改善を近代化の私的領域として分析し、建築家や教育者だけでなく生活実践を変えた媒介者を評価対象に入れる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_info','critical','The Japanese Police State','Elise K. Tipton',1990,NULL,'大正から昭和前期の警察・社会政策を、治安維持だけでなく情報収集と社会管理の装置として分析する。国家側人材の評価に統制の負の側面を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cre_cross_domain','critical','日本近代文学の起源','柄谷行人',1980,NULL,'大正期の私小説・批評・言語実験を、文学史の様式変化ではなく主体を作る制度の変化として読む。文化領域の異分野統合能力を評価し直す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_pre','cog_critical','critical','近代の超克','竹内好',1959,NULL,'昭和前期思想を戦争協力か抵抗かの二分法だけでなく、近代批判が帝国主義と結びつく危険として読む。批判能力の評価に反省的条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_logical','critical','現代政治の思想と行動','丸山眞男',1956,NULL,'超国家主義を個人の狂信ではなく、責任の所在を曖昧にする政治構造として分析する。昭和前期のリーダー評価に制度的無責任の観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_autonomy','critical','戦時期日本の精神史','鶴見俊輔',1982,NULL,'戦時期の精神史を国家イデオロギーだけでなく、日常の同調・抵抗・沈黙の層から読む。自律性評価を公的業績とは別軸で補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_collective','critical','草の根のファシズム','吉見義明',1987,NULL,'ファシズムを上からの命令だけでなく地域社会の参加と動員として分析する。地方名望家や教育者の評価に、共同体動員の負の側面を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'国民国家とジェンダー秩序の結合を問うことで、昭和前期の母性・家族・銃後奉仕を美談化しすぎる評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_systems','critical','Japan''s Total Empire','Louise Young',1998,NULL,'満洲国と総力戦体制を、軍事・産業・移民・宣伝が結合した帝国システムとして分析する。技術官僚や実業家評価に植民地主義の文脈を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cre_cross_domain','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'昭和前期の文化人・思想家を、近代批判と資本主義的日常への反応として読む。文化的創造性が政治的動員に接続するリスクを示す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_info','critical','War Without Mercy','John W. Dower',1986,NULL,'太平洋戦争の相互的人種表象を分析し、情報発信・宣伝・報道能力を単なる国民統合技術として高く評価することへの歯止めになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦前から戦後にかけての民主主義とナショナリズムの絡み合いを追うことで、昭和前期の転向・翼賛・抵抗を連続的に評価する視点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_resilience','critical','死産される日本語・日本人','酒井直樹',1996,NULL,'日本語・日本人を自然な単位として扱う語りを批判し、戦時期の国語・国民化政策に抗する知的レジリエンスを評価する観点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_post','cog_critical','critical','敗戦後論','加藤典洋',1997,NULL,'戦後主体を被害と加害のねじれから問い直し、戦後民主主義の語りを単純な再出発として扱うL1評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦後の民主主義とナショナリズムを対立物ではなく相互に絡む語彙として分析する。運動家・知識人・教育者の評価に矛盾を扱う視点を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_logical','critical','トランスクリティーク','柄谷行人',2001,NULL,'カントとマルクスの交差から交換・国家・資本を批判する枠組みは、高度成長期の市場成功を単線的に評価しないための論理的補助線になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cre_cross_domain','critical','構造と力','浅田彰',1983,NULL,'ニューアカデミズムの横断性は、昭和後期の思想・広告・消費文化を学問外の流通回路まで含めて評価する観点を与える。',8,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_info','critical','物語消費論','大塚英志',1989,NULL,'消費者が大きな物語の断片を組み替えるという視点は、昭和後期のメディア人材を作品制作だけでなく情報環境設計の担い手として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_tolerance','critical','家父長制と資本制','上野千鶴子',1990,NULL,'家族・労働・資本制を接続して分析し、高度成長の成功物語が不可視化した女性労働とケアを評価軸に入れる。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','soc_interpersonal','critical','戦後日本の大衆文化史','鶴見俊輔',1984,NULL,'戦後大衆文化を上位文化の劣化ではなく、生活者の相互行為と表現の場として読む。芸能・出版・地域文化の人材評価を広げる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_resilience','critical','Embracing Defeat','John W. Dower',1999,NULL,'占領期を敗北からの制度移植だけでなく、民衆の適応・検閲・民主化の相互作用として分析する。戦後復興人材の評価に制約条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_systems','critical','Revolution and Subjectivity in Postwar Japan','J. Victor Koschmann',1996,NULL,'戦後思想を主体性論と政治運動の関係から分析し、運動リーダーの評価を動員力だけでなく主体形成の理論に照らして補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_collective','critical','親米と反米','吉見俊哉',2007,NULL,'戦後日本の対米感情を単純な同盟支持や反基地運動ではなく、文化・消費・安全保障の複合として読む。国際協調能力の評価に従属性の問題を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('heisei','cog_critical','critical','存在論的、郵便的','東浩紀',1998,NULL,'ポストモダン思想を誤配・データベース・ネットワークの問題として受け取り、平成の批評人材を文学的権威ではなく情報環境を読む能力で評価する。',9,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_info','critical','動物化するポストモダン','東浩紀',2001,NULL,'データベース消費の分析により、平成のサブカルチャーやIT人材を娯楽産業の成功だけでなく欲望の情報構造を設計した存在として評価する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cre_cross_domain','critical','ゲーム的リアリズムの誕生','東浩紀',2007,NULL,'ゲーム・ライトノベル・批評を横断する枠組みから、平成の創作能力を高文化と低文化の序列で測る偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_autonomy','critical','終わりなき日常を生きろ','宮台真司',1995,NULL,'高度成長後の大きな物語の消失を前提に、平成の若者文化や社会運動を未成熟ではなく日常管理と自律の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_systems','critical','虚構の時代の果て','大澤真幸',1996,NULL,'昭和後期から平成への移行を虚構・現実・社会秩序の変化として捉え、制度不信下でのリーダーシップやメディア能力を再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'平成のジェンダー論争を私的領域の問題ではなく国民国家の再編として読む。女性人材・マイノリティ人材の評価不足を補正する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_change','critical','1968','小熊英二',2009,NULL,'運動の挫折を単なる失敗ではなく、世代・大学・消費社会の構造変化として分析する。社会変革志向の評価を成功結果だけに依存させない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_logical','critical','世界史の構造','柄谷行人',2010,NULL,'交換様式から国家・資本・ネーションを捉える枠組みは、平成のグローバル化対応を市場適応能力だけで評価する偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','soc_interpersonal','critical','戦闘美少女の精神分析','斎藤環',2000,NULL,'オタク文化を病理化だけでなく表象と欲望の構造として分析し、平成のメディア受容者・制作者の相互作用能力を読み直す。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_oecd_transformative','critical','一般意志2.0','東浩紀',2011,NULL,'情報技術と民主主義を接続する議論から、平成後期の政治参加を投票や政党活動だけでなくプラットフォーム設計の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('reiwa','cog_critical','critical','力と交換様式','柄谷行人',2022,NULL,'資本・国家・ネーションを交換様式の観点から再整理し、令和の危機対応能力を成長政策や国家動員だけで評価しない批判軸を提供する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_meta_learning','critical','訂正可能性の哲学','東浩紀',2023,NULL,'誤りを前提に制度や共同体を更新する思想として、令和の専門家・政治家・メディア人材を無謬性ではなく訂正可能性で評価する視点を与える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_eco','critical','人新世の「資本論」','斎藤幸平',2020,NULL,'気候危機を技術革新だけでなく資本主義批判として捉え、令和の環境人材評価に脱成長・ケア・コモンの観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_logical','critical','ゼロからの「資本論」','斎藤幸平',2023,NULL,'資本論を現代の労働・環境・生活へ接続し、令和の経済リテラシー評価を金融成長や起業だけに偏らせない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_info','critical','観光客の哲学','東浩紀',2017,NULL,'観光客という弱い連帯のモデルは、令和のネットワーク社会で専門家・市民・地域が接続する能力を再評価するための枠組みになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_social_change','critical','日本社会のしくみ','小熊英二',2019,NULL,'雇用・教育・社会保障の歴史的構造を整理し、令和の社会変革を個人の努力や起業精神だけに還元しない評価軸を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_tolerance','critical','女ぎらい','上野千鶴子',2010,NULL,'ミソジニーを個人感情ではなく社会構造として分析し、令和の多様性評価に表面的な女性登用を超える批判的観点を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_resilience','critical','ブルシット・ジョブの謎','酒井隆史',2021,NULL,'無意味な仕事の増殖を労働倫理と統治の問題として扱い、令和の職業能力評価を生産性指標だけに依存しない形へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_systems','critical','ゲンロン戦記','東浩紀',2020,NULL,'批評を出版・イベント・プラットフォーム運営として持続させる実践から、令和の思想人材を作品単体ではなく知的インフラ構築能力で評価する。',7,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_collective','critical','不可能性の時代','大澤真幸',2008,NULL,'未来像の困難を社会理論として捉えることで、令和の共同性を懐古的共同体ではなく不確実性下の制度設計として評価する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++COMMIT;
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT era_id, source_team, COUNT(*) FROM era_retrospectives WHERE perspective='critical' GROUP BY era_id, source_team ORDER BY era_id, source_team\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+heisei|codex_correction_l2_edu_socio|3
+heisei|codex_correction_l2_history|3
+heisei|codex_correction_l2_sociology|4
+meiji|codex_correction_l2_edu_socio|3
+meiji|codex_correction_l2_history|4
+meiji|codex_correction_l2_sociology|2
+reiwa|codex_correction_l2_edu_socio|3
+reiwa|codex_correction_l2_history|5
+reiwa|codex_correction_l2_sociology|5
+showa_post|codex_correction_l2_edu_socio|4
+showa_post|codex_correction_l2_history|3
+showa_post|codex_correction_l2_sociology|3
+showa_pre|codex_correction_l2_edu_socio|4
+showa_pre|codex_correction_l2_history|6
+showa_pre|codex_correction_l2_sociology|8
+taisho|codex_correction_l2_edu_socio|3
+taisho|codex_correction_l2_history|3
+taisho|codex_correction_l2_sociology|3
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT id,era_id,source_title,source_author,source_team FROM era_retrospectives WHERE perspective='critical' ORDER BY id DESC LIMIT 5\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+1287|reiwa|社会を変えるには|小熊英二|codex_correction_l2_history
+1284|reiwa|新・日本の階級社会|橋本健二|codex_correction_l2_history
+1282|reiwa|増補「戦争経験」の戦後史 : 語られた体験/証言/記憶|成田龍一|codex_correction_l2_history
+1278|reiwa|社会を変えるには|小熊英二|codex_correction_l2_history
+1277|reiwa|日本社会のしくみ : 雇用・教育・福祉の歴史社会学|小熊英二|codex_correction_l2_history
+
+diff --git a/scripts/phase_6f_l2_critical_retrospectives.sql b/scripts/phase_6f_l2_critical_retrospectives.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9840308dd0fffe085f0336867888ee56c47cdf3
+--- /dev/null
++++ b/scripts/phase_6f_l2_critical_retrospectives.sql
+@@ -0,0 +1,75 @@
++BEGIN TRANSACTION;
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('meiji','cog_critical','critical','日本近代文学の起源','柄谷行人',1980,NULL,'明治の文学制度を天才の発露ではなく、言文一致・内面・風景といった近代的装置の成立として読む。L1の文明開化礼賛から、制度が何を可視化し何を不可視化したかへ評価軸を移す。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_logical','critical','Translation and Subjectivity','酒井直樹',1997,NULL,'翻訳を国語と国民主体の形成過程として捉え、明治の語学能力や啓蒙知を単純な西洋受容ではなく、境界線を作る実践として再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_social_change','critical','日本近代文学の起源','柄谷行人',1980,NULL,'近代的主体は自然発生したものではなく教育・出版・文学批評の装置で作られたという視点から、明治の人材評価を個人業績中心からメディア環境中心へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_systems','critical','博覧会の政治学','吉見俊哉',1992,NULL,'博覧会を産業振興だけでなく、帝国・都市・消費者を結びつける視覚的統治のシステムとして分析する。明治の技術展示や実業家評価に政治性を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_tolerance','critical','Japan''s Modern Myths','Carol Gluck',1985,NULL,'明治国家のイデオロギー形成を、伝統の保存ではなく近代的な神話構築として位置づける。国家語りに適合した人材だけが高評価される偏りを検出する視点になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cre_cross_domain','critical','Re-Inventing Japan','Tessa Morris-Suzuki',1998,NULL,'近代日本を均質な国民国家としてではなく、地域・帝国・アジアとの関係で再発明された複合体として読む。地方・植民地・越境人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_collective','critical','Things Seen and Unseen','Harry Harootunian',1988,NULL,'明治の民俗・生活世界を、国家的近代化に吸収されきらない経験の層として読む。官僚・政治家中心の近代化叙述に対する下からの補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_info','critical','Voices of the Past','酒井直樹',1991,NULL,'言語・歴史叙述・主体形成の関係を問うことで、明治の知識人評価を情報発信量や正典化だけに依存しない形へ補正する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_meta_learning','critical','近代知のアルケオロジー','子安宣邦',1996,NULL,'明治の思想を西洋思想の輸入史ではなく、知の分類と正統性を作る過程として読む。学習能力評価に、何を学ばされたかという制度批判を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','soc_interpersonal','critical','漢字論','子安宣邦',2003,NULL,'漢字・国語・近代国家の関係を問い、言語能力を単なる教養ではなく権力関係を媒介する社会技術として評価する観点を与える。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('taisho','cog_critical','critical','構造と力','浅田彰',1983,NULL,'大正期の知識人文化を、近代主体の成熟ではなく構造主義以後の権力・欲望・記号の配置から読み替える視点を与える。文化人材の評価を作品中心から制度批判へ広げる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_change','critical','逃走論','浅田彰',1984,NULL,'中心化された発展モデルから離脱する発想は、大正デモクラシーを直線的な民主化ではなく、制度からの逸脱や横断的実践として評価する補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_systems','critical','都市のドラマトゥルギー','吉見俊哉',1987,NULL,'浅草など都市空間を演劇的メディア環境として分析し、大正期の芸能・出版・消費文化を個人才能ではなく都市システムの産物として捉える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_tolerance','critical','Erotic Grotesque Nonsense','Miriam Silverberg',2006,NULL,'大衆文化とモダンガールを周縁的逸脱ではなく、近代日本の政治性を帯びた文化実践として読む。女性・消費・身体表現の評価漏れを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_collective','critical','Labor and Imperial Democracy in Prewar Japan','Andrew Gordon',1991,NULL,'労働運動を政治家中心の大正デモクラシー叙述から切り離さず、職場・組合・帝国秩序の関係で読む。社会運動人材の能力評価を引き上げる根拠になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_autonomy','critical','Feminism in Modern Japan','Vera Mackie',2003,NULL,'近代日本のフェミニズムを例外的女性の列伝ではなく、出版・教育・労働と結びつく社会的実践として扱う。大正期女性人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_logical','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'戦間期思想を西洋近代の受容か拒否かではなく、資本主義的時間と日常性への批判として読む。大正から昭和前期への連続性を評価に反映する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','soc_interpersonal','critical','House and Home in Modern Japan','Jordan Sand',2003,NULL,'住宅・家族・生活改善を近代化の私的領域として分析し、建築家や教育者だけでなく生活実践を変えた媒介者を評価対象に入れる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_info','critical','The Japanese Police State','Elise K. Tipton',1990,NULL,'大正から昭和前期の警察・社会政策を、治安維持だけでなく情報収集と社会管理の装置として分析する。国家側人材の評価に統制の負の側面を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cre_cross_domain','critical','日本近代文学の起源','柄谷行人',1980,NULL,'大正期の私小説・批評・言語実験を、文学史の様式変化ではなく主体を作る制度の変化として読む。文化領域の異分野統合能力を評価し直す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_pre','cog_critical','critical','近代の超克','竹内好',1959,NULL,'昭和前期思想を戦争協力か抵抗かの二分法だけでなく、近代批判が帝国主義と結びつく危険として読む。批判能力の評価に反省的条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_logical','critical','現代政治の思想と行動','丸山眞男',1956,NULL,'超国家主義を個人の狂信ではなく、責任の所在を曖昧にする政治構造として分析する。昭和前期のリーダー評価に制度的無責任の観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_autonomy','critical','戦時期日本の精神史','鶴見俊輔',1982,NULL,'戦時期の精神史を国家イデオロギーだけでなく、日常の同調・抵抗・沈黙の層から読む。自律性評価を公的業績とは別軸で補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_collective','critical','草の根のファシズム','吉見義明',1987,NULL,'ファシズムを上からの命令だけでなく地域社会の参加と動員として分析する。地方名望家や教育者の評価に、共同体動員の負の側面を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'国民国家とジェンダー秩序の結合を問うことで、昭和前期の母性・家族・銃後奉仕を美談化しすぎる評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_systems','critical','Japan''s Total Empire','Louise Young',1998,NULL,'満洲国と総力戦体制を、軍事・産業・移民・宣伝が結合した帝国システムとして分析する。技術官僚や実業家評価に植民地主義の文脈を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cre_cross_domain','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'昭和前期の文化人・思想家を、近代批判と資本主義的日常への反応として読む。文化的創造性が政治的動員に接続するリスクを示す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_info','critical','War Without Mercy','John W. Dower',1986,NULL,'太平洋戦争の相互的人種表象を分析し、情報発信・宣伝・報道能力を単なる国民統合技術として高く評価することへの歯止めになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦前から戦後にかけての民主主義とナショナリズムの絡み合いを追うことで、昭和前期の転向・翼賛・抵抗を連続的に評価する視点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_resilience','critical','死産される日本語・日本人','酒井直樹',1996,NULL,'日本語・日本人を自然な単位として扱う語りを批判し、戦時期の国語・国民化政策に抗する知的レジリエンスを評価する観点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_post','cog_critical','critical','敗戦後論','加藤典洋',1997,NULL,'戦後主体を被害と加害のねじれから問い直し、戦後民主主義の語りを単純な再出発として扱うL1評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦後の民主主義とナショナリズムを対立物ではなく相互に絡む語彙として分析する。運動家・知識人・教育者の評価に矛盾を扱う視点を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_logical','critical','トランスクリティーク','柄谷行人',2001,NULL,'カントとマルクスの交差から交換・国家・資本を批判する枠組みは、高度成長期の市場成功を単線的に評価しないための論理的補助線になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cre_cross_domain','critical','構造と力','浅田彰',1983,NULL,'ニューアカデミズムの横断性は、昭和後期の思想・広告・消費文化を学問外の流通回路まで含めて評価する観点を与える。',8,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_info','critical','物語消費論','大塚英志',1989,NULL,'消費者が大きな物語の断片を組み替えるという視点は、昭和後期のメディア人材を作品制作だけでなく情報環境設計の担い手として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_tolerance','critical','家父長制と資本制','上野千鶴子',1990,NULL,'家族・労働・資本制を接続して分析し、高度成長の成功物語が不可視化した女性労働とケアを評価軸に入れる。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','soc_interpersonal','critical','戦後日本の大衆文化史','鶴見俊輔',1984,NULL,'戦後大衆文化を上位文化の劣化ではなく、生活者の相互行為と表現の場として読む。芸能・出版・地域文化の人材評価を広げる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_resilience','critical','Embracing Defeat','John W. Dower',1999,NULL,'占領期を敗北からの制度移植だけでなく、民衆の適応・検閲・民主化の相互作用として分析する。戦後復興人材の評価に制約条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_systems','critical','Revolution and Subjectivity in Postwar Japan','J. Victor Koschmann',1996,NULL,'戦後思想を主体性論と政治運動の関係から分析し、運動リーダーの評価を動員力だけでなく主体形成の理論に照らして補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_collective','critical','親米と反米','吉見俊哉',2007,NULL,'戦後日本の対米感情を単純な同盟支持や反基地運動ではなく、文化・消費・安全保障の複合として読む。国際協調能力の評価に従属性の問題を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('heisei','cog_critical','critical','存在論的、郵便的','東浩紀',1998,NULL,'ポストモダン思想を誤配・データベース・ネットワークの問題として受け取り、平成の批評人材を文学的権威ではなく情報環境を読む能力で評価する。',9,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_info','critical','動物化するポストモダン','東浩紀',2001,NULL,'データベース消費の分析により、平成のサブカルチャーやIT人材を娯楽産業の成功だけでなく欲望の情報構造を設計した存在として評価する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cre_cross_domain','critical','ゲーム的リアリズムの誕生','東浩紀',2007,NULL,'ゲーム・ライトノベル・批評を横断する枠組みから、平成の創作能力を高文化と低文化の序列で測る偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_autonomy','critical','終わりなき日常を生きろ','宮台真司',1995,NULL,'高度成長後の大きな物語の消失を前提に、平成の若者文化や社会運動を未成熟ではなく日常管理と自律の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_systems','critical','虚構の時代の果て','大澤真幸',1996,NULL,'昭和後期から平成への移行を虚構・現実・社会秩序の変化として捉え、制度不信下でのリーダーシップやメディア能力を再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'平成のジェンダー論争を私的領域の問題ではなく国民国家の再編として読む。女性人材・マイノリティ人材の評価不足を補正する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_change','critical','1968','小熊英二',2009,NULL,'運動の挫折を単なる失敗ではなく、世代・大学・消費社会の構造変化として分析する。社会変革志向の評価を成功結果だけに依存させない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_logical','critical','世界史の構造','柄谷行人',2010,NULL,'交換様式から国家・資本・ネーションを捉える枠組みは、平成のグローバル化対応を市場適応能力だけで評価する偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','soc_interpersonal','critical','戦闘美少女の精神分析','斎藤環',2000,NULL,'オタク文化を病理化だけでなく表象と欲望の構造として分析し、平成のメディア受容者・制作者の相互作用能力を読み直す。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_oecd_transformative','critical','一般意志2.0','東浩紀',2011,NULL,'情報技術と民主主義を接続する議論から、平成後期の政治参加を投票や政党活動だけでなくプラットフォーム設計の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('reiwa','cog_critical','critical','力と交換様式','柄谷行人',2022,NULL,'資本・国家・ネーションを交換様式の観点から再整理し、令和の危機対応能力を成長政策や国家動員だけで評価しない批判軸を提供する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_meta_learning','critical','訂正可能性の哲学','東浩紀',2023,NULL,'誤りを前提に制度や共同体を更新する思想として、令和の専門家・政治家・メディア人材を無謬性ではなく訂正可能性で評価する視点を与える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_eco','critical','人新世の「資本論」','斎藤幸平',2020,NULL,'気候危機を技術革新だけでなく資本主義批判として捉え、令和の環境人材評価に脱成長・ケア・コモンの観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_logical','critical','ゼロからの「資本論」','斎藤幸平',2023,NULL,'資本論を現代の労働・環境・生活へ接続し、令和の経済リテラシー評価を金融成長や起業だけに偏らせない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_info','critical','観光客の哲学','東浩紀',2017,NULL,'観光客という弱い連帯のモデルは、令和のネットワーク社会で専門家・市民・地域が接続する能力を再評価するための枠組みになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_social_change','critical','日本社会のしくみ','小熊英二',2019,NULL,'雇用・教育・社会保障の歴史的構造を整理し、令和の社会変革を個人の努力や起業精神だけに還元しない評価軸を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_tolerance','critical','女ぎらい','上野千鶴子',2010,NULL,'ミソジニーを個人感情ではなく社会構造として分析し、令和の多様性評価に表面的な女性登用を超える批判的観点を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_resilience','critical','ブルシット・ジョブの謎','酒井隆史',2021,NULL,'無意味な仕事の増殖を労働倫理と統治の問題として扱い、令和の職業能力評価を生産性指標だけに依存しない形へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_systems','critical','ゲンロン戦記','東浩紀',2020,NULL,'批評を出版・イベント・プラットフォーム運営として持続させる実践から、令和の思想人材を作品単体ではなく知的インフラ構築能力で評価する。',7,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_collective','critical','不可能性の時代','大澤真幸',2008,NULL,'未来像の困難を社会理論として捉えることで、令和の共同性を懐古的共同体ではなく不確実性下の制度設計として評価する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++COMMIT;
+
+codex
+`critical` perspective 自体は他チームの既存追加分が60件ありましたが、今回指定の `source_team='codex_correction_l2_critical'` は0件です。これから今回分60件を追加します。
+exec
+/bin/bash -lc 'sqlite3 data/era_talents.db < scripts/phase_6f_l2_critical_retrospectives.sql' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+diff --git a/scripts/phase_6f_l2_critical_retrospectives.sql b/scripts/phase_6f_l2_critical_retrospectives.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9840308dd0fffe085f0336867888ee56c47cdf3
+--- /dev/null
++++ b/scripts/phase_6f_l2_critical_retrospectives.sql
+@@ -0,0 +1,75 @@
++BEGIN TRANSACTION;
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('meiji','cog_critical','critical','日本近代文学の起源','柄谷行人',1980,NULL,'明治の文学制度を天才の発露ではなく、言文一致・内面・風景といった近代的装置の成立として読む。L1の文明開化礼賛から、制度が何を可視化し何を不可視化したかへ評価軸を移す。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_logical','critical','Translation and Subjectivity','酒井直樹',1997,NULL,'翻訳を国語と国民主体の形成過程として捉え、明治の語学能力や啓蒙知を単純な西洋受容ではなく、境界線を作る実践として再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_social_change','critical','日本近代文学の起源','柄谷行人',1980,NULL,'近代的主体は自然発生したものではなく教育・出版・文学批評の装置で作られたという視点から、明治の人材評価を個人業績中心からメディア環境中心へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_systems','critical','博覧会の政治学','吉見俊哉',1992,NULL,'博覧会を産業振興だけでなく、帝国・都市・消費者を結びつける視覚的統治のシステムとして分析する。明治の技術展示や実業家評価に政治性を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_tolerance','critical','Japan''s Modern Myths','Carol Gluck',1985,NULL,'明治国家のイデオロギー形成を、伝統の保存ではなく近代的な神話構築として位置づける。国家語りに適合した人材だけが高評価される偏りを検出する視点になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cre_cross_domain','critical','Re-Inventing Japan','Tessa Morris-Suzuki',1998,NULL,'近代日本を均質な国民国家としてではなく、地域・帝国・アジアとの関係で再発明された複合体として読む。地方・植民地・越境人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_collective','critical','Things Seen and Unseen','Harry Harootunian',1988,NULL,'明治の民俗・生活世界を、国家的近代化に吸収されきらない経験の層として読む。官僚・政治家中心の近代化叙述に対する下からの補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_info','critical','Voices of the Past','酒井直樹',1991,NULL,'言語・歴史叙述・主体形成の関係を問うことで、明治の知識人評価を情報発信量や正典化だけに依存しない形へ補正する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_meta_learning','critical','近代知のアルケオロジー','子安宣邦',1996,NULL,'明治の思想を西洋思想の輸入史ではなく、知の分類と正統性を作る過程として読む。学習能力評価に、何を学ばされたかという制度批判を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','soc_interpersonal','critical','漢字論','子安宣邦',2003,NULL,'漢字・国語・近代国家の関係を問い、言語能力を単なる教養ではなく権力関係を媒介する社会技術として評価する観点を与える。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('taisho','cog_critical','critical','構造と力','浅田彰',1983,NULL,'大正期の知識人文化を、近代主体の成熟ではなく構造主義以後の権力・欲望・記号の配置から読み替える視点を与える。文化人材の評価を作品中心から制度批判へ広げる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_change','critical','逃走論','浅田彰',1984,NULL,'中心化された発展モデルから離脱する発想は、大正デモクラシーを直線的な民主化ではなく、制度からの逸脱や横断的実践として評価する補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_systems','critical','都市のドラマトゥルギー','吉見俊哉',1987,NULL,'浅草など都市空間を演劇的メディア環境として分析し、大正期の芸能・出版・消費文化を個人才能ではなく都市システムの産物として捉える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_tolerance','critical','Erotic Grotesque Nonsense','Miriam Silverberg',2006,NULL,'大衆文化とモダンガールを周縁的逸脱ではなく、近代日本の政治性を帯びた文化実践として読む。女性・消費・身体表現の評価漏れを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_collective','critical','Labor and Imperial Democracy in Prewar Japan','Andrew Gordon',1991,NULL,'労働運動を政治家中心の大正デモクラシー叙述から切り離さず、職場・組合・帝国秩序の関係で読む。社会運動人材の能力評価を引き上げる根拠になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_autonomy','critical','Feminism in Modern Japan','Vera Mackie',2003,NULL,'近代日本のフェミニズムを例外的女性の列伝ではなく、出版・教育・労働と結びつく社会的実践として扱う。大正期女性人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_logical','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'戦間期思想を西洋近代の受容か拒否かではなく、資本主義的時間と日常性への批判として読む。大正から昭和前期への連続性を評価に反映する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','soc_interpersonal','critical','House and Home in Modern Japan','Jordan Sand',2003,NULL,'住宅・家族・生活改善を近代化の私的領域として分析し、建築家や教育者だけでなく生活実践を変えた媒介者を評価対象に入れる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_info','critical','The Japanese Police State','Elise K. Tipton',1990,NULL,'大正から昭和前期の警察・社会政策を、治安維持だけでなく情報収集と社会管理の装置として分析する。国家側人材の評価に統制の負の側面を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cre_cross_domain','critical','日本近代文学の起源','柄谷行人',1980,NULL,'大正期の私小説・批評・言語実験を、文学史の様式変化ではなく主体を作る制度の変化として読む。文化領域の異分野統合能力を評価し直す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_pre','cog_critical','critical','近代の超克','竹内好',1959,NULL,'昭和前期思想を戦争協力か抵抗かの二分法だけでなく、近代批判が帝国主義と結びつく危険として読む。批判能力の評価に反省的条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_logical','critical','現代政治の思想と行動','丸山眞男',1956,NULL,'超国家主義を個人の狂信ではなく、責任の所在を曖昧にする政治構造として分析する。昭和前期のリーダー評価に制度的無責任の観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_autonomy','critical','戦時期日本の精神史','鶴見俊輔',1982,NULL,'戦時期の精神史を国家イデオロギーだけでなく、日常の同調・抵抗・沈黙の層から読む。自律性評価を公的業績とは別軸で補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_collective','critical','草の根のファシズム','吉見義明',1987,NULL,'ファシズムを上からの命令だけでなく地域社会の参加と動員として分析する。地方名望家や教育者の評価に、共同体動員の負の側面を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'国民国家とジェンダー秩序の結合を問うことで、昭和前期の母性・家族・銃後奉仕を美談化しすぎる評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_systems','critical','Japan''s Total Empire','Louise Young',1998,NULL,'満洲国と総力戦体制を、軍事・産業・移民・宣伝が結合した帝国システムとして分析する。技術官僚や実業家評価に植民地主義の文脈を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cre_cross_domain','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'昭和前期の文化人・思想家を、近代批判と資本主義的日常への反応として読む。文化的創造性が政治的動員に接続するリスクを示す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_info','critical','War Without Mercy','John W. Dower',1986,NULL,'太平洋戦争の相互的人種表象を分析し、情報発信・宣伝・報道能力を単なる国民統合技術として高く評価することへの歯止めになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦前から戦後にかけての民主主義とナショナリズムの絡み合いを追うことで、昭和前期の転向・翼賛・抵抗を連続的に評価する視点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_resilience','critical','死産される日本語・日本人','酒井直樹',1996,NULL,'日本語・日本人を自然な単位として扱う語りを批判し、戦時期の国語・国民化政策に抗する知的レジリエンスを評価する観点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_post','cog_critical','critical','敗戦後論','加藤典洋',1997,NULL,'戦後主体を被害と加害のねじれから問い直し、戦後民主主義の語りを単純な再出発として扱うL1評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦後の民主主義とナショナリズムを対立物ではなく相互に絡む語彙として分析する。運動家・知識人・教育者の評価に矛盾を扱う視点を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_logical','critical','トランスクリティーク','柄谷行人',2001,NULL,'カントとマルクスの交差から交換・国家・資本を批判する枠組みは、高度成長期の市場成功を単線的に評価しないための論理的補助線になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cre_cross_domain','critical','構造と力','浅田彰',1983,NULL,'ニューアカデミズムの横断性は、昭和後期の思想・広告・消費文化を学問外の流通回路まで含めて評価する観点を与える。',8,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_info','critical','物語消費論','大塚英志',1989,NULL,'消費者が大きな物語の断片を組み替えるという視点は、昭和後期のメディア人材を作品制作だけでなく情報環境設計の担い手として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_tolerance','critical','家父長制と資本制','上野千鶴子',1990,NULL,'家族・労働・資本制を接続して分析し、高度成長の成功物語が不可視化した女性労働とケアを評価軸に入れる。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','soc_interpersonal','critical','戦後日本の大衆文化史','鶴見俊輔',1984,NULL,'戦後大衆文化を上位文化の劣化ではなく、生活者の相互行為と表現の場として読む。芸能・出版・地域文化の人材評価を広げる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_resilience','critical','Embracing Defeat','John W. Dower',1999,NULL,'占領期を敗北からの制度移植だけでなく、民衆の適応・検閲・民主化の相互作用として分析する。戦後復興人材の評価に制約条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_systems','critical','Revolution and Subjectivity in Postwar Japan','J. Victor Koschmann',1996,NULL,'戦後思想を主体性論と政治運動の関係から分析し、運動リーダーの評価を動員力だけでなく主体形成の理論に照らして補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_collective','critical','親米と反米','吉見俊哉',2007,NULL,'戦後日本の対米感情を単純な同盟支持や反基地運動ではなく、文化・消費・安全保障の複合として読む。国際協調能力の評価に従属性の問題を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('heisei','cog_critical','critical','存在論的、郵便的','東浩紀',1998,NULL,'ポストモダン思想を誤配・データベース・ネットワークの問題として受け取り、平成の批評人材を文学的権威ではなく情報環境を読む能力で評価する。',9,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_info','critical','動物化するポストモダン','東浩紀',2001,NULL,'データベース消費の分析により、平成のサブカルチャーやIT人材を娯楽産業の成功だけでなく欲望の情報構造を設計した存在として評価する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cre_cross_domain','critical','ゲーム的リアリズムの誕生','東浩紀',2007,NULL,'ゲーム・ライトノベル・批評を横断する枠組みから、平成の創作能力を高文化と低文化の序列で測る偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_autonomy','critical','終わりなき日常を生きろ','宮台真司',1995,NULL,'高度成長後の大きな物語の消失を前提に、平成の若者文化や社会運動を未成熟ではなく日常管理と自律の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_systems','critical','虚構の時代の果て','大澤真幸',1996,NULL,'昭和後期から平成への移行を虚構・現実・社会秩序の変化として捉え、制度不信下でのリーダーシップやメディア能力を再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'平成のジェンダー論争を私的領域の問題ではなく国民国家の再編として読む。女性人材・マイノリティ人材の評価不足を補正する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_change','critical','1968','小熊英二',2009,NULL,'運動の挫折を単なる失敗ではなく、世代・大学・消費社会の構造変化として分析する。社会変革志向の評価を成功結果だけに依存させない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_logical','critical','世界史の構造','柄谷行人',2010,NULL,'交換様式から国家・資本・ネーションを捉える枠組みは、平成のグローバル化対応を市場適応能力だけで評価する偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','soc_interpersonal','critical','戦闘美少女の精神分析','斎藤環',2000,NULL,'オタク文化を病理化だけでなく表象と欲望の構造として分析し、平成のメディア受容者・制作者の相互作用能力を読み直す。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_oecd_transformative','critical','一般意志2.0','東浩紀',2011,NULL,'情報技術と民主主義を接続する議論から、平成後期の政治参加を投票や政党活動だけでなくプラットフォーム設計の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('reiwa','cog_critical','critical','力と交換様式','柄谷行人',2022,NULL,'資本・国家・ネーションを交換様式の観点から再整理し、令和の危機対応能力を成長政策や国家動員だけで評価しない批判軸を提供する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_meta_learning','critical','訂正可能性の哲学','東浩紀',2023,NULL,'誤りを前提に制度や共同体を更新する思想として、令和の専門家・政治家・メディア人材を無謬性ではなく訂正可能性で評価する視点を与える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_eco','critical','人新世の「資本論」','斎藤幸平',2020,NULL,'気候危機を技術革新だけでなく資本主義批判として捉え、令和の環境人材評価に脱成長・ケア・コモンの観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_logical','critical','ゼロからの「資本論」','斎藤幸平',2023,NULL,'資本論を現代の労働・環境・生活へ接続し、令和の経済リテラシー評価を金融成長や起業だけに偏らせない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_info','critical','観光客の哲学','東浩紀',2017,NULL,'観光客という弱い連帯のモデルは、令和のネットワーク社会で専門家・市民・地域が接続する能力を再評価するための枠組みになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_social_change','critical','日本社会のしくみ','小熊英二',2019,NULL,'雇用・教育・社会保障の歴史的構造を整理し、令和の社会変革を個人の努力や起業精神だけに還元しない評価軸を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_tolerance','critical','女ぎらい','上野千鶴子',2010,NULL,'ミソジニーを個人感情ではなく社会構造として分析し、令和の多様性評価に表面的な女性登用を超える批判的観点を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_resilience','critical','ブルシット・ジョブの謎','酒井隆史',2021,NULL,'無意味な仕事の増殖を労働倫理と統治の問題として扱い、令和の職業能力評価を生産性指標だけに依存しない形へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_systems','critical','ゲンロン戦記','東浩紀',2020,NULL,'批評を出版・イベント・プラットフォーム運営として持続させる実践から、令和の思想人材を作品単体ではなく知的インフラ構築能力で評価する。',7,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_collective','critical','不可能性の時代','大澤真幸',2008,NULL,'未来像の困難を社会理論として捉えることで、令和の共同性を懐古的共同体ではなく不確実性下の制度設計として評価する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++COMMIT;
+
+codex
+投入は完了しました。最後に、指定チームで60件入っているか、6時代に10件ずつ分配されているか、必須の `source_author` が欠けていないかを確認します。
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_critical'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+60
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT era_id, COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_critical' GROUP BY era_id ORDER BY CASE era_id WHEN 'meiji' THEN 1 WHEN 'taisho' THEN 2 WHEN 'showa_pre' THEN 3 WHEN 'showa_post' THEN 4 WHEN 'heisei' THEN 5 WHEN 'reiwa' THEN 6 ELSE 99 END\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+meiji|10
+taisho|10
+showa_pre|10
+showa_post|10
+heisei|10
+reiwa|10
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT perspective, COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_critical' GROUP BY perspective\"" in /Users/nishimura+/projects/research/era-talents-db
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_critical' AND (source_author IS NULL OR source_author='')\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+critical|60
+
+ succeeded in 0ms:
+0
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT capability_id, COUNT(*) FROM era_retrospectives WHERE source_team='codex_correction_l2_critical' GROUP BY capability_id ORDER BY COUNT(*) DESC, capability_id\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+age_social_change|6
+cog_critical|6
+cog_info|6
+cog_logical|6
+cog_systems|6
+val_tolerance|6
+cre_cross_domain|5
+val_collective|5
+soc_interpersonal|4
+age_resilience|3
+age_social_autonomy|3
+age_meta_learning|2
+age_oecd_transformative|1
+val_eco|1
+
+diff --git a/scripts/phase_6f_l2_critical_retrospectives.sql b/scripts/phase_6f_l2_critical_retrospectives.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9840308dd0fffe085f0336867888ee56c47cdf3
+--- /dev/null
++++ b/scripts/phase_6f_l2_critical_retrospectives.sql
+@@ -0,0 +1,75 @@
++BEGIN TRANSACTION;
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('meiji','cog_critical','critical','日本近代文学の起源','柄谷行人',1980,NULL,'明治の文学制度を天才の発露ではなく、言文一致・内面・風景といった近代的装置の成立として読む。L1の文明開化礼賛から、制度が何を可視化し何を不可視化したかへ評価軸を移す。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_logical','critical','Translation and Subjectivity','酒井直樹',1997,NULL,'翻訳を国語と国民主体の形成過程として捉え、明治の語学能力や啓蒙知を単純な西洋受容ではなく、境界線を作る実践として再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_social_change','critical','日本近代文学の起源','柄谷行人',1980,NULL,'近代的主体は自然発生したものではなく教育・出版・文学批評の装置で作られたという視点から、明治の人材評価を個人業績中心からメディア環境中心へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_systems','critical','博覧会の政治学','吉見俊哉',1992,NULL,'博覧会を産業振興だけでなく、帝国・都市・消費者を結びつける視覚的統治のシステムとして分析する。明治の技術展示や実業家評価に政治性を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_tolerance','critical','Japan''s Modern Myths','Carol Gluck',1985,NULL,'明治国家のイデオロギー形成を、伝統の保存ではなく近代的な神話構築として位置づける。国家語りに適合した人材だけが高評価される偏りを検出する視点になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cre_cross_domain','critical','Re-Inventing Japan','Tessa Morris-Suzuki',1998,NULL,'近代日本を均質な国民国家としてではなく、地域・帝国・アジアとの関係で再発明された複合体として読む。地方・植民地・越境人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_collective','critical','Things Seen and Unseen','Harry Harootunian',1988,NULL,'明治の民俗・生活世界を、国家的近代化に吸収されきらない経験の層として読む。官僚・政治家中心の近代化叙述に対する下からの補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_info','critical','Voices of the Past','酒井直樹',1991,NULL,'言語・歴史叙述・主体形成の関係を問うことで、明治の知識人評価を情報発信量や正典化だけに依存しない形へ補正する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_meta_learning','critical','近代知のアルケオロジー','子安宣邦',1996,NULL,'明治の思想を西洋思想の輸入史ではなく、知の分類と正統性を作る過程として読む。学習能力評価に、何を学ばされたかという制度批判を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','soc_interpersonal','critical','漢字論','子安宣邦',2003,NULL,'漢字・国語・近代国家の関係を問い、言語能力を単なる教養ではなく権力関係を媒介する社会技術として評価する観点を与える。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('taisho','cog_critical','critical','構造と力','浅田彰',1983,NULL,'大正期の知識人文化を、近代主体の成熟ではなく構造主義以後の権力・欲望・記号の配置から読み替える視点を与える。文化人材の評価を作品中心から制度批判へ広げる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_change','critical','逃走論','浅田彰',1984,NULL,'中心化された発展モデルから離脱する発想は、大正デモクラシーを直線的な民主化ではなく、制度からの逸脱や横断的実践として評価する補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_systems','critical','都市のドラマトゥルギー','吉見俊哉',1987,NULL,'浅草など都市空間を演劇的メディア環境として分析し、大正期の芸能・出版・消費文化を個人才能ではなく都市システムの産物として捉える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_tolerance','critical','Erotic Grotesque Nonsense','Miriam Silverberg',2006,NULL,'大衆文化とモダンガールを周縁的逸脱ではなく、近代日本の政治性を帯びた文化実践として読む。女性・消費・身体表現の評価漏れを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_collective','critical','Labor and Imperial Democracy in Prewar Japan','Andrew Gordon',1991,NULL,'労働運動を政治家中心の大正デモクラシー叙述から切り離さず、職場・組合・帝国秩序の関係で読む。社会運動人材の能力評価を引き上げる根拠になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_autonomy','critical','Feminism in Modern Japan','Vera Mackie',2003,NULL,'近代日本のフェミニズムを例外的女性の列伝ではなく、出版・教育・労働と結びつく社会的実践として扱う。大正期女性人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_logical','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'戦間期思想を西洋近代の受容か拒否かではなく、資本主義的時間と日常性への批判として読む。大正から昭和前期への連続性を評価に反映する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','soc_interpersonal','critical','House and Home in Modern Japan','Jordan Sand',2003,NULL,'住宅・家族・生活改善を近代化の私的領域として分析し、建築家や教育者だけでなく生活実践を変えた媒介者を評価対象に入れる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_info','critical','The Japanese Police State','Elise K. Tipton',1990,NULL,'大正から昭和前期の警察・社会政策を、治安維持だけでなく情報収集と社会管理の装置として分析する。国家側人材の評価に統制の負の側面を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cre_cross_domain','critical','日本近代文学の起源','柄谷行人',1980,NULL,'大正期の私小説・批評・言語実験を、文学史の様式変化ではなく主体を作る制度の変化として読む。文化領域の異分野統合能力を評価し直す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_pre','cog_critical','critical','近代の超克','竹内好',1959,NULL,'昭和前期思想を戦争協力か抵抗かの二分法だけでなく、近代批判が帝国主義と結びつく危険として読む。批判能力の評価に反省的条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_logical','critical','現代政治の思想と行動','丸山眞男',1956,NULL,'超国家主義を個人の狂信ではなく、責任の所在を曖昧にする政治構造として分析する。昭和前期のリーダー評価に制度的無責任の観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_autonomy','critical','戦時期日本の精神史','鶴見俊輔',1982,NULL,'戦時期の精神史を国家イデオロギーだけでなく、日常の同調・抵抗・沈黙の層から読む。自律性評価を公的業績とは別軸で補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_collective','critical','草の根のファシズム','吉見義明',1987,NULL,'ファシズムを上からの命令だけでなく地域社会の参加と動員として分析する。地方名望家や教育者の評価に、共同体動員の負の側面を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'国民国家とジェンダー秩序の結合を問うことで、昭和前期の母性・家族・銃後奉仕を美談化しすぎる評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_systems','critical','Japan''s Total Empire','Louise Young',1998,NULL,'満洲国と総力戦体制を、軍事・産業・移民・宣伝が結合した帝国システムとして分析する。技術官僚や実業家評価に植民地主義の文脈を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cre_cross_domain','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'昭和前期の文化人・思想家を、近代批判と資本主義的日常への反応として読む。文化的創造性が政治的動員に接続するリスクを示す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_info','critical','War Without Mercy','John W. Dower',1986,NULL,'太平洋戦争の相互的人種表象を分析し、情報発信・宣伝・報道能力を単なる国民統合技術として高く評価することへの歯止めになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦前から戦後にかけての民主主義とナショナリズムの絡み合いを追うことで、昭和前期の転向・翼賛・抵抗を連続的に評価する視点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_resilience','critical','死産される日本語・日本人','酒井直樹',1996,NULL,'日本語・日本人を自然な単位として扱う語りを批判し、戦時期の国語・国民化政策に抗する知的レジリエンスを評価する観点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_post','cog_critical','critical','敗戦後論','加藤典洋',1997,NULL,'戦後主体を被害と加害のねじれから問い直し、戦後民主主義の語りを単純な再出発として扱うL1評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦後の民主主義とナショナリズムを対立物ではなく相互に絡む語彙として分析する。運動家・知識人・教育者の評価に矛盾を扱う視点を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_logical','critical','トランスクリティーク','柄谷行人',2001,NULL,'カントとマルクスの交差から交換・国家・資本を批判する枠組みは、高度成長期の市場成功を単線的に評価しないための論理的補助線になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cre_cross_domain','critical','構造と力','浅田彰',1983,NULL,'ニューアカデミズムの横断性は、昭和後期の思想・広告・消費文化を学問外の流通回路まで含めて評価する観点を与える。',8,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_info','critical','物語消費論','大塚英志',1989,NULL,'消費者が大きな物語の断片を組み替えるという視点は、昭和後期のメディア人材を作品制作だけでなく情報環境設計の担い手として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_tolerance','critical','家父長制と資本制','上野千鶴子',1990,NULL,'家族・労働・資本制を接続して分析し、高度成長の成功物語が不可視化した女性労働とケアを評価軸に入れる。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','soc_interpersonal','critical','戦後日本の大衆文化史','鶴見俊輔',1984,NULL,'戦後大衆文化を上位文化の劣化ではなく、生活者の相互行為と表現の場として読む。芸能・出版・地域文化の人材評価を広げる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_resilience','critical','Embracing Defeat','John W. Dower',1999,NULL,'占領期を敗北からの制度移植だけでなく、民衆の適応・検閲・民主化の相互作用として分析する。戦後復興人材の評価に制約条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_systems','critical','Revolution and Subjectivity in Postwar Japan','J. Victor Koschmann',1996,NULL,'戦後思想を主体性論と政治運動の関係から分析し、運動リーダーの評価を動員力だけでなく主体形成の理論に照らして補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_collective','critical','親米と反米','吉見俊哉',2007,NULL,'戦後日本の対米感情を単純な同盟支持や反基地運動ではなく、文化・消費・安全保障の複合として読む。国際協調能力の評価に従属性の問題を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('heisei','cog_critical','critical','存在論的、郵便的','東浩紀',1998,NULL,'ポストモダン思想を誤配・データベース・ネットワークの問題として受け取り、平成の批評人材を文学的権威ではなく情報環境を読む能力で評価する。',9,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_info','critical','動物化するポストモダン','東浩紀',2001,NULL,'データベース消費の分析により、平成のサブカルチャーやIT人材を娯楽産業の成功だけでなく欲望の情報構造を設計した存在として評価する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cre_cross_domain','critical','ゲーム的リアリズムの誕生','東浩紀',2007,NULL,'ゲーム・ライトノベル・批評を横断する枠組みから、平成の創作能力を高文化と低文化の序列で測る偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_autonomy','critical','終わりなき日常を生きろ','宮台真司',1995,NULL,'高度成長後の大きな物語の消失を前提に、平成の若者文化や社会運動を未成熟ではなく日常管理と自律の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_systems','critical','虚構の時代の果て','大澤真幸',1996,NULL,'昭和後期から平成への移行を虚構・現実・社会秩序の変化として捉え、制度不信下でのリーダーシップやメディア能力を再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'平成のジェンダー論争を私的領域の問題ではなく国民国家の再編として読む。女性人材・マイノリティ人材の評価不足を補正する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_change','critical','1968','小熊英二',2009,NULL,'運動の挫折を単なる失敗ではなく、世代・大学・消費社会の構造変化として分析する。社会変革志向の評価を成功結果だけに依存させない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_logical','critical','世界史の構造','柄谷行人',2010,NULL,'交換様式から国家・資本・ネーションを捉える枠組みは、平成のグローバル化対応を市場適応能力だけで評価する偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','soc_interpersonal','critical','戦闘美少女の精神分析','斎藤環',2000,NULL,'オタク文化を病理化だけでなく表象と欲望の構造として分析し、平成のメディア受容者・制作者の相互作用能力を読み直す。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_oecd_transformative','critical','一般意志2.0','東浩紀',2011,NULL,'情報技術と民主主義を接続する議論から、平成後期の政治参加を投票や政党活動だけでなくプラットフォーム設計の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('reiwa','cog_critical','critical','力と交換様式','柄谷行人',2022,NULL,'資本・国家・ネーションを交換様式の観点から再整理し、令和の危機対応能力を成長政策や国家動員だけで評価しない批判軸を提供する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_meta_learning','critical','訂正可能性の哲学','東浩紀',2023,NULL,'誤りを前提に制度や共同体を更新する思想として、令和の専門家・政治家・メディア人材を無謬性ではなく訂正可能性で評価する視点を与える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_eco','critical','人新世の「資本論」','斎藤幸平',2020,NULL,'気候危機を技術革新だけでなく資本主義批判として捉え、令和の環境人材評価に脱成長・ケア・コモンの観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_logical','critical','ゼロからの「資本論」','斎藤幸平',2023,NULL,'資本論を現代の労働・環境・生活へ接続し、令和の経済リテラシー評価を金融成長や起業だけに偏らせない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_info','critical','観光客の哲学','東浩紀',2017,NULL,'観光客という弱い連帯のモデルは、令和のネットワーク社会で専門家・市民・地域が接続する能力を再評価するための枠組みになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_social_change','critical','日本社会のしくみ','小熊英二',2019,NULL,'雇用・教育・社会保障の歴史的構造を整理し、令和の社会変革を個人の努力や起業精神だけに還元しない評価軸を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_tolerance','critical','女ぎらい','上野千鶴子',2010,NULL,'ミソジニーを個人感情ではなく社会構造として分析し、令和の多様性評価に表面的な女性登用を超える批判的観点を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_resilience','critical','ブルシット・ジョブの謎','酒井隆史',2021,NULL,'無意味な仕事の増殖を労働倫理と統治の問題として扱い、令和の職業能力評価を生産性指標だけに依存しない形へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_systems','critical','ゲンロン戦記','東浩紀',2020,NULL,'批評を出版・イベント・プラットフォーム運営として持続させる実践から、令和の思想人材を作品単体ではなく知的インフラ構築能力で評価する。',7,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_collective','critical','不可能性の時代','大澤真幸',2008,NULL,'未来像の困難を社会理論として捉えることで、令和の共同性を懐古的共同体ではなく不確実性下の制度設計として評価する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++COMMIT;
+
+exec
+/bin/bash -lc "sqlite3 data/era_talents.db \"SELECT MIN(id), MAX(id) FROM era_retrospectives WHERE source_team='codex_correction_l2_critical'\"" in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+1289|1348
+
+exec
+/bin/bash -lc 'git status --short' in /Users/nishimura+/projects/research/era-talents-db
+ succeeded in 0ms:
+?? dashboards/bias_audit_history.json
+?? data/phase6e_l4_postwest_insert.sql
+?? phase6_correction/
+?? scripts/insert_phase6b_heisei_local.py
+?? scripts/insert_phase6b_meiji_craft.py
+?? scripts/insert_phase6b_reiwa_local.py
+?? scripts/phase6_0_flags.py
+?? scripts/phase6_1_redistribute.py
+?? scripts/phase6b_insert_taisho_craft_architects.py
+?? scripts/phase_6f_l2_critical_retrospectives.sql
+
+diff --git a/scripts/phase_6f_l2_critical_retrospectives.sql b/scripts/phase_6f_l2_critical_retrospectives.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9840308dd0fffe085f0336867888ee56c47cdf3
+--- /dev/null
++++ b/scripts/phase_6f_l2_critical_retrospectives.sql
+@@ -0,0 +1,75 @@
++BEGIN TRANSACTION;
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('meiji','cog_critical','critical','日本近代文学の起源','柄谷行人',1980,NULL,'明治の文学制度を天才の発露ではなく、言文一致・内面・風景といった近代的装置の成立として読む。L1の文明開化礼賛から、制度が何を可視化し何を不可視化したかへ評価軸を移す。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_logical','critical','Translation and Subjectivity','酒井直樹',1997,NULL,'翻訳を国語と国民主体の形成過程として捉え、明治の語学能力や啓蒙知を単純な西洋受容ではなく、境界線を作る実践として再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_social_change','critical','日本近代文学の起源','柄谷行人',1980,NULL,'近代的主体は自然発生したものではなく教育・出版・文学批評の装置で作られたという視点から、明治の人材評価を個人業績中心からメディア環境中心へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_systems','critical','博覧会の政治学','吉見俊哉',1992,NULL,'博覧会を産業振興だけでなく、帝国・都市・消費者を結びつける視覚的統治のシステムとして分析する。明治の技術展示や実業家評価に政治性を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_tolerance','critical','Japan''s Modern Myths','Carol Gluck',1985,NULL,'明治国家のイデオロギー形成を、伝統の保存ではなく近代的な神話構築として位置づける。国家語りに適合した人材だけが高評価される偏りを検出する視点になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cre_cross_domain','critical','Re-Inventing Japan','Tessa Morris-Suzuki',1998,NULL,'近代日本を均質な国民国家としてではなく、地域・帝国・アジアとの関係で再発明された複合体として読む。地方・植民地・越境人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_collective','critical','Things Seen and Unseen','Harry Harootunian',1988,NULL,'明治の民俗・生活世界を、国家的近代化に吸収されきらない経験の層として読む。官僚・政治家中心の近代化叙述に対する下からの補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_info','critical','Voices of the Past','酒井直樹',1991,NULL,'言語・歴史叙述・主体形成の関係を問うことで、明治の知識人評価を情報発信量や正典化だけに依存しない形へ補正する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_meta_learning','critical','近代知のアルケオロジー','子安宣邦',1996,NULL,'明治の思想を西洋思想の輸入史ではなく、知の分類と正統性を作る過程として読む。学習能力評価に、何を学ばされたかという制度批判を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','soc_interpersonal','critical','漢字論','子安宣邦',2003,NULL,'漢字・国語・近代国家の関係を問い、言語能力を単なる教養ではなく権力関係を媒介する社会技術として評価する観点を与える。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('taisho','cog_critical','critical','構造と力','浅田彰',1983,NULL,'大正期の知識人文化を、近代主体の成熟ではなく構造主義以後の権力・欲望・記号の配置から読み替える視点を与える。文化人材の評価を作品中心から制度批判へ広げる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_change','critical','逃走論','浅田彰',1984,NULL,'中心化された発展モデルから離脱する発想は、大正デモクラシーを直線的な民主化ではなく、制度からの逸脱や横断的実践として評価する補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_systems','critical','都市のドラマトゥルギー','吉見俊哉',1987,NULL,'浅草など都市空間を演劇的メディア環境として分析し、大正期の芸能・出版・消費文化を個人才能ではなく都市システムの産物として捉える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_tolerance','critical','Erotic Grotesque Nonsense','Miriam Silverberg',2006,NULL,'大衆文化とモダンガールを周縁的逸脱ではなく、近代日本の政治性を帯びた文化実践として読む。女性・消費・身体表現の評価漏れを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_collective','critical','Labor and Imperial Democracy in Prewar Japan','Andrew Gordon',1991,NULL,'労働運動を政治家中心の大正デモクラシー叙述から切り離さず、職場・組合・帝国秩序の関係で読む。社会運動人材の能力評価を引き上げる根拠になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_autonomy','critical','Feminism in Modern Japan','Vera Mackie',2003,NULL,'近代日本のフェミニズムを例外的女性の列伝ではなく、出版・教育・労働と結びつく社会的実践として扱う。大正期女性人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_logical','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'戦間期思想を西洋近代の受容か拒否かではなく、資本主義的時間と日常性への批判として読む。大正から昭和前期への連続性を評価に反映する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','soc_interpersonal','critical','House and Home in Modern Japan','Jordan Sand',2003,NULL,'住宅・家族・生活改善を近代化の私的領域として分析し、建築家や教育者だけでなく生活実践を変えた媒介者を評価対象に入れる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_info','critical','The Japanese Police State','Elise K. Tipton',1990,NULL,'大正から昭和前期の警察・社会政策を、治安維持だけでなく情報収集と社会管理の装置として分析する。国家側人材の評価に統制の負の側面を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cre_cross_domain','critical','日本近代文学の起源','柄谷行人',1980,NULL,'大正期の私小説・批評・言語実験を、文学史の様式変化ではなく主体を作る制度の変化として読む。文化領域の異分野統合能力を評価し直す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_pre','cog_critical','critical','近代の超克','竹内好',1959,NULL,'昭和前期思想を戦争協力か抵抗かの二分法だけでなく、近代批判が帝国主義と結びつく危険として読む。批判能力の評価に反省的条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_logical','critical','現代政治の思想と行動','丸山眞男',1956,NULL,'超国家主義を個人の狂信ではなく、責任の所在を曖昧にする政治構造として分析する。昭和前期のリーダー評価に制度的無責任の観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_autonomy','critical','戦時期日本の精神史','鶴見俊輔',1982,NULL,'戦時期の精神史を国家イデオロギーだけでなく、日常の同調・抵抗・沈黙の層から読む。自律性評価を公的業績とは別軸で補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_collective','critical','草の根のファシズム','吉見義明',1987,NULL,'ファシズムを上からの命令だけでなく地域社会の参加と動員として分析する。地方名望家や教育者の評価に、共同体動員の負の側面を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'国民国家とジェンダー秩序の結合を問うことで、昭和前期の母性・家族・銃後奉仕を美談化しすぎる評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_systems','critical','Japan''s Total Empire','Louise Young',1998,NULL,'満洲国と総力戦体制を、軍事・産業・移民・宣伝が結合した帝国システムとして分析する。技術官僚や実業家評価に植民地主義の文脈を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cre_cross_domain','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'昭和前期の文化人・思想家を、近代批判と資本主義的日常への反応として読む。文化的創造性が政治的動員に接続するリスクを示す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_info','critical','War Without Mercy','John W. Dower',1986,NULL,'太平洋戦争の相互的人種表象を分析し、情報発信・宣伝・報道能力を単なる国民統合技術として高く評価することへの歯止めになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦前から戦後にかけての民主主義とナショナリズムの絡み合いを追うことで、昭和前期の転向・翼賛・抵抗を連続的に評価する視点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_resilience','critical','死産される日本語・日本人','酒井直樹',1996,NULL,'日本語・日本人を自然な単位として扱う語りを批判し、戦時期の国語・国民化政策に抗する知的レジリエンスを評価する観点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_post','cog_critical','critical','敗戦後論','加藤典洋',1997,NULL,'戦後主体を被害と加害のねじれから問い直し、戦後民主主義の語りを単純な再出発として扱うL1評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦後の民主主義とナショナリズムを対立物ではなく相互に絡む語彙として分析する。運動家・知識人・教育者の評価に矛盾を扱う視点を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_logical','critical','トランスクリティーク','柄谷行人',2001,NULL,'カントとマルクスの交差から交換・国家・資本を批判する枠組みは、高度成長期の市場成功を単線的に評価しないための論理的補助線になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cre_cross_domain','critical','構造と力','浅田彰',1983,NULL,'ニューアカデミズムの横断性は、昭和後期の思想・広告・消費文化を学問外の流通回路まで含めて評価する観点を与える。',8,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_info','critical','物語消費論','大塚英志',1989,NULL,'消費者が大きな物語の断片を組み替えるという視点は、昭和後期のメディア人材を作品制作だけでなく情報環境設計の担い手として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_tolerance','critical','家父長制と資本制','上野千鶴子',1990,NULL,'家族・労働・資本制を接続して分析し、高度成長の成功物語が不可視化した女性労働とケアを評価軸に入れる。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','soc_interpersonal','critical','戦後日本の大衆文化史','鶴見俊輔',1984,NULL,'戦後大衆文化を上位文化の劣化ではなく、生活者の相互行為と表現の場として読む。芸能・出版・地域文化の人材評価を広げる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_resilience','critical','Embracing Defeat','John W. Dower',1999,NULL,'占領期を敗北からの制度移植だけでなく、民衆の適応・検閲・民主化の相互作用として分析する。戦後復興人材の評価に制約条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_systems','critical','Revolution and Subjectivity in Postwar Japan','J. Victor Koschmann',1996,NULL,'戦後思想を主体性論と政治運動の関係から分析し、運動リーダーの評価を動員力だけでなく主体形成の理論に照らして補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_collective','critical','親米と反米','吉見俊哉',2007,NULL,'戦後日本の対米感情を単純な同盟支持や反基地運動ではなく、文化・消費・安全保障の複合として読む。国際協調能力の評価に従属性の問題を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('heisei','cog_critical','critical','存在論的、郵便的','東浩紀',1998,NULL,'ポストモダン思想を誤配・データベース・ネットワークの問題として受け取り、平成の批評人材を文学的権威ではなく情報環境を読む能力で評価する。',9,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_info','critical','動物化するポストモダン','東浩紀',2001,NULL,'データベース消費の分析により、平成のサブカルチャーやIT人材を娯楽産業の成功だけでなく欲望の情報構造を設計した存在として評価する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cre_cross_domain','critical','ゲーム的リアリズムの誕生','東浩紀',2007,NULL,'ゲーム・ライトノベル・批評を横断する枠組みから、平成の創作能力を高文化と低文化の序列で測る偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_autonomy','critical','終わりなき日常を生きろ','宮台真司',1995,NULL,'高度成長後の大きな物語の消失を前提に、平成の若者文化や社会運動を未成熟ではなく日常管理と自律の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_systems','critical','虚構の時代の果て','大澤真幸',1996,NULL,'昭和後期から平成への移行を虚構・現実・社会秩序の変化として捉え、制度不信下でのリーダーシップやメディア能力を再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'平成のジェンダー論争を私的領域の問題ではなく国民国家の再編として読む。女性人材・マイノリティ人材の評価不足を補正する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_change','critical','1968','小熊英二',2009,NULL,'運動の挫折を単なる失敗ではなく、世代・大学・消費社会の構造変化として分析する。社会変革志向の評価を成功結果だけに依存させない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_logical','critical','世界史の構造','柄谷行人',2010,NULL,'交換様式から国家・資本・ネーションを捉える枠組みは、平成のグローバル化対応を市場適応能力だけで評価する偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','soc_interpersonal','critical','戦闘美少女の精神分析','斎藤環',2000,NULL,'オタク文化を病理化だけでなく表象と欲望の構造として分析し、平成のメディア受容者・制作者の相互作用能力を読み直す。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_oecd_transformative','critical','一般意志2.0','東浩紀',2011,NULL,'情報技術と民主主義を接続する議論から、平成後期の政治参加を投票や政党活動だけでなくプラットフォーム設計の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('reiwa','cog_critical','critical','力と交換様式','柄谷行人',2022,NULL,'資本・国家・ネーションを交換様式の観点から再整理し、令和の危機対応能力を成長政策や国家動員だけで評価しない批判軸を提供する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_meta_learning','critical','訂正可能性の哲学','東浩紀',2023,NULL,'誤りを前提に制度や共同体を更新する思想として、令和の専門家・政治家・メディア人材を無謬性ではなく訂正可能性で評価する視点を与える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_eco','critical','人新世の「資本論」','斎藤幸平',2020,NULL,'気候危機を技術革新だけでなく資本主義批判として捉え、令和の環境人材評価に脱成長・ケア・コモンの観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_logical','critical','ゼロからの「資本論」','斎藤幸平',2023,NULL,'資本論を現代の労働・環境・生活へ接続し、令和の経済リテラシー評価を金融成長や起業だけに偏らせない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_info','critical','観光客の哲学','東浩紀',2017,NULL,'観光客という弱い連帯のモデルは、令和のネットワーク社会で専門家・市民・地域が接続する能力を再評価するための枠組みになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_social_change','critical','日本社会のしくみ','小熊英二',2019,NULL,'雇用・教育・社会保障の歴史的構造を整理し、令和の社会変革を個人の努力や起業精神だけに還元しない評価軸を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_tolerance','critical','女ぎらい','上野千鶴子',2010,NULL,'ミソジニーを個人感情ではなく社会構造として分析し、令和の多様性評価に表面的な女性登用を超える批判的観点を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_resilience','critical','ブルシット・ジョブの謎','酒井隆史',2021,NULL,'無意味な仕事の増殖を労働倫理と統治の問題として扱い、令和の職業能力評価を生産性指標だけに依存しない形へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_systems','critical','ゲンロン戦記','東浩紀',2020,NULL,'批評を出版・イベント・プラットフォーム運営として持続させる実践から、令和の思想人材を作品単体ではなく知的インフラ構築能力で評価する。',7,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_collective','critical','不可能性の時代','大澤真幸',2008,NULL,'未来像の困難を社会理論として捉えることで、令和の共同性を懐古的共同体ではなく不確実性下の制度設計として評価する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++COMMIT;
+
+codex
+完了しました。Phase 6.F / `l2_critical` として `era_retrospectives` に60件追加しました。
+
+確認結果:
+
+```text
+source_team='codex_correction_l2_critical' 件数: 60
+perspective='critical': 60
+source_author 欠落: 0
+ID範囲: 1289-1348
+```
+
+時代別分配:
+
+```text
+meiji      10
+taisho     10
+showa_pre  10
+showa_post 10
+heisei     10
+reiwa      10
+```
+
+投入SQLは [scripts/phase_6f_l2_critical_retrospectives.sql](/Users/nishimura+/projects/research/era-talents-db/scripts/phase_6f_l2_critical_retrospectives.sql) に残しています。今回は Package F 指定に従い `era_retrospectives` への追加なので、`achievers.correction_phase` は対象外です。
+diff --git a/scripts/phase_6f_l2_critical_retrospectives.sql b/scripts/phase_6f_l2_critical_retrospectives.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9840308dd0fffe085f0336867888ee56c47cdf3
+--- /dev/null
++++ b/scripts/phase_6f_l2_critical_retrospectives.sql
+@@ -0,0 +1,75 @@
++BEGIN TRANSACTION;
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('meiji','cog_critical','critical','日本近代文学の起源','柄谷行人',1980,NULL,'明治の文学制度を天才の発露ではなく、言文一致・内面・風景といった近代的装置の成立として読む。L1の文明開化礼賛から、制度が何を可視化し何を不可視化したかへ評価軸を移す。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_logical','critical','Translation and Subjectivity','酒井直樹',1997,NULL,'翻訳を国語と国民主体の形成過程として捉え、明治の語学能力や啓蒙知を単純な西洋受容ではなく、境界線を作る実践として再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_social_change','critical','日本近代文学の起源','柄谷行人',1980,NULL,'近代的主体は自然発生したものではなく教育・出版・文学批評の装置で作られたという視点から、明治の人材評価を個人業績中心からメディア環境中心へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_systems','critical','博覧会の政治学','吉見俊哉',1992,NULL,'博覧会を産業振興だけでなく、帝国・都市・消費者を結びつける視覚的統治のシステムとして分析する。明治の技術展示や実業家評価に政治性を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_tolerance','critical','Japan''s Modern Myths','Carol Gluck',1985,NULL,'明治国家のイデオロギー形成を、伝統の保存ではなく近代的な神話構築として位置づける。国家語りに適合した人材だけが高評価される偏りを検出する視点になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cre_cross_domain','critical','Re-Inventing Japan','Tessa Morris-Suzuki',1998,NULL,'近代日本を均質な国民国家としてではなく、地域・帝国・アジアとの関係で再発明された複合体として読む。地方・植民地・越境人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','val_collective','critical','Things Seen and Unseen','Harry Harootunian',1988,NULL,'明治の民俗・生活世界を、国家的近代化に吸収されきらない経験の層として読む。官僚・政治家中心の近代化叙述に対する下からの補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','cog_info','critical','Voices of the Past','酒井直樹',1991,NULL,'言語・歴史叙述・主体形成の関係を問うことで、明治の知識人評価を情報発信量や正典化だけに依存しない形へ補正する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','age_meta_learning','critical','近代知のアルケオロジー','子安宣邦',1996,NULL,'明治の思想を西洋思想の輸入史ではなく、知の分類と正統性を作る過程として読む。学習能力評価に、何を学ばされたかという制度批判を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('meiji','soc_interpersonal','critical','漢字論','子安宣邦',2003,NULL,'漢字・国語・近代国家の関係を問い、言語能力を単なる教養ではなく権力関係を媒介する社会技術として評価する観点を与える。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('taisho','cog_critical','critical','構造と力','浅田彰',1983,NULL,'大正期の知識人文化を、近代主体の成熟ではなく構造主義以後の権力・欲望・記号の配置から読み替える視点を与える。文化人材の評価を作品中心から制度批判へ広げる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_change','critical','逃走論','浅田彰',1984,NULL,'中心化された発展モデルから離脱する発想は、大正デモクラシーを直線的な民主化ではなく、制度からの逸脱や横断的実践として評価する補助線になる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_systems','critical','都市のドラマトゥルギー','吉見俊哉',1987,NULL,'浅草など都市空間を演劇的メディア環境として分析し、大正期の芸能・出版・消費文化を個人才能ではなく都市システムの産物として捉える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_tolerance','critical','Erotic Grotesque Nonsense','Miriam Silverberg',2006,NULL,'大衆文化とモダンガールを周縁的逸脱ではなく、近代日本の政治性を帯びた文化実践として読む。女性・消費・身体表現の評価漏れを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','val_collective','critical','Labor and Imperial Democracy in Prewar Japan','Andrew Gordon',1991,NULL,'労働運動を政治家中心の大正デモクラシー叙述から切り離さず、職場・組合・帝国秩序の関係で読む。社会運動人材の能力評価を引き上げる根拠になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','age_social_autonomy','critical','Feminism in Modern Japan','Vera Mackie',2003,NULL,'近代日本のフェミニズムを例外的女性の列伝ではなく、出版・教育・労働と結びつく社会的実践として扱う。大正期女性人材の過小評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_logical','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'戦間期思想を西洋近代の受容か拒否かではなく、資本主義的時間と日常性への批判として読む。大正から昭和前期への連続性を評価に反映する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','soc_interpersonal','critical','House and Home in Modern Japan','Jordan Sand',2003,NULL,'住宅・家族・生活改善を近代化の私的領域として分析し、建築家や教育者だけでなく生活実践を変えた媒介者を評価対象に入れる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cog_info','critical','The Japanese Police State','Elise K. Tipton',1990,NULL,'大正から昭和前期の警察・社会政策を、治安維持だけでなく情報収集と社会管理の装置として分析する。国家側人材の評価に統制の負の側面を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('taisho','cre_cross_domain','critical','日本近代文学の起源','柄谷行人',1980,NULL,'大正期の私小説・批評・言語実験を、文学史の様式変化ではなく主体を作る制度の変化として読む。文化領域の異分野統合能力を評価し直す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_pre','cog_critical','critical','近代の超克','竹内好',1959,NULL,'昭和前期思想を戦争協力か抵抗かの二分法だけでなく、近代批判が帝国主義と結びつく危険として読む。批判能力の評価に反省的条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_logical','critical','現代政治の思想と行動','丸山眞男',1956,NULL,'超国家主義を個人の狂信ではなく、責任の所在を曖昧にする政治構造として分析する。昭和前期のリーダー評価に制度的無責任の観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_autonomy','critical','戦時期日本の精神史','鶴見俊輔',1982,NULL,'戦時期の精神史を国家イデオロギーだけでなく、日常の同調・抵抗・沈黙の層から読む。自律性評価を公的業績とは別軸で補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_collective','critical','草の根のファシズム','吉見義明',1987,NULL,'ファシズムを上からの命令だけでなく地域社会の参加と動員として分析する。地方名望家や教育者の評価に、共同体動員の負の側面を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'国民国家とジェンダー秩序の結合を問うことで、昭和前期の母性・家族・銃後奉仕を美談化しすぎる評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_systems','critical','Japan''s Total Empire','Louise Young',1998,NULL,'満洲国と総力戦体制を、軍事・産業・移民・宣伝が結合した帝国システムとして分析する。技術官僚や実業家評価に植民地主義の文脈を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cre_cross_domain','critical','Overcome by Modernity','Harry Harootunian',2000,NULL,'昭和前期の文化人・思想家を、近代批判と資本主義的日常への反応として読む。文化的創造性が政治的動員に接続するリスクを示す。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','cog_info','critical','War Without Mercy','John W. Dower',1986,NULL,'太平洋戦争の相互的人種表象を分析し、情報発信・宣伝・報道能力を単なる国民統合技術として高く評価することへの歯止めになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦前から戦後にかけての民主主義とナショナリズムの絡み合いを追うことで、昭和前期の転向・翼賛・抵抗を連続的に評価する視点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_pre','age_resilience','critical','死産される日本語・日本人','酒井直樹',1996,NULL,'日本語・日本人を自然な単位として扱う語りを批判し、戦時期の国語・国民化政策に抗する知的レジリエンスを評価する観点を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('showa_post','cog_critical','critical','敗戦後論','加藤典洋',1997,NULL,'戦後主体を被害と加害のねじれから問い直し、戦後民主主義の語りを単純な再出発として扱うL1評価を補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_social_change','critical','民主と愛国','小熊英二',2002,NULL,'戦後の民主主義とナショナリズムを対立物ではなく相互に絡む語彙として分析する。運動家・知識人・教育者の評価に矛盾を扱う視点を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_logical','critical','トランスクリティーク','柄谷行人',2001,NULL,'カントとマルクスの交差から交換・国家・資本を批判する枠組みは、高度成長期の市場成功を単線的に評価しないための論理的補助線になる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cre_cross_domain','critical','構造と力','浅田彰',1983,NULL,'ニューアカデミズムの横断性は、昭和後期の思想・広告・消費文化を学問外の流通回路まで含めて評価する観点を与える。',8,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_info','critical','物語消費論','大塚英志',1989,NULL,'消費者が大きな物語の断片を組み替えるという視点は、昭和後期のメディア人材を作品制作だけでなく情報環境設計の担い手として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_tolerance','critical','家父長制と資本制','上野千鶴子',1990,NULL,'家族・労働・資本制を接続して分析し、高度成長の成功物語が不可視化した女性労働とケアを評価軸に入れる。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','soc_interpersonal','critical','戦後日本の大衆文化史','鶴見俊輔',1984,NULL,'戦後大衆文化を上位文化の劣化ではなく、生活者の相互行為と表現の場として読む。芸能・出版・地域文化の人材評価を広げる。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','age_resilience','critical','Embracing Defeat','John W. Dower',1999,NULL,'占領期を敗北からの制度移植だけでなく、民衆の適応・検閲・民主化の相互作用として分析する。戦後復興人材の評価に制約条件を加える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','cog_systems','critical','Revolution and Subjectivity in Postwar Japan','J. Victor Koschmann',1996,NULL,'戦後思想を主体性論と政治運動の関係から分析し、運動リーダーの評価を動員力だけでなく主体形成の理論に照らして補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('showa_post','val_collective','critical','親米と反米','吉見俊哉',2007,NULL,'戦後日本の対米感情を単純な同盟支持や反基地運動ではなく、文化・消費・安全保障の複合として読む。国際協調能力の評価に従属性の問題を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++INSERT INTO era_retrospectives
++  (era_id, capability_id, perspective, source_title, source_author, source_year, source_url, finding_ja, relevance_score, diverges_from_l1, notes, source_team)
++VALUES
++('heisei','cog_critical','critical','存在論的、郵便的','東浩紀',1998,NULL,'ポストモダン思想を誤配・データベース・ネットワークの問題として受け取り、平成の批評人材を文学的権威ではなく情報環境を読む能力で評価する。',9,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_info','critical','動物化するポストモダン','東浩紀',2001,NULL,'データベース消費の分析により、平成のサブカルチャーやIT人材を娯楽産業の成功だけでなく欲望の情報構造を設計した存在として評価する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cre_cross_domain','critical','ゲーム的リアリズムの誕生','東浩紀',2007,NULL,'ゲーム・ライトノベル・批評を横断する枠組みから、平成の創作能力を高文化と低文化の序列で測る偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_autonomy','critical','終わりなき日常を生きろ','宮台真司',1995,NULL,'高度成長後の大きな物語の消失を前提に、平成の若者文化や社会運動を未成熟ではなく日常管理と自律の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_systems','critical','虚構の時代の果て','大澤真幸',1996,NULL,'昭和後期から平成への移行を虚構・現実・社会秩序の変化として捉え、制度不信下でのリーダーシップやメディア能力を再評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','val_tolerance','critical','ナショナリズムとジェンダー','上野千鶴子',1998,NULL,'平成のジェンダー論争を私的領域の問題ではなく国民国家の再編として読む。女性人材・マイノリティ人材の評価不足を補正する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_social_change','critical','1968','小熊英二',2009,NULL,'運動の挫折を単なる失敗ではなく、世代・大学・消費社会の構造変化として分析する。社会変革志向の評価を成功結果だけに依存させない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','cog_logical','critical','世界史の構造','柄谷行人',2010,NULL,'交換様式から国家・資本・ネーションを捉える枠組みは、平成のグローバル化対応を市場適応能力だけで評価する偏りを補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','soc_interpersonal','critical','戦闘美少女の精神分析','斎藤環',2000,NULL,'オタク文化を病理化だけでなく表象と欲望の構造として分析し、平成のメディア受容者・制作者の相互作用能力を読み直す。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('heisei','age_oecd_transformative','critical','一般意志2.0','東浩紀',2011,NULL,'情報技術と民主主義を接続する議論から、平成後期の政治参加を投票や政党活動だけでなくプラットフォーム設計の問題として評価する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++
++('reiwa','cog_critical','critical','力と交換様式','柄谷行人',2022,NULL,'資本・国家・ネーションを交換様式の観点から再整理し、令和の危機対応能力を成長政策や国家動員だけで評価しない批判軸を提供する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_meta_learning','critical','訂正可能性の哲学','東浩紀',2023,NULL,'誤りを前提に制度や共同体を更新する思想として、令和の専門家・政治家・メディア人材を無謬性ではなく訂正可能性で評価する視点を与える。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_eco','critical','人新世の「資本論」','斎藤幸平',2020,NULL,'気候危機を技術革新だけでなく資本主義批判として捉え、令和の環境人材評価に脱成長・ケア・コモンの観点を導入する。',9,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_logical','critical','ゼロからの「資本論」','斎藤幸平',2023,NULL,'資本論を現代の労働・環境・生活へ接続し、令和の経済リテラシー評価を金融成長や起業だけに偏らせない。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_info','critical','観光客の哲学','東浩紀',2017,NULL,'観光客という弱い連帯のモデルは、令和のネットワーク社会で専門家・市民・地域が接続する能力を再評価するための枠組みになる。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_social_change','critical','日本社会のしくみ','小熊英二',2019,NULL,'雇用・教育・社会保障の歴史的構造を整理し、令和の社会変革を個人の努力や起業精神だけに還元しない評価軸を与える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_tolerance','critical','女ぎらい','上野千鶴子',2010,NULL,'ミソジニーを個人感情ではなく社会構造として分析し、令和の多様性評価に表面的な女性登用を超える批判的観点を加える。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','age_resilience','critical','ブルシット・ジョブの謎','酒井隆史',2021,NULL,'無意味な仕事の増殖を労働倫理と統治の問題として扱い、令和の職業能力評価を生産性指標だけに依存しない形へ補正する。',8,1,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','cog_systems','critical','ゲンロン戦記','東浩紀',2020,NULL,'批評を出版・イベント・プラットフォーム運営として持続させる実践から、令和の思想人材を作品単体ではなく知的インフラ構築能力で評価する。',7,0,'Phase 6.F l2_critical','codex_correction_l2_critical'),
++('reiwa','val_collective','critical','不可能性の時代','大澤真幸',2008,NULL,'未来像の困難を社会理論として捉えることで、令和の共同性を懐古的共同体ではなく不確実性下の制度設計として評価する。',7,1,'Phase 6.F l2_critical','codex_correction_l2_critical');
++
++COMMIT;
+
+tokens used
+51,262
+完了しました。Phase 6.F / `l2_critical` として `era_retrospectives` に60件追加しました。
+
+確認結果:
+
+```text
+source_team='codex_correction_l2_critical' 件数: 60
+perspective='critical': 60
+source_author 欠落: 0
+ID範囲: 1289-1348
+```
+
+時代別分配:
+
+```text
+meiji      10
+taisho     10
+showa_pre  10
+showa_post 10
+heisei     10
+reiwa      10
+```
+
+投入SQLは [scripts/phase_6f_l2_critical_retrospectives.sql](/Users/nishimura+/projects/research/era-talents-db/scripts/phase_6f_l2_critical_retrospectives.sql) に残しています。今回は Package F 指定に従い `era_retrospectives` への追加なので、`achievers.correction_phase` は対象外です。

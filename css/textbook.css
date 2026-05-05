@@ -1,6 +1,6 @@
 /*
  * miratuku-news-v2 textbook.html style system
- * 赤白CI / White background, warm earth accent, Noto Sans JP + Serif JP
+ * 赤白CI / White background, 赤白CI accent (#CC1400), Noto Sans JP + Serif JP
  *
  * 共通DB構築デザイン基盤として使用。light/darkトグル対応。
  */
@@ -12,14 +12,15 @@
   --accent: #121212;
   --accent-soft: #555555;
   --accent-light: #F7F7F5;
-  --accent-warm: #7A4033;
-  --accent-muted: rgba(122,64,51,0.06);
+  --accent-warm: #CC1400;
+  --accent-warm-soft: #B01200;
+  --accent-muted: rgba(204,20,0,0.06);
   --text: #121212;
   --text-secondary: #555555;
   --text-muted: #6B6B6B;
   --border: #D9D9D9;
   --border-light: #EEEEEE;
-  --highlight: #7A4033;
+  --highlight: #CC1400;
   --surface: #F7F7F5;
   --font: "Noto Sans JP", "Hiragino Sans", -apple-system, sans-serif;
   --font-serif: "Noto Serif JP", "Hiragino Mincho ProN", Georgia, serif;
@@ -33,15 +34,15 @@
   --card-hover: #222222;
   --accent: #E0E0E0;
   --accent-soft: #999999;
-  --accent-warm: #C4795E;
+  --accent-warm: #FF4030;
   --accent-light: #1A1A1A;
-  --accent-muted: rgba(196,121,94,0.08);
+  --accent-muted: rgba(255,64,48,0.10);
   --text: #E0E0E0;
   --text-secondary: #AAAAAA;
   --text-muted: #8A8A8A;
   --border: #333333;
   --border-light: #2A2A2A;
-  --highlight: #C4795E;
+  --highlight: #FF4030;
   --surface: #1A1A1A;
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
   --shadow-md: 0 2px 8px rgba(0,0,0,0.4);
@@ -618,15 +619,15 @@ select:focus, input:focus { outline: none; border-color: var(--accent-warm); }
   font-size: 0.75rem;
   color: var(--text);
 }
-.heatmap-cell.score-1 { background: rgba(122,64,51,0.05); }
-.heatmap-cell.score-2 { background: rgba(122,64,51,0.10); }
-.heatmap-cell.score-3 { background: rgba(122,64,51,0.18); }
-.heatmap-cell.score-4 { background: rgba(122,64,51,0.28); }
-.heatmap-cell.score-5 { background: rgba(122,64,51,0.40); color: white; }
-.heatmap-cell.score-6 { background: rgba(122,64,51,0.55); color: white; }
-.heatmap-cell.score-7 { background: rgba(122,64,51,0.70); color: white; }
-.heatmap-cell.score-8 { background: rgba(122,64,51,0.82); color: white; font-weight: 600; }
-.heatmap-cell.score-9 { background: rgba(122,64,51,0.92); color: white; font-weight: 700; }
+.heatmap-cell.score-1 { background: rgba(204,20,0,0.05); }
+.heatmap-cell.score-2 { background: rgba(204,20,0,0.10); }
+.heatmap-cell.score-3 { background: rgba(204,20,0,0.18); }
+.heatmap-cell.score-4 { background: rgba(204,20,0,0.28); }
+.heatmap-cell.score-5 { background: rgba(204,20,0,0.40); color: white; }
+.heatmap-cell.score-6 { background: rgba(204,20,0,0.55); color: white; }
+.heatmap-cell.score-7 { background: rgba(204,20,0,0.70); color: white; }
+.heatmap-cell.score-8 { background: rgba(204,20,0,0.82); color: white; font-weight: 600; }
+.heatmap-cell.score-9 { background: rgba(204,20,0,0.92); color: white; font-weight: 700; }
 .heatmap-cell.score-10 { background: var(--accent-warm); color: white; font-weight: 700; }
 .heatmap-cell.future { border-left: 2px solid var(--accent-warm); }
 

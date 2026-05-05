@@ -1,77 +1,208 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>era-talents-db | 時代別活躍人材データベース</title>
-<style>
-:root { --bg: #0c0d10; --panel: #14161b; --line: #262a32; --text: #e6e9ee; --muted: #8a93a4; --accent: #cc1400; --link: #82aaff; }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); font-family: "Noto Sans JP", -apple-system, sans-serif; font-size: 15px; line-height: 1.85; }
-.container { max-width: 960px; margin: 0 auto; padding: 64px 32px; }
-h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 12px; }
-.subtitle { color: var(--muted); font-size: 16px; }
-.accent-bar { height: 3px; width: 80px; background: var(--accent); margin: 24px 0 40px; }
-h2 { font-size: 22px; font-weight: 600; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-p { margin-bottom: 18px; text-align: justify; }
-.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 24px 0; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 24px; transition: border-color 0.15s; }
-.card:hover { border-color: var(--accent); }
-.card a { color: var(--text); text-decoration: none; }
-.card h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
-.card .desc { color: var(--muted); font-size: 13px; }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 24px 0; }
-.stat { background: var(--panel); border: 1px solid var(--line); padding: 16px; border-radius: 6px; }
-.stat .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-.stat .value { color: var(--accent); font-size: 24px; font-weight: 700; margin-top: 4px; }
-.footer { border-top: 1px solid var(--line); padding-top: 20px; margin-top: 48px; color: var(--muted); font-size: 13px; }
-.footer a { color: var(--link); }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Noto+Serif+JP:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/textbook.css">
 </head>
 <body>
-<div class="container">
+<div class="reading-progress" id="readingProgress"></div>
 
-<h1>era-talents-db</h1>
-<div class="subtitle">時代別活躍人材データベース ・ Era Talents Database</div>
-<div class="accent-bar"></div>
+<header class="top-bar">
+  <div class="top-bar-brand"><span>era-talents-db</span> — Era Talents Database</div>
+  <div class="top-bar-actions">
+    <a href="https://yuyanishimura0312.github.io/miratuku-news-v2/databases.html" class="back-link">&#8592; databases</a>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">DARK</button>
+  </div>
+</header>
 
-<p>明治から令和までの活躍人材9,375人と、当時の能力言説800件、事後評価927件、未来予測（2030/2050/2100）397件、学術文献40件を統合した大規模学術DB。L1（当時言説）/ L2（事後評価）/ L3（活躍者特性）/ L4（未来予測）の4層構造で、9時代区分・19能力次元を実装。教育・採用・組織設計への新たな知見創出を目的とする。</p>
+<div class="book-layout">
 
-<div class="stats">
-<div class="stat"><div class="label">総レコード</div><div class="value">31,444</div></div>
-<div class="stat"><div class="label">活躍人材</div><div class="value">9,375</div></div>
-<div class="stat"><div class="label">能力スコア</div><div class="value">19,626</div></div>
-<div class="stat"><div class="label">時代区分</div><div class="value">9</div></div>
-<div class="stat"><div class="label">能力次元</div><div class="value">19</div></div>
-<div class="stat"><div class="label">統合DB</div><div class="value">34</div></div>
+<nav class="toc-sidebar" aria-label="目次">
+  <div class="toc-label">目次</div>
+  <ol class="toc-list">
+    <li><a href="#overview"><span class="toc-num">01</span> プロジェクト概要</a></li>
+    <li><a href="#stats"><span class="toc-num">02</span> 規模と内訳</a></li>
+    <li><a href="#deliverables"><span class="toc-num">03</span> 主要成果物</a></li>
+    <li><a href="#structure"><span class="toc-num">04</span> 4層構造とデータモデル</a></li>
+    <li><a href="#frameworks"><span class="toc-num">05</span> 採用理論枠組み</a></li>
+    <li><a href="#sources"><span class="toc-num">06</span> 統合データソース</a></li>
+    <li><a href="#related"><span class="toc-num">07</span> 関連DB・公開URL</a></li>
+  </ol>
+</nav>
+
+<main class="book-main">
+
+<header class="book-header">
+  <div class="book-db-tags">
+    <span class="db-tag primary">ETD: Era Talents DB</span>
+    <span class="db-tag">FK: Foresight Knowledge</span>
+    <span class="db-tag">EX: Experts DB</span>
+    <span class="db-tag">GF: Great Figures</span>
+    <span class="db-tag">AK: Academic Knowledge</span>
+  </div>
+  <h1 class="book-title">時代別活躍人材データベース</h1>
+  <p class="book-subtitle">明治〜令和の活躍者と求められた力 ・ 2030/2050/2100の予測能力</p>
+  <div class="book-meta">
+    <span class="book-author">西村勇也</span>
+    <span class="book-date">2026年5月</span>
+  </div>
+  <div class="book-metrics">
+    <span class="metric-item"><strong>31,444</strong> レコード</span>
+    <span class="metric-item"><strong>9,375</strong> 活躍人材</span>
+    <span class="metric-item"><strong>9</strong> 時代</span>
+    <span class="metric-item"><strong>19</strong> 能力次元</span>
+    <span class="metric-item"><strong>34</strong> 統合DB</span>
+  </div>
+</header>
+
+<section id="overview" class="chapter-section">
+<div class="chapter-number-label">Chapter 01</div>
+<h2 class="chapter-title">プロジェクト概要</h2>
+
+<div class="epigraph">
+「時代に求められた力」と「実際に活躍した者が持っていた力」は一致しない。両者の差分こそが、教育の盲点・採用の偏り・組織の硬直性を診断する最も鋭い手がかりとなる。
+<span class="attribution">— 本DBの中核命題</span>
 </div>
 
-<h2>コンテンツ</h2>
+<p>本データベースは、日本の明治から令和までの各時代に「求められた力」と「実際に活躍した人物の特性」を実証的に明らかにし、未来（2030年・2050年・2100年）に求められる力を予測する大規模学術DBである。教育・採用・組織設計への新たな知見創出を目的とする。</p>
+
+<p>L1（当時の言説）／ L2（事後評価）／ L3（活躍者特性）／ L4（未来予測）の4層構造で設計し、6つの主要理論枠組み（Csikszentmihalyi のシステム理論、Subotnik の Talent Development Megamodel、Merton の累積的優位、Bourdieu の文化資本、Granovetter の弱い紐帯、日本特化として竹内洋・苅谷剛彦）を統合している。能力次元の標準化フレームとして OECD Learning Compass 2030・P21 Framework・WEF Future of Jobs・JPMS-DB 5次元タクソノミーから導出した19次元の能力体系を実装している。</p>
+</section>
+
+<section id="stats" class="chapter-section">
+<div class="chapter-number-label">Chapter 02</div>
+<h2 class="chapter-title">規模と内訳</h2>
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="label">総レコード</div><div class="value">31,444</div><div class="desc">9層統合</div></div>
+  <div class="stat-card"><div class="label">活躍人材 L3</div><div class="value">9,375</div><div class="desc">明治〜令和</div></div>
+  <div class="stat-card"><div class="label">能力スコア</div><div class="value">19,626</div><div class="desc">人物×能力</div></div>
+  <div class="stat-card"><div class="label">L1 言説</div><div class="value">800</div><div class="desc">当時の能力論</div></div>
+  <div class="stat-card"><div class="label">L2 事後評価</div><div class="value">927</div><div class="desc">歴史社会学</div></div>
+  <div class="stat-card"><div class="label">L4 未来予測</div><div class="value">397</div><div class="desc">2030/2050/2100</div></div>
+  <div class="stat-card"><div class="label">学術文献</div><div class="value">40</div><div class="desc">Galton〜WEF</div></div>
+  <div class="stat-card"><div class="label">統合DB</div><div class="value">34</div><div class="desc">miratuku-news-v2</div></div>
+</div>
+
+<h3 class="section-heading">時代別人物分布</h3>
+
+<table>
+<thead><tr><th>時代</th><th>人数</th><th>うち偉人</th><th>うち無名卓越者</th></tr></thead>
+<tbody>
+<tr><td>明治（1868–1912）</td><td>866</td><td>137</td><td>605</td></tr>
+<tr><td>大正（1912–1926）</td><td>677</td><td>133</td><td>436</td></tr>
+<tr><td>昭和前期（1926–1945）</td><td>667</td><td>108</td><td>481</td></tr>
+<tr><td>昭和後期（1946–1989）</td><td>1,236</td><td>209</td><td>679</td></tr>
+<tr><td>平成（1989–2019）</td><td>1,177</td><td>298</td><td>458</td></tr>
+<tr><td>令和（2019–）</td><td>4,752</td><td>217</td><td>4,207</td></tr>
+</tbody>
+</table>
+
+<div class="insight-box">
+<div class="insight-box-label">Key Finding</div>
+<p>無名卓越者の比率は全体で76%を占め、偉人偏重バイアスを構造的に回避している。これは <code>is_local_excellent</code> フラグで意識的に確保された設計上の選択であり、「明治＝偉人の時代」という通念に対する実証的な修正である。</p>
+</div>
+</section>
+
+<section id="deliverables" class="chapter-section">
+<div class="chapter-number-label">Chapter 03</div>
+<h2 class="chapter-title">主要成果物</h2>
+
 <div class="card-grid">
-<a href="dashboards/index.html"><div class="card">
-<h3>ダッシュボード</h3>
-<div class="desc">時代×能力ヒートマップ・活躍人材リスト・言説/事後評価/未来予測・ギャップ知見・データソース・学術文献の統合ビュー</div>
-</div></a>
-<a href="reports/implications_3parts.html"><div class="card">
-<h3>含意レポート3部作</h3>
-<div class="desc">教育・採用・組織設計への新知見。6時代の能力遷移、未来の能力地形（2030/2050/2100）、各時代の盲点とその補完戦略</div>
-</div></a>
-<a href="reports/phase3_audit_report.md"><div class="card">
-<h3>Phase 3 監査レポート</h3>
-<div class="desc">品質保証・重複検出・時代再配分・整合性チェックの監査記録</div>
-</div></a>
-<a href="phase0_planning/integrated_foundation_plan.md"><div class="card">
-<h3>基礎計画書</h3>
-<div class="desc">プロジェクト構造・4層モデル・採用理論枠組み・チーム編成の詳細設計</div>
-</div></a>
+  <a href="dashboards/index.html"><div class="card">
+  <h3>ダッシュボード</h3>
+  <div class="desc">時代×能力ヒートマップ・活躍人材リスト・L1L2L3L4切替表示・ギャップ知見・データソース・学術文献の統合ビュー</div>
+  </div></a>
+  <a href="reports/implications_3parts.html"><div class="card">
+  <h3>含意レポート3部作</h3>
+  <div class="desc">教育・採用・組織設計への新知見。6時代の能力遷移、未来の能力地形、各時代の盲点とその補完戦略</div>
+  </div></a>
+  <a href="reports/phase3_audit_report.md"><div class="card">
+  <h3>Phase 3 監査レポート</h3>
+  <div class="desc">品質保証・重複検出356件マージ・時代再配分580件・整合性チェックの監査記録</div>
+  </div></a>
+  <a href="phase0_planning/integrated_foundation_plan.md"><div class="card">
+  <h3>基礎計画書</h3>
+  <div class="desc">プロジェクト構造・4層モデル・採用理論枠組み・チーム編成の詳細設計</div>
+  </div></a>
 </div>
+</section>
 
-<h2>データの構造</h2>
-<p>本DBは6つの主要理論枠組み（Csikszentmihalyi・Subotnik・Merton・Bourdieu・Granovetter＋日本特化として竹内洋・苅谷剛彦）を統合し、能力次元の標準化フレームとしてOECD Learning Compass 2030・P21 Framework・WEF Future of Jobs・JPMS-DB 5次元タクソノミーから19能力次元を構築している。</p>
+<section id="structure" class="chapter-section">
+<div class="chapter-number-label">Chapter 04</div>
+<h2 class="chapter-title">4層構造とデータモデル</h2>
 
-<p>基盤データは miratuku-news-v2 統合データベース30件（合計15,200,000+レコード）から構造化インポートを実施。experts-db（政府委員・有識者3,995人）、great-figures-db（9,178人物）、academic-knowledge-db（1,385人文概念＋936社会理論）、innovation-theory-db、futures-studies-db など既存資産との連結を確立している。</p>
+<p>本DBは、能力に関する記述を4つの層に分けて構造化している。それぞれの層は独立した存在論的位相を持ち、相互の差分から知見が生成される。</p>
 
-<h2>関連リソース</h2>
+<h3 class="section-heading">L1：当時の言説</h3>
+<p>その時代に「これが必要」と語られた力の一次資料。教育勅語・修身教科書・経団連歴代提言・社説・白書・CLA分析を含む。当時の言説は、しばしば事後の事実とは乖離する。</p>
+
+<h3 class="section-heading">L2：事後評価</h3>
+<p>現代から振り返って各時代に「実際に効いた力」の評価。竹内洋・苅谷剛彦・Bourdieu・Mertonら歴史社会学・教育学・経営史の知見を統合。L1との差分を構造的に検出する。</p>
+
+<h3 class="section-heading">L3：活躍者特性</h3>
+<p>各時代に実際に活躍した人物の能力・背景・経験・ネットワーク。9,375人を13ドメイン（政治・実業・科学技術・文化芸術・スポーツ・社会運動・教育・宗教・メディア・農林水産・専門職・職人・女性活躍者横断）に分類。</p>
+
+<h3 class="section-heading">L4：未来予測</h3>
+<p>2030・2050・2100に求められる能力のシナリオ別予測。OECD・WEF・McKinsey・経産省・IPCC・UN・JAXAなど権威機関の一次資料に基づく397件。シナリオ分岐（IPCC SSP1〜5、ポスト成長、ポストヒューマン、AGI後、宇宙時代等）を併記している。</p>
+
+<div class="callout">
+<div class="callout-label">Data Schema</div>
+<p>SQLite ベース。主要テーブルは <code>achievers</code>（活躍人材）／<code>achiever_capabilities</code>（能力スコア）／<code>era_discourses</code>（L1）／<code>era_retrospectives</code>（L2）／<code>future_demands</code>（L4）／<code>academic_references</code>（学術文献）／<code>data_sources</code>（30DB参照）／<code>person_relations</code>（関係ネットワーク）／<code>gap_insights</code>（ギャップ知見）の9テーブル構成。</p>
+</div>
+</section>
+
+<section id="frameworks" class="chapter-section">
+<div class="chapter-number-label">Chapter 05</div>
+<h2 class="chapter-title">採用理論枠組み</h2>
+
+<p>本DBは6つの主要理論を統合的に採用している。</p>
+
+<table>
+<thead><tr><th>理論</th><th>主唱者</th><th>本DBでの役割</th></tr></thead>
+<tbody>
+<tr><td>ドメイン・フィールド・パーソンシステム</td><td>Csikszentmihalyi</td><td>活躍を社会制度との相互作用として理解</td></tr>
+<tr><td>Talent Development Megamodel</td><td>Subotnik et al.</td><td>能力→適性→専門性→卓越性の四段階発展</td></tr>
+<tr><td>累積的優位（マタイ効果）</td><td>Merton</td><td>初期成功が後続機会を指数関数的に拡大</td></tr>
+<tr><td>文化資本・社会資本</td><td>Bourdieu</td><td>家庭背景の構造的影響を可視化</td></tr>
+<tr><td>弱い紐帯ネットワーク</td><td>Granovetter</td><td>機会獲得と多様性確保の構造的条件</td></tr>
+<tr><td>立身出世／メリトクラシー</td><td>竹内洋・苅谷剛彦</td><td>日本固有の階層と教育の関係</td></tr>
+</tbody>
+</table>
+
+<p>能力次元の標準化フレームとして、OECD Learning Compass 2030（変革コンピテンシー）を主軸に、P21 Framework の4Cs、UNESCO Futures of Education、WEF Future of Jobs 2025、JPMS-DB 5次元タクソノミーを統合した19次元の能力体系を実装している。</p>
+</section>
+
+<section id="sources" class="chapter-section">
+<div class="chapter-number-label">Chapter 06</div>
+<h2 class="chapter-title">統合データソース</h2>
+
+<p>基盤データは miratuku-news-v2 統合データベース30件（合計15,200,000+レコード）から構造化インポートを実施している。</p>
+
+<table>
+<thead><tr><th>外部DB</th><th>寄与レコード</th><th>本DBでの活用</th></tr></thead>
+<tbody>
+<tr><td>experts-db（政府委員・有識者）</td><td>3,977人</td><td>L3 政治・行政（令和期）</td></tr>
+<tr><td>great-figures-db（歴史人物）</td><td>+89人</td><td>L3 偉人プール</td></tr>
+<tr><td>academic-knowledge-db (social_theory)</td><td>191件</td><td>L2 社会理論</td></tr>
+<tr><td>academic-knowledge-db (humanities)</td><td>200件</td><td>L2 人文概念</td></tr>
+<tr><td>academic-knowledge-db (innovation)</td><td>200件</td><td>L2 イノベーション理論</td></tr>
+<tr><td>30DBレジストリ</td><td>34件</td><td>data_sources 参照表</td></tr>
+</tbody>
+</table>
+
+<p>未統合の言説・予測データ（PESTLE 196K記事、フォーサイトKB 23K予測等）は今後の選択的取り込み対象である。</p>
+</section>
+
+<section id="related" class="chapter-section">
+<div class="chapter-number-label">Chapter 07</div>
+<h2 class="chapter-title">関連DB・公開URL</h2>
+
 <div class="card-grid">
 <a href="https://yuyanishimura0312.github.io/jpms-db/dashboards/analysis.html" target="_blank"><div class="card">
 <h3>JPMS-DB analysis</h3>
@@ -79,7 +210,7 @@ p { margin-bottom: 18px; text-align: justify; }
 </div></a>
 <a href="https://yuyanishimura0312.github.io/miratuku-news-v2/databases.html" target="_blank"><div class="card">
 <h3>miratuku-news-v2 統合DB</h3>
-<div class="desc">30DB・15.2M+レコードの統合データベース・カタログ</div>
+<div class="desc">37DB・15.2M+レコードの統合データベース・カタログ</div>
 </div></a>
 <a href="https://github.com/yuyanishimura0312/era-talents-db" target="_blank"><div class="card">
 <h3>GitHub Repository</h3>
@@ -87,11 +218,15 @@ p { margin-bottom: 18px; text-align: justify; }
 </div></a>
 </div>
 
-<div class="footer">
+<div class="book-footer">
 era-talents-db v1.0 ・ 2026-05-05<br>
 Copyright © Yuya Nishimura / NPO法人ミラツク
 </div>
+</section>
 
+</main>
 </div>
+
+<script src="css/textbook-init.js"></script>
 </body>
 </html>

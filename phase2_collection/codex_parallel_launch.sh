@@ -154,7 +154,7 @@ case "${1:-help}" in
     IFS=':' read -r era target desc <<< "$cat"
     log="$LOG_DIR/${era}_$(date +%Y%m%d-%H%M%S).log"
     echo "[起動] $era → $log"
-    prompt_template "$era" "$target" "$desc" | "$CODEX" exec --full-auto > "$log" 2>&1 &
+    prompt_template "$era" "$target" "$desc" | "$CODEX" exec --sandbox workspace-write --skip-git-repo-check > "$log" 2>&1 &
     echo "PID: $! / Log: $log"
     echo "$!" >> "$LOG_DIR/active_pids.txt"
     ;;

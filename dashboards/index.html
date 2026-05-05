@@ -197,7 +197,17 @@
 
 <section id="gapmap" class="section">
   <h3 class="section-heading">時代別 L1↔L2 適合度マップ</h3>
-  <p>各時代について、当時の言説（L1）と事後評価（L2）で言及された能力次元を横並びで比較する。各能力次元の左側（赤）はL1での出現数、右側（暖灰）はL2での出現数。両者が高い能力は<strong>適合</strong>（時代に正しく認識されていた）、L1のみ高い能力は<strong>過大評価</strong>（当時は重視されたが事後的にはそれほど効かなかった）、L2のみ高い能力は<strong>盲点</strong>（当時は気づかれなかったが実際には活躍要因だった）。盲点の構造こそが、本DBの最も独創的な知見である。</p>
+  <p>各時代について、当時の言説（L1）と事後評価（L2）で言及された能力次元を横並びで比較する。各能力次元の左側（赤）はL1での出現数、右側（暖灰）はL2での出現数。両者が高い能力は<strong>適合</strong>、L1のみ高い能力は<strong>過大評価</strong>、L2のみ高い能力は<strong>盲点</strong>である。盲点の構造こそが本DBの最も独創的な知見である。</p>
+
+  <div class="callout" style="margin: 16px 0;">
+    <div class="callout-label">バイアス補正トグル</div>
+    <p>L2「起業家精神」言及の<strong>71.8%（28/39件）が経営史系著者</strong>（宮本又郎・Chandler・由井常彦・米倉誠一郎ら）に集中する構造的偏りが検出された。「補正後」では経営史寄与分を50%重み下げた値を表示する。詳細は<a href="../reports/bias_audit_report.md" target="_blank">バイアス検証レポート</a>参照。</p>
+    <div class="filters" style="margin-top: 12px;">
+      <label><input type="radio" name="calibration" value="raw" checked> 補正前（生データ）</label>
+      <label><input type="radio" name="calibration" value="calibrated"> 補正後（経営史バイアス除去）</label>
+    </div>
+  </div>
+
   <div class="gapmap-legend">
     <span class="legend-item"><span class="legend-bar l1-bar"></span> L1（当時の言説）</span>
     <span class="legend-item"><span class="legend-bar l2-bar"></span> L2（事後評価）</span>
@@ -208,7 +218,7 @@
   <div id="gapmap-display"></div>
   <div class="insight-box" style="margin-top: 32px;">
     <div class="insight-box-label">読解のヒント</div>
-    <p>明治期では「協調性・伝統文化」が当時強調されたが、事後評価では「起業家精神・論理的思考」が効いていた。昭和前期は「集団協調・レジリエンス」の言説に対し「システム思考」が真の活躍要因。令和では「学習適応・異分野統合」が言説の中心だが、事後評価では「システム思考・社会変革志向」がより重要視されつつある。これら盲点は、現代の教育・採用設計が見落としやすい能力次元を示唆する。</p>
+    <p>補正前では明治期「起業家精神」が強い盲点として現れるが、これは経営史的視座のアーティファクトの可能性が高い。補正後でもなお残る盲点（昭和前期の「システム思考」、令和の「社会変革志向」など）が、より頑健な構造的知見である。各時代を補正前後で切り替えて比較し、ソース選定のバイアス感度を確認できる。</p>
   </div>
 </section>
 
@@ -347,47 +357,72 @@ function renderOverview() {
       <div class="value">${d.n.toLocaleString()}</div></div>`).join("");
 }
 
+let GAPMAP_RAW = null;
+let GAPMAP_CALIBRATED = null;
+
 function renderGapmap() {
   const target = document.getElementById("gapmap-display");
   target.innerHTML = '<p style="color: var(--text-muted); padding: 24px;">L1↔L2適合度データを読み込んでいます...</p>';
-  fetch("l1l2_matrix.json")
-    .then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}: l1l2_matrix.json`);
-      return r.json();
-    })
+  Promise.all([
+    fetch("l1l2_matrix.json").then(r => { if (!r.ok) throw new Error(`raw ${r.status}`); return r.json(); }),
+    fetch("l1l2_matrix_calibrated.json").then(r => r.ok ? r.json() : null).catch(() => null)
+  ])
     .catch(err => {
-      target.innerHTML = `<div class="callout"><div class="callout-label">読み込みエラー</div><p>L1↔L2適合度データを取得できませんでした（${err.message}）。dashboards/l1l2_matrix.json が公開されているか確認してください。</p></div>`;
+      target.innerHTML = `<div class="callout"><div class="callout-label">読み込みエラー</div><p>L1↔L2適合度データを取得できませんでした（${err.message}）。</p></div>`;
       throw err;
     })
-    .then(matrix => {
-      if (!matrix) return;
+    .then(([raw, calibrated]) => {
+      if (!raw) return;
+      GAPMAP_RAW = raw;
+      GAPMAP_CALIBRATED = calibrated;
+      // Setup radio listener once
+      document.querySelectorAll('input[name="calibration"]').forEach(r => {
+        r.addEventListener("change", () => drawGapmapPanel());
+      });
+      drawGapmapPanel();
+    });
+}
+
+function drawGapmapPanel() {
+  const target = document.getElementById("gapmap-display");
+  const mode = document.querySelector('input[name="calibration"]:checked')?.value || "raw";
+  const matrix = (mode === "calibrated" && GAPMAP_CALIBRATED) ? GAPMAP_CALIBRATED : GAPMAP_RAW;
+  const useCalibrated = (mode === "calibrated" && GAPMAP_CALIBRATED);
+
+  (function() {
+    const capById = {};
+    matrix.caps.forEach(c => { capById[c.id] = c; });
+
     const capById = {};
     matrix.caps.forEach(c => { capById[c.id] = c; });
 
     const html = matrix.matrix.map(row => {
       const eraInfo = matrix.eras.find(e => e.id === row.era);
-      // 各セルでL1とL2の最大値を取得（このera内で正規化）
+      const getL2 = c => useCalibrated && c.l2_calibrated !== undefined ? c.l2_calibrated : c.l2;
       const maxL1 = Math.max(...row.cells.map(c => c.l1), 1);
-      const maxL2 = Math.max(...row.cells.map(c => c.l2), 1);
+      const maxL2 = Math.max(...row.cells.map(c => getL2(c)), 1);
 
-      // L1>0 or L2>0 のセルのみ表示、合計でソート
       const visibleCells = row.cells
-        .filter(c => c.l1 > 0 || c.l2 > 0)
-        .sort((a, b) => (b.l1 + b.l2) - (a.l1 + a.l2))
+        .filter(c => c.l1 > 0 || getL2(c) > 0)
+        .sort((a, b) => (b.l1 + getL2(b)) - (a.l1 + getL2(a)))
         .slice(0, 10);
 
       const rows = visibleCells.map(c => {
         const cap = capById[c.cap];
         if (!cap) return "";
+        const l2val = getL2(c);
         const l1Pct = (c.l1 / maxL1) * 100;
-        const l2Pct = (c.l2 / maxL2) * 100;
-        // 適合判定
+        const l2Pct = (l2val / maxL2) * 100;
         let marker = "·", markerCls = "neutral";
         const l1Strong = c.l1 >= 5;
-        const l2Strong = c.l2 >= 3;
+        const l2Strong = l2val >= 3;
         if (l1Strong && l2Strong) { marker = "◆"; markerCls = "align"; }
         else if (l1Strong && !l2Strong) { marker = "▲"; markerCls = "over"; }
         else if (!l1Strong && l2Strong) { marker = "●"; markerCls = "blind"; }
+
+        const l2Display = useCalibrated && c.mgmt_share > 0
+          ? `${l2val}<small style="opacity:0.6"> (-${c.mgmt_share})</small>`
+          : (l2val || "");
 
         return `<div class="gapmap-row">
           <div class="cap-label">${cap.name}</div>
@@ -398,7 +433,7 @@ function renderGapmap() {
           <div class="marker ${markerCls}">${marker}</div>
           <div class="l2-track">
             <div class="l2-fill" style="width:${l2Pct}%"></div>
-            <span class="l2-num">${c.l2 || ""}</span>
+            <span class="l2-num">${l2Display}</span>
           </div>
         </div>`;
       }).join("");
@@ -409,14 +444,14 @@ function renderGapmap() {
           <div class="cap-label">能力次元</div>
           <div style="text-align: right; padding-right: 4px;">L1 当時言説 ←</div>
           <div></div>
-          <div style="text-align: left; padding-left: 4px;">→ L2 事後評価</div>
+          <div style="text-align: left; padding-left: 4px;">→ L2 事後評価${useCalibrated?'（補正後）':''}</div>
         </div>
         ${rows}
       </div>`;
     }).join("");
 
     target.innerHTML = `<div class="gapmap-grid">${html}</div>`;
-  });
+  })();
 }
 
 function renderHeatmap() {

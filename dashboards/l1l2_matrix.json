@@ -1,0 +1,955 @@
+{
+  "eras": [
+    {
+      "id": "meiji",
+      "name": "明治"
+    },
+    {
+      "id": "taisho",
+      "name": "大正"
+    },
+    {
+      "id": "showa_pre",
+      "name": "昭和前期"
+    },
+    {
+      "id": "showa_post",
+      "name": "昭和後期"
+    },
+    {
+      "id": "heisei",
+      "name": "平成"
+    },
+    {
+      "id": "reiwa",
+      "name": "令和"
+    }
+  ],
+  "caps": [
+    {
+      "id": "age_entrepreneur",
+      "name": "起業家精神",
+      "code": "age"
+    },
+    {
+      "id": "age_meta_learning",
+      "name": "学習戦略・適応性",
+      "code": "age"
+    },
+    {
+      "id": "age_oecd_transformative",
+      "name": "OECD変革コンピテンシー",
+      "code": "age"
+    },
+    {
+      "id": "age_resilience",
+      "name": "レジリエンス",
+      "code": "age"
+    },
+    {
+      "id": "age_social_autonomy",
+      "name": "社会的自立性",
+      "code": "age"
+    },
+    {
+      "id": "age_social_change",
+      "name": "社会変革志向",
+      "code": "age"
+    },
+    {
+      "id": "cog_ai_collab",
+      "name": "AI協働リテラシー",
+      "code": "cog"
+    },
+    {
+      "id": "cog_creativity",
+      "name": "創造性",
+      "code": "cog"
+    },
+    {
+      "id": "cog_critical",
+      "name": "批判的思考",
+      "code": "cog"
+    },
+    {
+      "id": "cog_info",
+      "name": "情報リテラシー",
+      "code": "cog"
+    },
+    {
+      "id": "cog_logical",
+      "name": "論理的思考",
+      "code": "cog"
+    },
+    {
+      "id": "cog_math",
+      "name": "数学的リテラシー",
+      "code": "cog"
+    },
+    {
+      "id": "cog_systems",
+      "name": "システム思考",
+      "code": "cog"
+    },
+    {
+      "id": "cre_cross_domain",
+      "name": "異分野統合志向",
+      "code": "cre"
+    },
+    {
+      "id": "soc_interpersonal",
+      "name": "対人関係スキル",
+      "code": "soc"
+    },
+    {
+      "id": "val_collective",
+      "name": "集団協調性",
+      "code": "val"
+    },
+    {
+      "id": "val_eco",
+      "name": "エコロジカルリテラシー",
+      "code": "val"
+    },
+    {
+      "id": "val_tolerance",
+      "name": "寛容性",
+      "code": "val"
+    },
+    {
+      "id": "val_traditional",
+      "name": "伝統文化尊重",
+      "code": "val"
+    }
+  ],
+  "matrix": [
+    {
+      "era": "meiji",
+      "cells": [
+        {
+          "cap": "age_entrepreneur",
+          "l1": 9,
+          "l1_s": 8.1,
+          "l2": 9,
+          "l2_s": 8.2
+        },
+        {
+          "cap": "age_meta_learning",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 4,
+          "l2_s": 9.0
+        },
+        {
+          "cap": "age_oecd_transformative",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "age_resilience",
+          "l1": 14,
+          "l1_s": 7.9,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "age_social_autonomy",
+          "l1": 19,
+          "l1_s": 8.0,
+          "l2": 6,
+          "l2_s": 8.5
+        },
+        {
+          "cap": "age_social_change",
+          "l1": 2,
+          "l1_s": 8.0,
+          "l2": 3,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_ai_collab",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "cog_creativity",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_critical",
+          "l1": 2,
+          "l1_s": 8.0,
+          "l2": 5,
+          "l2_s": 8.4
+        },
+        {
+          "cap": "cog_info",
+          "l1": 7,
+          "l1_s": 8.3,
+          "l2": 6,
+          "l2_s": 7.8
+        },
+        {
+          "cap": "cog_logical",
+          "l1": 11,
+          "l1_s": 8.1,
+          "l2": 6,
+          "l2_s": 8.5
+        },
+        {
+          "cap": "cog_math",
+          "l1": 3,
+          "l1_s": 8.0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "cog_systems",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 4,
+          "l2_s": 7.8
+        },
+        {
+          "cap": "cre_cross_domain",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "soc_interpersonal",
+          "l1": 14,
+          "l1_s": 7.9,
+          "l2": 3,
+          "l2_s": 8.7
+        },
+        {
+          "cap": "val_collective",
+          "l1": 16,
+          "l1_s": 8.4,
+          "l2": 3,
+          "l2_s": 7.0
+        },
+        {
+          "cap": "val_eco",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "val_tolerance",
+          "l1": 2,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 9.0
+        },
+        {
+          "cap": "val_traditional",
+          "l1": 15,
+          "l1_s": 8.4,
+          "l2": 4,
+          "l2_s": 7.2
+        }
+      ]
+    },
+    {
+      "era": "taisho",
+      "cells": [
+        {
+          "cap": "age_entrepreneur",
+          "l1": 6,
+          "l1_s": 7.7,
+          "l2": 5,
+          "l2_s": 8.4
+        },
+        {
+          "cap": "age_meta_learning",
+          "l1": 6,
+          "l1_s": 8.0,
+          "l2": 4,
+          "l2_s": 8.8
+        },
+        {
+          "cap": "age_oecd_transformative",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "age_resilience",
+          "l1": 6,
+          "l1_s": 8.0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "age_social_autonomy",
+          "l1": 13,
+          "l1_s": 8.1,
+          "l2": 2,
+          "l2_s": 7.5
+        },
+        {
+          "cap": "age_social_change",
+          "l1": 6,
+          "l1_s": 8.0,
+          "l2": 7,
+          "l2_s": 8.1
+        },
+        {
+          "cap": "cog_ai_collab",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "cog_creativity",
+          "l1": 4,
+          "l1_s": 8.0,
+          "l2": 5,
+          "l2_s": 7.4
+        },
+        {
+          "cap": "cog_critical",
+          "l1": 9,
+          "l1_s": 7.8,
+          "l2": 10,
+          "l2_s": 8.6
+        },
+        {
+          "cap": "cog_info",
+          "l1": 6,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_logical",
+          "l1": 7,
+          "l1_s": 7.9,
+          "l2": 2,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_math",
+          "l1": 2,
+          "l1_s": 8.0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "cog_systems",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 4,
+          "l2_s": 7.8
+        },
+        {
+          "cap": "cre_cross_domain",
+          "l1": 3,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "soc_interpersonal",
+          "l1": 12,
+          "l1_s": 8.0,
+          "l2": 8,
+          "l2_s": 8.2
+        },
+        {
+          "cap": "val_collective",
+          "l1": 11,
+          "l1_s": 8.2,
+          "l2": 2,
+          "l2_s": 7.0
+        },
+        {
+          "cap": "val_eco",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "val_tolerance",
+          "l1": 8,
+          "l1_s": 8.1,
+          "l2": 5,
+          "l2_s": 8.8
+        },
+        {
+          "cap": "val_traditional",
+          "l1": 5,
+          "l1_s": 8.0,
+          "l2": 0,
+          "l2_s": 0
+        }
+      ]
+    },
+    {
+      "era": "showa_pre",
+      "cells": [
+        {
+          "cap": "age_entrepreneur",
+          "l1": 3,
+          "l1_s": 8.0,
+          "l2": 5,
+          "l2_s": 8.4
+        },
+        {
+          "cap": "age_meta_learning",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 3,
+          "l2_s": 9.0
+        },
+        {
+          "cap": "age_oecd_transformative",
+          "l1": 4,
+          "l1_s": 7.8,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "age_resilience",
+          "l1": 17,
+          "l1_s": 8.0,
+          "l2": 5,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "age_social_autonomy",
+          "l1": 16,
+          "l1_s": 8.1,
+          "l2": 2,
+          "l2_s": 7.5
+        },
+        {
+          "cap": "age_social_change",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 3,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_ai_collab",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "cog_creativity",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_critical",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 6,
+          "l2_s": 8.5
+        },
+        {
+          "cap": "cog_info",
+          "l1": 3,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_logical",
+          "l1": 7,
+          "l1_s": 7.7,
+          "l2": 6,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_math",
+          "l1": 4,
+          "l1_s": 8.0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "cog_systems",
+          "l1": 6,
+          "l1_s": 8.2,
+          "l2": 8,
+          "l2_s": 8.4
+        },
+        {
+          "cap": "cre_cross_domain",
+          "l1": 2,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "soc_interpersonal",
+          "l1": 11,
+          "l1_s": 7.8,
+          "l2": 3,
+          "l2_s": 8.7
+        },
+        {
+          "cap": "val_collective",
+          "l1": 19,
+          "l1_s": 8.5,
+          "l2": 7,
+          "l2_s": 8.6
+        },
+        {
+          "cap": "val_eco",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "val_tolerance",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 1,
+          "l2_s": 9.0
+        },
+        {
+          "cap": "val_traditional",
+          "l1": 17,
+          "l1_s": 8.5,
+          "l2": 4,
+          "l2_s": 7.2
+        }
+      ]
+    },
+    {
+      "era": "showa_post",
+      "cells": [
+        {
+          "cap": "age_entrepreneur",
+          "l1": 5,
+          "l1_s": 8.0,
+          "l2": 9,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "age_meta_learning",
+          "l1": 15,
+          "l1_s": 8.0,
+          "l2": 7,
+          "l2_s": 9.0
+        },
+        {
+          "cap": "age_oecd_transformative",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "age_resilience",
+          "l1": 7,
+          "l1_s": 8.0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "age_social_autonomy",
+          "l1": 17,
+          "l1_s": 8.1,
+          "l2": 2,
+          "l2_s": 7.5
+        },
+        {
+          "cap": "age_social_change",
+          "l1": 5,
+          "l1_s": 8.2,
+          "l2": 4,
+          "l2_s": 8.2
+        },
+        {
+          "cap": "cog_ai_collab",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "cog_creativity",
+          "l1": 10,
+          "l1_s": 7.9,
+          "l2": 2,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_critical",
+          "l1": 9,
+          "l1_s": 8.0,
+          "l2": 6,
+          "l2_s": 8.3
+        },
+        {
+          "cap": "cog_info",
+          "l1": 10,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_logical",
+          "l1": 8,
+          "l1_s": 8.0,
+          "l2": 2,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_math",
+          "l1": 11,
+          "l1_s": 8.1,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "cog_systems",
+          "l1": 10,
+          "l1_s": 8.0,
+          "l2": 9,
+          "l2_s": 7.9
+        },
+        {
+          "cap": "cre_cross_domain",
+          "l1": 7,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "soc_interpersonal",
+          "l1": 13,
+          "l1_s": 8.0,
+          "l2": 6,
+          "l2_s": 8.3
+        },
+        {
+          "cap": "val_collective",
+          "l1": 5,
+          "l1_s": 7.8,
+          "l2": 6,
+          "l2_s": 8.3
+        },
+        {
+          "cap": "val_eco",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "val_tolerance",
+          "l1": 15,
+          "l1_s": 7.9,
+          "l2": 1,
+          "l2_s": 9.0
+        },
+        {
+          "cap": "val_traditional",
+          "l1": 1,
+          "l1_s": 8.0,
+          "l2": 0,
+          "l2_s": 0
+        }
+      ]
+    },
+    {
+      "era": "heisei",
+      "cells": [
+        {
+          "cap": "age_entrepreneur",
+          "l1": 9,
+          "l1_s": 8.0,
+          "l2": 6,
+          "l2_s": 8.3
+        },
+        {
+          "cap": "age_meta_learning",
+          "l1": 20,
+          "l1_s": 8.2,
+          "l2": 7,
+          "l2_s": 8.7
+        },
+        {
+          "cap": "age_oecd_transformative",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "age_resilience",
+          "l1": 6,
+          "l1_s": 8.0,
+          "l2": 4,
+          "l2_s": 9.0
+        },
+        {
+          "cap": "age_social_autonomy",
+          "l1": 14,
+          "l1_s": 8.0,
+          "l2": 3,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "age_social_change",
+          "l1": 2,
+          "l1_s": 8.0,
+          "l2": 3,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_ai_collab",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "cog_creativity",
+          "l1": 10,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_critical",
+          "l1": 14,
+          "l1_s": 7.9,
+          "l2": 6,
+          "l2_s": 8.3
+        },
+        {
+          "cap": "cog_info",
+          "l1": 15,
+          "l1_s": 8.3,
+          "l2": 5,
+          "l2_s": 7.6
+        },
+        {
+          "cap": "cog_logical",
+          "l1": 3,
+          "l1_s": 8.0,
+          "l2": 2,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_math",
+          "l1": 2,
+          "l1_s": 8.0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "cog_systems",
+          "l1": 5,
+          "l1_s": 8.0,
+          "l2": 4,
+          "l2_s": 7.8
+        },
+        {
+          "cap": "cre_cross_domain",
+          "l1": 13,
+          "l1_s": 8.1,
+          "l2": 4,
+          "l2_s": 8.8
+        },
+        {
+          "cap": "soc_interpersonal",
+          "l1": 7,
+          "l1_s": 8.0,
+          "l2": 3,
+          "l2_s": 8.7
+        },
+        {
+          "cap": "val_collective",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 2,
+          "l2_s": 7.0
+        },
+        {
+          "cap": "val_eco",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "val_tolerance",
+          "l1": 13,
+          "l1_s": 7.9,
+          "l2": 6,
+          "l2_s": 8.2
+        },
+        {
+          "cap": "val_traditional",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        }
+      ]
+    },
+    {
+      "era": "reiwa",
+      "cells": [
+        {
+          "cap": "age_entrepreneur",
+          "l1": 8,
+          "l1_s": 8.1,
+          "l2": 5,
+          "l2_s": 8.4
+        },
+        {
+          "cap": "age_meta_learning",
+          "l1": 15,
+          "l1_s": 8.3,
+          "l2": 3,
+          "l2_s": 9.0
+        },
+        {
+          "cap": "age_oecd_transformative",
+          "l1": 1,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 10.0
+        },
+        {
+          "cap": "age_resilience",
+          "l1": 2,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 9.0
+        },
+        {
+          "cap": "age_social_autonomy",
+          "l1": 3,
+          "l1_s": 8.0,
+          "l2": 2,
+          "l2_s": 7.5
+        },
+        {
+          "cap": "age_social_change",
+          "l1": 2,
+          "l1_s": 8.0,
+          "l2": 7,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_ai_collab",
+          "l1": 10,
+          "l1_s": 8.0,
+          "l2": 5,
+          "l2_s": 9.2
+        },
+        {
+          "cap": "cog_creativity",
+          "l1": 1,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_critical",
+          "l1": 7,
+          "l1_s": 7.9,
+          "l2": 5,
+          "l2_s": 8.4
+        },
+        {
+          "cap": "cog_info",
+          "l1": 11,
+          "l1_s": 8.5,
+          "l2": 1,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_logical",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 2,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "cog_math",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        },
+        {
+          "cap": "cog_systems",
+          "l1": 5,
+          "l1_s": 8.0,
+          "l2": 8,
+          "l2_s": 7.6
+        },
+        {
+          "cap": "cre_cross_domain",
+          "l1": 11,
+          "l1_s": 8.0,
+          "l2": 4,
+          "l2_s": 8.0
+        },
+        {
+          "cap": "soc_interpersonal",
+          "l1": 4,
+          "l1_s": 8.0,
+          "l2": 3,
+          "l2_s": 8.7
+        },
+        {
+          "cap": "val_collective",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 2,
+          "l2_s": 7.0
+        },
+        {
+          "cap": "val_eco",
+          "l1": 8,
+          "l1_s": 8.0,
+          "l2": 1,
+          "l2_s": 9.0
+        },
+        {
+          "cap": "val_tolerance",
+          "l1": 5,
+          "l1_s": 7.8,
+          "l2": 5,
+          "l2_s": 8.8
+        },
+        {
+          "cap": "val_traditional",
+          "l1": 0,
+          "l1_s": 0,
+          "l2": 0,
+          "l2_s": 0
+        }
+      ]
+    }
+  ]
+}
